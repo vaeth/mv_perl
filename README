@@ -55,7 +55,7 @@ Here is a brief overview of the scripts:
      recognized by equal checksums). Since checksum information can be stored,
      this is particularly useful if frequently new files must be compared
      against a given directory tree. (If you want more reliable information
-     than only a checksum comparison, use the "double" perl script of this
+     than only a checksum comparison, use the "find_double" perl script of this
      collection).
 
 - patchdirs-ls v1.3. This is somewhat similar to patchdirs but can only
