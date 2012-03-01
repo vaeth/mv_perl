@@ -96,7 +96,7 @@ Here is a brief overview of the scripts:
   (interactively or non-interactively). Very flexible. You should
   also have a look at the script plrep.
 
-- double v1.1. Looks for double files (the user may decide whether equal
+- find_double v1.1. Looks for double files (the user may decide whether equal
   names and/or equal content count as double). Needs only O(n log(n))
   comparisons in the mean.
   See also the "patchdirs" script of this collection.
