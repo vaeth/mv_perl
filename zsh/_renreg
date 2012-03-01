@@ -1,0 +1,20 @@
+#compdef renreg
+_arguments -S -A '-*' : \
+'(1 2 * -)'{'--help','-h','-\\?'}'[help]' \
+'(1 2 * -)-hs[help on source string]' \
+'(1 2 * -)-hr[help on dest string]' \
+'-n[number mode]' \
+'-s[show only what would be done]' \
+'-f[force rename if dest exists]' \
+'-F[force rename if dest exists and do not warn]' \
+'-c[count starts with digit X]:count-start:(0 1)' \
+'-S[step by X]:step-number:(1 5 10 20)' \
+'-C-[set special character]:special-char:(%)' \
+'-i[ignore case]' \
+'-g[replace globally]' \
+'-v[be verbose]' \
+'-V[be very verbose]' \
+'-@[define magic filename]:magic-filename:(@)' \
+'1:from: ' \
+'2:to: ' \
+'*:files:_files'

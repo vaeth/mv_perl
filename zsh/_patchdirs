@@ -1,0 +1,42 @@
+#compdef patchdirs
+_arguments -s -S : \
+'(1 * -)'{'--help','-h'}'[print a brief help]' \
+'(1 * -)'{'--man','-\\?'}'[show extended help as a manpage]' \
+'(1 * -)'{'--version','-V'}'[print version]' \
+{'(--quiet)-q','(-q)--quiet'}'[quiet]' \
+{'(--file)-f+','(-f)--file='}'[read in addition from file]:file:_files' \
+{'(--files)-i+','(-i)--files='}'[read in addition from files]:*:file:_files' \
+{'(--sum-cmds)-S+','(-s)--sum-cmds='}'[commands for summing separated by ";"]:sum-commands:(.)' \
+{'(--strip)-p+','(-p)--strip='}'[cut first num "/" levels]:strip-num:(0)' \
+{'(--output-strip)-P+','(-P)--output-strip='}'[cut first num "/" levels for output]:output-strip-num:(0)' \
+{'(--dry-run -n '{'--show)-s','-s)--show'},'(--show -s '{'--dry-run)-n','-n)--dry-run'}}'[only show what would be done]' \
+{'(--separator)-x+','(-x)--separator='}'[use ARG as separator]:separator:("@")' \
+{'(--dirsep)-X+','(-X)--dirsep='}'[use ARG as directory-separator]:dir-separator:(/)' \
+{'(--delete)-d','(-d)--delete'}'[delete files not in destlist (default)]' \
+{'(--owner)-o','(-o)--owner'}'[modify owner/group (default)]' \
+{'(--attrib)-a','(-a)--attrib'}'[modify permission attributes (default)]' \
+{'(--time)-t','(-t)--time'}'[modify modification time (default)]' \
+{'(--copy)-z','(-z)--copy'}'[duplicate files if appropriate (default)]' \
+{'(--checksum)-c','(-c)--checksum'}'[calculate checksum (default)]' \
+{'(--recurse)-r','(-r)--recurse'}'[recurse (default)]' \
+{'(--follow-link)-F','(-F)--follow-link'}'[follow symbolic links]' \
+'--addseconds=[add NUM seconds when reading time]:add-seconds:(0)' \
+'--subseconds=[sub NUM seconds when reading time]:sub-seconds:(0)' \
+{'(--upper)-u','(-u)--upper'}'[make names uppercase]' \
+{'(--lower)-l','(-l)--lower'}'[make names lowercase]' \
+{'(--nodelete)-D','(-D)--nodelete'}'[do not delete any files/dirs]' \
+{'(--noowner)-O','(-O)--noowner'}'[do no modify owner/group]' \
+{'(--noattrib)-A','(-A)--noattrib'}'[do not modify permission attributes]' \
+{'(--notime)-T','(-T)--notime'}'[do not modify modification time]' \
+{'(--nocopy)-Z','(-Z)--nocopy'}'[do not duplicate files]' \
+{'(--nochecksum)-C','(-C)--nochecksum'}'[do not calculate checksum]' \
+{'(--norecurse)-R','(-R)--norecurse'}'[do not recurse]' \
+'--nofollow-link[do not follow symbolic links (default)]' \
+'--noupper[do not make names uppercase (default)]' \
+'--nolower[do not make names lowercase (default)]' \
+'--force[move first candidate in case of ambiguity]' \
+'(1 --restore --double)--store[use store mode]' \
+'(1 --store --double)--restore[use restore mode]' \
+'(1 --store --restore)--double[use double mode]' \
+'1:mode:(store restore double)' \
+'*:file:_files'

@@ -1,0 +1,15 @@
+#compdef double
+_arguments -s -S -A '-*' : \
+'-N[require for equality also that the filenames (without path) are the same]' \
+'-t[require also that the (last modification) filestamps are the same]' \
+'-d[do not check the content of the files, only consider their length]' \
+'-n[do not even check the length (implies -N and -d); the files need not exist]' \
+'-p[as -n, but require additionally that even the paths of the files coincide]' \
+'-f[ignore files which are not readable by effective user]' \
+'-v[be verbose and print progress dots (on STDERR)]' \
+'-V[be verbose but do not print progress dots (on STDERR)]' \
+'-@+[Use MAGIC in place of @ as the magic filename to separate the lists]:magic separator filename:("@")' \
+'-a[use an alternative algorithm which preserves the order (much slower!)]' \
+'-x[use external diff/comp program to do the comparison]' \
+'-s[Read additional parameters (i.e. filenames) from standard input]' \
+'*:files:_files'

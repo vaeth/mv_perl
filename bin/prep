@@ -1,0 +1,401 @@
+#!/usr/bin/perl
+
+# prep $Revision: 1.1 $ by Martin Väth
+# martin@mvath.de
+
+# If the Environment-Variable path contains a '/', we assume that we are
+# in a Unix-like environmnet. Otherwise, we assume we are in DOS.
+if($ENV{'PATH'} =~ /\// )
+  { $unix=1; $uvcommand='u -v'; $havefind=1; $havegroff=1; $supportzip=1 }
+else
+  { $uvcommand='uv.btm' }
+
+sub help {
+if($havefind)
+{
+  $fdopt="\n\
+  -r      do recurse by hand (not via find command)"
+}
+if($havegroff)
+{
+  $gropt="\n\
+  -g      do not groff man pages ..."
+}
+if($supportzip)
+{
+  $zipopt="\n\
+  -z/Z    ignore/do not list z .Z .gz .tar ..."
+}
+else
+{
+  $zipopt="\n\
+  -z      ignore z .Z .gz .tgz .tar ..."
+}
+if($unix)
+  { $example="-n -s \'\\\\(begin)|(end)\\\{.*\\\}\' \'*.tex\'" }
+else
+  { $example="-n -s \"\\\\(begin)|(end)\\\{.*\\\}\" *.tex" }
+$0 =~ /([^\/]*)$/; print <<"EOHELP";
+Usage: $1 [Option] ... [Option] regexp [filemask1 filemask2 ...]
+For help on regular expressions type $1 -e
+If no filemask is given, standard input is used (Ctrl-Z RETURN/Ctrl-D to exit)
+  -<num> or -C print num/2 lines of context on each side of every match
+  -A/B num     print num lines of context after/before every matching line
+  -c      print a total count of matching lines only
+  -f file search for regexp contained in file (-f - is similar to -F)
+  -F      require regexp from standard input (interactively)$gropt
+  -h      don\'t display filenames on matches
+  -i      ignore case difference when comparing strings
+  -l      list only files containing matches
+  -n/b    print each match preceeded by its line number/byte offset
+  -p      treat regexp as a plain string, not as a regular expression (FASTER!)
+  -s/S    recurse subdirectories / and suppress \"forgotten quote\" error$fdopt
+  -t num  truncate line to at most num characters (0: no truncate). Default: 79
+  -v      print only lines that contain no matches
+  -V      print also regexp to check how it is passed from the shell
+  -w      print only lines where the match is a complete word
+  -x      print only lines where the match is a whole line$zipopt
+  --      last option (to be able to look for strings like -i)
+Example: $1 $example
+EOHELP
+# --path P Append P in front of every filename when printing (for internal use)
+exit;
+}
+
+sub ehelp { print <<'EOREG';
+.            Any character
+A*           None or more repeats of A
+A+           One or more repeats of A
+A? or A{0,1} Optional A (=none or one repeat of A)
+A{4}B{2,4}   AAAA followed by 2,3 or 4 repeats of B
+A|B          A or B
+(AB)+        Group AB, one or more repeats of this group
+\1           Same content as first group braced with ()
+^A           A at beginning of line
+A$           A at end of line
+\b \B        word boundary (No word boundary)
+
+[A-Z\b]      any capital letter or backspace
+[^A-Z\d]     all except capital letter or digit
+\d \D        digit [0-9] (all except digit)
+\w \W        alphanumeric [a-zA-Z0-9_] (all except alphanumeric)
+\s \S        whitespace (all except whitespace)
+\r \n \f \t  special characters: return newline formfeed tab
+\115 \x4d \x4D character with octal value 115 (hexadezimal value 4d) (="M")
+\<character> usually becomes <character>, e.g. \( becomes (
+
+Examples: <f.?l+\.> matches <full.> <fill.> <fl.> but not <feel.> <file> <ff.>
+(.*) \(or not \1\)  matches  to be (or not to be) but not  a bee (or not a B)
+EOREG
+exit;
+}
+
+$truncate=79;
+$zipmode='u' if($supportzip);
+$ugroff=1 if($havegroff);
+
+&help if($ARGV[0] eq '');
+sub readarg { $optarg=$optrest; $optrest='';
+  if($optarg eq '') { $optarg=shift(@ARGV) }
+}
+optparse:while($ARGV[0] =~ /^-(.)(.*)$/)
+{
+  shift;
+  while($1 ne '')
+  {
+    $optlett=$1; $optrest=$2;
+    if   ($optlett eq 'A'){ &readarg; $after=scalar($optarg) }
+    elsif($optlett eq 'B'){ &readarg; $before=scalar($optarg) }
+    elsif($optlett eq 'C'){ $after=$before=2 }
+    elsif($optlett =~ /\d/){ $after=$before=scalar("$optlett$optrest"); last }
+    elsif($optlett eq 'b'){ $bytes=$tocount=1 }
+    elsif($optlett eq 'c'){ $countonly=1 }
+    elsif($optlett eq 'f'){ &readarg; $readpar=1; $file=$optarg }
+    elsif($optlett eq 'F'){ $readpar=1 }
+    elsif($optlett eq 'g' && $havegroff){ $ugroff='' }
+    elsif($optlett eq 'h'){ $nofile=1 }
+    elsif($optlett eq 'i'){ $ignore=$special=1 }
+    elsif($optlett eq 'l'){ $listonly=1 }
+    elsif($optlett eq 'n'){ $lnr=1 }
+    elsif($optlett eq 'p'){ $plain=1 }
+    elsif($optlett eq 's'){ $recurse=1 }
+    elsif($optlett eq 'S'){ $recurse=1; $suppress=1 }
+    elsif($optlett eq 'r' && $havefind){ $nofind=1 }
+    elsif($optlett eq 't'){ &readarg; $truncate=scalar($optarg) }
+    elsif($optlett eq 'x'){ $exact=$special=1 }
+    elsif($optlett eq 'V'){ $test=1 }
+    elsif($optlett eq 'v'){ $invert=1 }
+    elsif($optlett eq 'w'){ $word=$special=1 }
+    elsif($optlett eq 'z'){ $zipmode='i' }
+    elsif($optlett eq 'Z' && $supportzip){ $zipmode='' }
+    elsif($optlett eq 'e') { &ehelp } # -ex(pression)
+    elsif($optlett =~ /[hH?]/){ &help }
+    elsif($optlett eq '-'){
+      if   ($optrest eq ''){ last optparse }
+      elsif($optrest =~ /^path(.*)$/i){ $optrest=$1; &readarg; $path=$optarg }
+      elsif($optrest =~ /^h(elp)?$/i || $optrest eq '?'){ &help }
+      else{ die "Illegal option: --$optrest\nStopped" }
+      last
+    }
+    else{ die "Illegal option: $optlett\nStopped" }
+    last unless($optrest =~ /^(.)(.*)$/)
+  }
+}
+$nofind=1 unless ($recurse && $havefind);
+$truncate="" if($truncate<=0);
+if($readpar)
+{
+  if(open(PARA,"<$file"))
+  {
+    $search=<PARA>; chop($search);
+    close(PARA);
+  }
+  else
+  {
+    print "Grep for : ";
+    $search=<STDIN>; chop($search);
+  }
+}
+else
+{
+  $search=$ARGV[0]; shift;
+}
+print "Passed regexp: $search\n" if $test;
+if($special)
+  { if($plain) { $search =~ s/(\W)/\\$1/g } }
+unless($plain)
+{
+  # quote all unquoted / ` " ' # @ or $ characters;
+  # for $ make an exception if $ is last character or ) follows.
+  # For security reasons, eliminate \x where x is unknown search letter.
+  # Moreover, if an uneven number of \ occurs at the end, eliminate last one.
+  if($search =~ s/^((\\\\)*)([\/\`\"\'\#\@])/$1\\$3/g) {$modified=1}
+  while($search =~ s/([^\\])((\\\\)*)([\/\`\"\'\#\@])/$1$2\\$4/) {$modified=1}
+  if($search =~ s/^((\\\\)*)\$([^\)])/$1\\\$$3/g) {$modified=1}
+  while($search =~ s/([^\\])((\\\\)*)\$([^\)])/$1$2\\\$$4/) {$modified=1}
+  if($search =~ s/^((\\\\)*)(\\[aceg-mo-quvx-zACE-RT-VX-Z])/$1/g) {$modified=1}
+  while($search =~ s/([^\\])((\\\\)*)(\\[aceg-mo-quvx-zACE-RT-VX-Z])/$1$2/) {$modified=1}
+  if($search =~ s/^(\\\\)*\\$/$1/g) {$modified=1}
+  if($search =~ s/([^\\])(\\\\)*\\$/$1$2/g) {$modified=1}
+}
+if($word)
+  { $search = '\b' . $search . '\b'; $modified=1 }
+if($exact)
+  { $search = '^' . $search . "\$"; $modified=1 }
+if($modified)
+  { print "Translated regexp: $search\n" if $test }
+for($i=$[;$i<@ARGV;$i++) {
+  if($recurse)
+  {
+    { if($ARGV[$i] =~ m![\\/]!o)
+       { die 'Filemask may not contain \ or / when using recurse' }
+    }
+  }
+  $ARGV[$i] =~ s/([^\w\?\*])/\\$1/go;
+  $smask=1 if($ARGV[$i] =~ s/\?/./go);
+  $smask=1 if($ARGV[$i] =~ s/\*/.*/go);
+}
+$nofile=1 if ((scalar(@ARGV)<=1) && (!$smask) && (!$recurse) && (!$path));
+if($recurse && (!$smask) && (!$suppress))
+  { die "Error: Probably forgotten quote (recurse without joker)\nStopped" }
+
+sub pline
+{
+  local($string,$sep,$ret)=@_;
+  $ret = $fpath . $sep unless $nofile;
+  $ret .= ($offset+$where) . $sep if $bytes;
+  $ret .= $line . $sep if $lnr;
+  if($truncate)
+    { $ret . substr($string,$[,$truncate) . "\n" }
+  else
+    { $ret . $string . "\n" }
+}
+
+sub ProcessText
+{
+$offset=0; $line=1; $filematch=0; $aftermatch=0; @previous=();
+while(<FILE>)
+{
+  $llength=length if $tocount;
+  chop while($str=substr($_,-1), ($str eq "\r") || ($str eq "\n"));
+  if($plain && (!$special))
+  {
+    $where=index($_,$search)-$[;
+    $m=($where>=0);
+  }
+  else
+  {
+    $where=0;
+    if($ignore)
+    {
+      $m=/$search/io;
+      $where=length($`) if($m && $tocount);
+    }
+    else
+    {
+      $m=/$search/o;
+      $where=length($`) if($m && $tocount);
+    }
+  }
+  if($invert) { $m=!$m; $where=0 }
+  if($m)
+  {
+    $matches++; $filematch++;
+    return if $listonly;
+    unless($countonly)
+    {
+      if($before)
+      {
+        foreach $s (@previous) { print $s }
+      }
+      $aftermatch=$after;
+      print &pline($_,":");
+    }
+  }
+  else
+  {
+    $where=0;
+    if($aftermatch)
+    {
+      print &pline($_,"-");
+      $aftermatch--;
+    }
+    elsif($before)
+    {
+      if(scalar(@previous)>=$before) { shift(@previous) }
+      push(@previous,&pline($_,"-"));
+    }
+  }
+  $line++;
+  $offset+=$llength;
+}
+}
+
+sub ProcessFile
+{
+  $fpath=$path . $file;
+  if($unix)
+    { $pipefile="\"$file\"" }
+  else
+    { $pipefile="$file" }
+  $opennormal=1;
+  if($zipmode ne '')
+  {
+    if(($file =~ /\.tar(\.(z|(gz)))?$/io)||
+       ($file =~ /\.((tgz)|(taz)|(dir)|(lha)|(lzh)|(arj)|(arz)|(zip))$/io)||
+       ((!$unix)&&($file =~
+ /\.((zoo)|(arc)|(j)|(yc)|(uc2)|(q)|(x)|(rar)|(lim)|(ha)|(acb)|(pak))$/io))
+      )
+    {
+      if($zipmode ne 'i')
+      {
+        if(open(FILE,"$uvcommand $pipefile |"))
+        {
+          &ProcessText;
+          close(FILE);
+          $opennormal='';
+        }
+      }
+      else
+        { $opennormal='' }
+    }
+    elsif($file =~ /\.(z|(gz))$/io)
+    {
+      if($zipmode ne 'i')
+      {
+        if(open(FILE,"gzip -dc $pipefile |"))
+        {
+          binmode(FILE);
+          &ProcessText;
+          close(FILE);
+          $opennormal='';
+        }
+      }
+      else
+        { $opennormal='' }
+    }
+    elsif($ugroff)
+    {
+      if($file =~ /\.([1-9]|n|(man))$/o)
+      {
+        $filetype=`file -L $pipefile`; # groff src
+        $filetype=`echo "$filetype" | cut -d " " -f 2`;
+        if("$filetype" eq "troff")
+        {
+          if(open(FILE,"groff -s -p -t -e -Tascii -mandoc $pipefile |"))
+          {
+            binmode(FILE);
+            &ProcessText;
+            close(FILE);
+            $opennormal='';
+          }
+        }
+      }
+      elsif($file =~ /\.ms$/o)
+      {
+        if(open(FILE,"groff -Tascii -ms $pipefile |"))
+        {
+          binmode(FILE);
+          &ProcessText;
+          close(FILE);
+          $opennormal='';
+        }
+      }
+    }
+  }
+  if($opennormal)
+  {
+    if(open(FILE,"<$file"))
+    {
+      binmode(FILE);
+      &ProcessText;
+      close(FILE);
+    }
+  }
+  if($filematch)
+  {
+    print "$fpath\n" if $listonly;
+    print "$fpath:$filematch\n" if $countonly;
+  }
+}
+
+sub ProcessDir
+{
+  local($act,@dir,$fname,$dorec)=@_;
+  if($nofind)
+  {
+    if($act ne '') { opendir(DIR,$act) } else { opendir(DIR,'.') }
+    @dir=readdir(DIR);
+    closedir(DIR);
+    $dorec=$recurse;
+  }
+  else
+  {
+    $dorec='';
+    @dir=`find .`;
+    foreach (@dir)
+      { chop if(/[\r\n]$/o) }
+  }
+  foreach $fname (@dir)
+  {
+    if(($fname ne ".") && ($fname ne ".."))
+    {
+      $fmmask="";
+      foreach $maske (@ARGV) { $fmmask=1 if $fname =~ /^$maske$/i }
+      if($act) { $file=$act . '/' . $fname }
+      else     { $file=$fname }
+      if($dorec)
+      {
+        if(-d $file) { &ProcessDir($file); next }
+      }
+      if($fmmask) {&ProcessFile }
+    }
+  }
+}
+
+if (scalar(@ARGV)==0)
+  { $path=""; $nofile=1; $file='-'; &ProcessFile }
+else
+  { &ProcessDir('') }
+$matches=255 if ($matches>255);
+exit $matches;

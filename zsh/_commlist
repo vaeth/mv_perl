@@ -1,0 +1,10 @@
+#compdef commlist
+_arguments -s -S : \
+'(* -)'{'--help','-h'}'[print a brief help]' \
+'(* -)'{'--man','-\\?'}'[show extended help as a manpage]' \
+'(* -)'{'--version','-V'}'[print version]' \
+{'(--common)-c+','(-c)--common='}'[prefix common lines with this string]:prefix for common lines: ' \
+{'(--only)-o+','(-o)--only='}'[prefix lines occurring only once with string]:prefix for not-common lines: ' \
+'-1[suppress the first column of output]' \
+'-2[suppress the second column of output]' \
+'*:files:_files -/'

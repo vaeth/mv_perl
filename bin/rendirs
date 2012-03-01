@@ -1,0 +1,810 @@
+#!/usr/bin/perl
+use warnings;
+use strict;
+use integer;
+use Getopt::Long;
+use Pod::Usage;
+
+sub version { '$Revision: 5.3 $ '=~ /Revision:\s([^\s]*)/;
+  print "RenDirs v$1 by Martin Väth\n"
+   .    "martin\@mvath.de\n" ; exit 0 }
+
+$0 =~ /([^\/]*)$/; our $script=$1;
+
+=head1 NAME
+
+rendirs - Rename files (and directories) according to a description file
+
+=head1 SYNOPSIS
+
+B<rendirs> [options] I<Filelist>
+
+To get an extended help, type B<rendirs --man> or B<rendirs -?>
+
+=head1 DESCRIPTION
+
+One sometimes has to rename a list of files from "long" (original) names
+into "short" (e.g. DOS compliant) names or vice versa.
+
+If one wants to do this for a fixed directory tree more than once (e.g. in
+order to "save" a directory in DOS compliant format to a CD-Rom and
+to "restore" it later), it is convenient to write just a list of corresponding
+filenames and to have a script which interprets this list and renames the
+files correspondingly. This here is such a script, and the list of filenames
+is the argument I<Filelist>.
+
+(As usual in perl, the argument I<Filelist> can consist of several names;
+the corresponding data is then concatenated. Moreover, the name F<-> is
+magic and means that the list is read from standard input).
+
+The list is expected to be a list of lines with the following meaning:
+
+=over 8
+
+=item Two words (separated by spaces/tabs)
+
+The first word is considered as the original filename, the
+second as the short name.
+
+=item One word
+
+The word is considered as a filename whose original name is the
+same as the short name (by default, then only its existence checked)
+
+=item A single word, ending with a colon (C<:>)
+
+The word is considered as a directory and means that all following files
+occur in this directory. Note that this refers to files but B<not> to
+directories (i.e. not to the next entry of this type). However, there
+are some ways to change this behaviour: There are magic symbols C<*> and C<?>
+available at the beginning or end of directory names with the following
+meaning.
+
+=over 4
+
+=item
+
+C<*> at the end of the name means that the directory is a ``parent directory''
+for all following directories (of course, directories starting with B</> will
+not be affected). Thus, roughly speaking, this has a similar meaning as a
+C<cd> into the directy ``after the directory was handled''.
+
+=item
+
+C<?> at the end of the name cancels the effect of the previous
+``parent directory'' entry for all following directories.
+The action is cummulative (and more than one C<?> can be used
+at the end of one name).
+Thus, roughly speaking, this has a similar meaning as a C<cd ..>
+(where C<..> denotes the previous active directory)
+``after the directory was handled''.
+
+=item
+
+C<*?> or C<?*> at the end of the name cancels the effect of all
+previous ``parent directory'' entries.
+Thus, roughly speaking, this has a similar meaning as a C<cd />
+(where C</> denotes the starting directory of B<rendirs>)
+``after the directory was handled''.
+
+=item
+
+C<*> at the beginning of the name means that the current directory name
+is to be understood as a subdirectory of the previous directory entry
+(if there was no previous directory entry, this has no effect).
+Thus, roughly speaking, the C<*> at the beginning has the meaning as
+preceeding C<previous_directory/> to the directory name.
+
+=item
+
+C<?> at the beginning of the name means that for the current directory
+the effect of the previous active C<*> (at the directory end) is canceled.
+More than one C<?> at the beginning are allowed (with cummulative effect).
+Thus, roughly speaking, the C<?> at the beginning has a similar meaning as
+preceeding C<../> to the directory name.
+
+=item
+
+C<*?> or C<*?> at the beginning of the name means that for the current
+directory the effect of all C<*> (at the directory end) is canceled.
+Thus, roughly speaking, this has a similar meaning as
+preceeding C</> to the directory name.
+
+=item
+
+The empty name means that no special directory name is used:
+The current directory is then the previous (non-cancelled) ``parent directory''
+(resp. the starting directory if none exists).
+
+=back
+
+In view of the ``empty name'' convention, it is admissible that a name
+consists only of these magic symbols. In this case, these symbols are
+considered to be ``at the end of the empty name''.
+This means that such a name does not affect the following ``standard''
+entries but only the following ``directory'' entries. If you want to
+influence the standard ``entries'', you can follow it by the line C<:>
+(containing only the empty name).
+
+For better readability, the special symbols may be separated by a C</> at
+the beginning or end so that e.g. C<*/subdir> has the same meaning as
+C<*subdir>, and C<main/*> has the same meaning as C<main*>.
+
+=item Two words, at least one ending with a colon (C<:>)
+
+Like a single word with a colon, but additionally the directory is renamed
+(as if listed with two words). The above magic symbols have an analogous
+meaning as above, but only for the name in which they occur.
+Note that this means that you usually want to use these special symbols either
+in both names or in none of the names, unless you want a very special behaviour
+and have considered thoroughly what you are doing.
+
+=item C<#@ShortNamesFirst> (case is ignored, but spaces may not be contained)
+
+After this magic line, the interpretation of the names in the file is reversed,
+i.e. first the short name and then the original name is expected. You can
+switch back anytime within the file using the magic line:
+
+=item C<#@OriginalNamesFirst> or C<#@LongNamesFirst> (case is ignored)
+
+This switches back to the original interpretation of the names.
+
+=item C<#@RequireMode> (case is ignored)
+
+This line causes to break with an error unless one of the options
+B<--short> (or B<-s>) or B<--long> (or B<-l>) was sepecified.
+
+=item C<#@MagicDots> (case is ignored)
+
+After this magic line, the interpretation of the names in the file is
+as if the option B<--magicdots> (or B<-m>) had been given, i.e.
+if only one (file or directory) name appears in a line, this name is
+interpreted as the "long" name while the "short" name is then assumed
+to be the magic name ".".
+You can switch back anytime within the file using the magic line:
+
+=item C<#@NoMagicDots> (case is ignored)
+
+This switches back to the original interpretation of the names.
+
+=item C<#@UpperCase> (case is ignored)
+
+=item C<#@LowerCase> (case is ignored)
+
+After one of these lines, I<Filelist> is interpreted as if the option
+B<--uppercase> (resp. <--lowercase>) was given. If none of the options
+B<--short> (or B<-s>) or B<--long> (or B<-l>) was sepecified,
+this line has no effect, but a corresponding warning is printed.
+
+=item C<#@NoUpperCase> (case is ignored)
+
+=item C<#@NoLowerCase> (case is ignored)
+
+This cancels the effect of a previous C<#@UpperCase>/C<#@LowerCase> line or
+of the B<--uppercase>/B<--lowercase> option. These lines never cause a warning.
+
+=item C<#@Quiet> (case is ignored)
+
+=item C<#@NoQuiet> (case is ignored)
+
+These lines trigger the effect of the B<--quiet> (or B<-q>) option
+resp. negate this effect.
+
+=item C<#@{> (no spaces may be contained between these symbols)
+
+Ignore all lines until a line starts with
+
+=item C<#@}> (no spaces may be contained between these symbols)
+
+Nesting of comments is supported.
+
+=item Anything following a C<#> is considered as a comment and thus ignored.
+
+=back
+
+Except for the word separation all spaces/tabs are ignored.
+Empty lines are ignored.
+
+All files listed are renamed: Either from short name into the original name
+or vice versa (By default, depending which one already exists).
+Note that this may cause unexpected behaviour if a filename appears double
+in the list (even if it appears once as a "long" name and once as a "short"
+name): The list is always processed in its order!
+Therefore, to avoid unintended side effects, it is strongly recommended to
+use always one of the options B<-s> or B<-l>; the default is only for
+extreme lazyness or if you know exactly what you are doing.
+
+The filename F<.> is magic and has the following meaning:
+If the file should be renamed from F<.>, then an empty file will be created.
+If an empty file should be renamed into F<.>, then it will be deleted
+(non-empty files are not deleted unless option B<--delete> is used).
+
+If the filename contains the magic sequence F<-E<gt>> it is considered as
+a symbolic link where the part before the sequence is the name of the link
+and the part after the sequence is the place where the link points to.
+It is explicitly admissible to change both parts for the long and short names
+and to use this option in connection with the magic filename F<.> (the latter
+means of course that not an empty file but the corresponding link will be
+created respectively deleted).
+
+Since Revision 5.1 of this program, the magic name F<.> is also allowed for
+directories and has a double meaning: On the one hand, it means indeed ".",
+but on the other hand, it also has a similar magic meaning as for filenames.
+In particular, this name can be used to create or delete directories.
+Although all actions are always done according to the order in the argument
+file(s), deletion of directories (or of links pointing to directories) is the
+only exception of this rule: This action is postponed until all other actions
+are done, and then these actions are executed in reverse order (i.e. it is
+expected that the argument file(s) contain first the parent directories and
+then their subdirectories, similar to the output of "ls -R").
+
+Directories are only deleted if they are empty and, for security reasons,
+there is no option to change this behavior.
+
+=head1 OPTIONS AND ARGUMENTS
+
+=over 8
+
+=item B<--help> or B<-h>
+
+Display brief help.
+
+=item B<--man> or B<-?>
+
+Display extended help as a manpage.
+
+=item B<--long> or B<-l>
+
+Always rename to long (original) filenames.
+
+=item B<--short> or B<-s>
+
+Always rename to short filenames.
+
+=item B<--paranoia> or B<-p>
+
+Stop processing if a file in the list does not exist.
+
+=item B<--continue> or B<-c>
+
+Continue processing, even if a file cannot be renamed because the
+destination file exists (in no case the destination file is overridden)
+
+=item B<--delete>
+
+Delete also nonempty files if they are renamed into F<.>.
+
+=item B<--dotonly> or B<-d>
+
+Do not rename any files: Only create or delete the empty files,
+i.e. care only about the lines the magic name F<.> (and the lines
+describing the directory names, of course).
+
+=item B<--ignoredot> or B<-D>
+
+This is quite the opposite of --dotonly: This ignores all entries
+concerning the magic filename F<.>.
+
+=item B<--shortnamesfirst> or B<-S>
+
+Behave as if the first line of the file is @ShortNamesFirst
+
+=item B<--magicdots> or B<-m>
+
+If there is only one filename/directoryname in a line, interpret it as the
+"long" filename and assume that the "short" filename is ".". This is useful
+if you want to use e.g. the output of "ls -R" to recreate a directory
+structure (consisting only of empty files) for testing or synchronization
+purposes.
+
+=item B<--uppercase>
+
+If a file or directory cannot be found, look also for the uppercase version
+of the filename. Note that this may cause unexpected results if two names
+in I<Filelist> have the same uppercase version. To avoid completely
+unexpected side effects, this option is admissible only in conjunction
+with the options B<--long> (or B<-l>) or B<--short> (or B<-s>).
+
+=item B<--lowercase>
+
+This is the same as B<--uppercase> just that the lowercase version of the
+filename is used. If used together with <--uppercase>, then first the
+uppercase version is tested and only then the lowercase version is used.
+
+=item B<--showonly> or B<-N>
+
+Show only what would be done, do not rename anything. Note that this can give
+a different output than the actual run, because testing is always based on the
+current state of the filesystem. In particular, in connection with renaming
+directories or if filenames occur double in long and short versions
+common to long and short versions, you will not see
+the expected output.
+
+=item B<--dry-run> or B<-n>
+
+This is similar than B<--showonly>, but in connection with renaming
+directories it behaves differently: The files are expected to be in
+the unremaned directory (even if the directory was renamed).
+Hence, in contrast to B<--showonly> there does not arise wrong behaviour
+due to the fact that files cannot be found because they have not moved
+with their parent directory (because the parent directory was actually not
+renamed). But be aware that a "proper" renaming (without this option)
+would have to use different paths!
+
+=item B<--quiet> or B<-q>
+
+Do not show the actions.
+
+=item B<--version> or B<-V>
+
+Print version number
+
+=back
+
+=head1 AUTHOR
+
+Martin VE<auml>th E<lt>martin@mvath.deE<gt>
+
+=cut
+
+# Default for the Options:
+
+our $original='';
+our $short='';
+our $continue='';
+our $paranoia='';
+our $delete='';
+our $dotonly='';
+our $ignoredot='';
+our $shortfirst='';
+our $showonly='';
+our $dryrun='';
+our $quiet='';
+our $uppercase='';
+our $lowercase='';
+our $magicdots='';
+
+# Parse Options:
+
+$Getopt::Long::bundling=1;
+GetOptions(
+  'help|h', sub { pod2usage(1) },
+  'man|?', sub { pod2usage(-verbose=>2) },
+  'long!', \$original,
+  'l', \$original,
+  'nol', sub { $original='' },
+  'short!', \$short,
+  's', \$short,
+  'nos', sub { $short='' },
+  'uppercase!', \$uppercase,
+  'lowercase!', \$lowercase,
+  'continue!', \$continue,
+  'c', \$continue,
+  'noc', sub { $continue='' },
+  'paranoia!', \$paranoia,
+  'p', \$paranoia,
+  'nop', sub { $paranoia='' },
+  'delete!', \$delete,
+  'dotonly!', \$dotonly,
+  'd', \$dotonly,
+  'nod', sub { $dotonly='' },
+  'ignoredot!', \$ignoredot,
+  'D', \$ignoredot,
+  'noD', sub { $ignoredot='' },
+  'shortnamesfirst!', \$shortfirst,
+  'S', \$shortfirst,
+  'noS', sub { $shortfirst='' },
+  'magicdots!', \$magicdots,
+  'm', \$magicdots,
+  'nom', sub { $magicdots='' },
+  'showonly!', \$showonly,
+  'N', \$showonly,
+  'noN', sub { $showonly='' },
+  'dry-run!', \$dryrun,
+  'n', \$dryrun,
+  'non', sub { $dryrun='' },
+  'quiet!', \$quiet,
+  'q', \$quiet,
+  'version|V', \&version
+) or pod2usage(2);
+if($#ARGV<0)
+  { pod2usage(2) }
+
+if($dryrun) { $showonly=1 }
+
+our $mode=0;
+if($original) { $mode=-1 }
+elsif($short) { $mode=1  }
+elsif($lowercase || $uppercase)
+{
+  die "The options --uppercase or --lowercase must not be specified\n"
+  .   "unless also one of the options --short or --long is used.\nStopped"
+}
+
+our @REVERSEACTION=();
+our $currdir='';
+our $followdir=[''];
+
+sub analyzedir { my($n)=@_;
+  my $parnum=$#{$followdir};# Default parent Nr.
+  my $p=${$followdir}[$parnum];# Default parent
+  my $follow=[@$followdir]; # Copy the $followdir array.
+  my $willpush='';
+  if($n =~ s/\s*([\*\?][\s\*\?]*)$//)
+  { # special symbols at the end:
+    my $s=$1;
+    while(1)
+    {
+      if(($s =~ s/^\?\*\s*//) || ($s =~ s/^\*\?\s*//))
+        { $follow=['']; $willpush='' }
+      elsif($s =~ s/^\?\s*//)
+        { $willpush=''; if($#{$follow}>0) { pop @$follow } }
+      elsif($s =~ s/^\*\s*//)
+        { $willpush=1 }
+      else
+        { last }
+    }
+  }
+  $n =~ s/([^\s][^\/]*)\/+\s*$/$1/; # ignore / at directory end
+
+  if($n =~ /^\s*\//) { $p='' }
+  elsif($n =~ s/^\s*([\*\?][\s\*\?]*)//)
+  { # special symbols at the beginning:
+    my $s=$1;
+    while(1)
+    {
+      if(($s =~ s/^\?\*\s*//) || ($s =~ s/^\*\?\s*//))
+        { $parnum=0; $p=${$followdir}[0] }
+      elsif($s =~ s/^\?\s*//)
+        { if($parnum>0) {$parnum-- } $p=${$followdir}[$parnum] }
+      elsif($s =~ s/^\*\s*//)
+        { $p=$currdir }
+      else
+        { last }
+    }
+    $n =~ s/^\/+//; # special beginning but directory starts with /: Ignore /
+  }
+  return($n,$p,[$follow,$willpush])
+}
+
+sub setdirs { my($p,$f)=@_;
+  ($followdir,$f)=@$f;
+  if($p eq '') { $currdir='' }
+  else         { $currdir="$p/" }
+  if($f) { push @$followdir,$currdir }
+}
+
+sub analyzelink { my($n)=@_;
+  if($n=~/^(.*)\-\>(.*)$/)
+  {
+    my($n,$l)=($1,$2);
+    unless($n eq '.')
+      { return($n,$l) }
+    print STDERR
+      "Warning: Magic name '.' must not be a link; ignoring ->$l\n";
+  }
+  return($n,undef);
+}
+
+sub casetest { my($p,$n,$s)=@_;
+  my $c="$p$n";
+  if((-e $c)||(-d $c)||(-l $c)) { return($c,1,$s) }
+  if($uppercase)
+  {
+    my $d="$p\U$n\E";
+    if((-e $d)||(-d $d)||(-l $d)) { return($d,1,'') }
+  }
+  if($lowercase)
+  {
+    my $d="$p\L$n\E";
+    if((-e $d)||(-d $d)||(-l $d)) { return($d,1,'') }
+  }
+  return($c,0,$s)
+}
+
+sub myunlink { my($n)=@_;
+  unless($quiet)    { print "rm -- $n\n" }
+  unless($showonly) { unlink $n }
+}
+
+sub myrmdir { my($n)=@_;
+  unless($quiet)    { print "rmdir -p -- $n\n" }
+  unless($showonly) { system('rmdir','-p',$n) }
+}
+
+sub mytouch { my($n)=@_;
+  unless($quiet)    { print "touch $n\n" }
+  unless($showonly) { open(FH,">$n"); close(FH) }
+}
+
+sub mymkdir { my($n)=@_;
+  unless($quiet)    { print "mkdir -p $n\n" }
+  unless($showonly) { system('mkdir','-p',$n) }
+}
+
+sub mylink { my($a,$b)=@_;
+  unless($quiet)    { print "ln -s $a $b\n" }
+  unless($showonly) { system("ln","-s",$a,$b) }
+}
+
+sub myrename { my($a,$b)=@_;
+  unless($quiet)    { print "mv $a $b\n" }
+  unless($showonly) { rename $a,$b }
+}
+
+sub action { my($o,$s)=@_;
+  # Besides some flags there are four types of variable names:
+  # First, concerning the short ("s") or original ("o") file/dirnames.
+  # Later, concerning the source ("source") or destination ("dest") names.
+  # (They will correspond to each other, depending on the mode and existence).
+  # To this base name, a letter is appended, concerning what is meant:
+  # 'e': Does the file exist or is it a magic dot?
+  # 'p': (Parent) path
+  # 'f': For dirs: Reference for new $followdir to be handled in &setdir.
+  # 'l': For links: The name of the link.
+
+  # Parse names: Do we deal with directories and/or two arguments?
+  my($sp,$op,$sf,$of);
+  my $isdir='';
+  $isdir=1 if($s =~ s/\s*:\s*$//);
+  $isdir=1 if($o =~ s/\s*:\s*$//);
+  if($isdir)
+  {
+    ($s,$sp,$sf)=&analyzedir($s);
+    ($o,$op,$of)=&analyzedir($o);
+  }
+  else
+  {
+    if($s =~ /^\//) { $sp='' } else { $sp=$currdir }
+    if($o =~ /^\//) { $op='' } else { $op=$currdir }
+    $sf=$of=''
+  }
+  my($sl,$ol);
+  ($s,$sl)=&analyzelink($s);
+  ($o,$ol)=&analyzelink($o);
+  my $link='';
+  my $samelink=undef;
+  if(defined($sl) || defined($ol))
+  {
+    $link=1;
+    if((!defined($sl)) || (!defined($ol)) || ($sl eq $ol))
+      { $samelink=1 }
+    else
+      { $samelink='' }
+  }
+  my $same='';
+  $same=1 if(($s eq $o) && ((!$link) || $samelink));
+
+  # Decide which is source and which is destination
+  my($source,$dest,$sourcee,$deste,$sourcef,$destf,$destl);
+  {
+    my $oe=0;
+    my $se=0;
+    $oe=-1 if($o eq '.');
+    $se=-1 if($s eq '.');
+    return if($ignoredot && (($oe<0)||($se<0)));
+    my $currmode=$mode;
+    if($mode>0)
+    {
+      $s="$sp$s";
+      $se=1 if((!$se) && ((-e $s) || (-d $s)) || (-l $s));
+      ($o,$oe,$same)=&casetest($op,$o,$same) if(!$oe);
+    }
+    elsif($mode<0)
+    {
+      $o="$op$o";
+      $oe=1 if((!$oe) && ((-e $o) || (-d $o) || (-l $o)));
+      ($s,$se,$same)=&casetest($sp,$s,$same) if(!$se);
+    }
+    else
+    {
+      $s="$sp$s"; $o="$op$o";
+      $oe=1 if((!$oe) && ((-e $o) || (-d $o) || (-l $o)));
+      if($same) {$se=$oe; if($oe<0) { return }}
+      $se=1 if((!$se) && ((-e $s) || (-d $s)) || (-l $s));
+      if($se<0)
+        { if($oe) { $currmode=1 } else { $currmode=-1 } }
+      elsif($se)
+        { $currmode=-1 }
+      else
+        { $currmode=1 }
+    }
+    if($currmode>0)
+    {
+      $source=$o; $sourcee=$oe; $sourcef=$of;
+      $dest=$s;   $deste=$se;   $destf=$sf;  $destl=$sl
+    }
+    else
+    {
+      $source=$s; $sourcee=$se; $sourcef=$sf;
+      $dest=$o;   $deste=$oe;   $destf=$of;  $destl=$ol
+    }
+  }
+
+  # Set new directory paths:
+
+  if($isdir)
+  {
+    if(($deste<0) || ($dryrun))
+      { &setdirs($source,$sourcef) }
+    else
+      { &setdirs($dest,$destf) }
+  }
+
+  # If required, we are now ready to return
+
+  if($isdir && $same && ($s eq '')) { return }
+  if($dotonly)
+  {
+    if(($sourcee>=0) && ($deste>=0)) { return }
+  }
+
+  # Now the action:
+  if($sourcee) # Source exists or is magic
+  {
+    unless($same)
+    {
+      if($deste>0) # Destination exists
+      {
+        if(($link) && (-l $dest))
+        {
+          &myunlink($dest);
+          if($samelink)
+            { &myrename($source,$dest) }
+          else
+            { &mylink($destl,$dest) }
+        }
+        else
+        {
+          unless($continue)
+            { die "File/Directory $dest already exists\nStopped" }
+          print STDERR
+            "Warning: File/Directory $dest already exists; not renaming\n";
+        }
+      }
+      elsif($deste<0) # Destination is magic (then Source is nonmagic)
+      {
+        if($isdir)
+        {
+          if($link && (-l $source))
+            { push @REVERSEACTION,[\&myunlink,$source] }
+          else
+            { push @REVERSEACTION,[\&myrmdir,$source] }
+        }
+        elsif((-z $source) || ($link && (-l $source)))
+          { &myunlink($source) }
+        else
+        {
+          if($delete)
+          {
+            print STDERR "Warning: Deleting nonempty file $source\n";
+            &myunlink($source)
+          }
+          else
+          {
+            unless($continue)
+              { die "$script: Nonempty file $source is not deleted\nStopped" }
+            print STDERR "Warning: Nonempty file $source is not deleted\n";
+          }
+        }
+      }
+      else # Destination does not exist
+      {
+        if($sourcee>0) # Source is nonmagic
+        {
+          if((!$link) || $samelink)
+            { &myrename($source,$dest) }
+          else
+          {
+            if(-l $source)
+            {
+              &myunlink($source);
+              &mylink($destl,$dest);
+            }
+            else
+            {
+              unless($continue)
+                { die "$script: File $source cannot be renamed into link $dest->$destl\nStopped" }
+              if($dest eq $source)
+                { print STDERR "Warning: File $source is not turned into a link to $destl\n" }
+              else
+                { print STDERR "Warning: File $source cannot be renamed into link $dest->$destl" }
+            }
+          }
+        }
+        else # Source is magic
+        {
+          unless($link)
+          {
+            if($isdir)
+              { &mymkdir($dest) }
+            else
+              { &mytouch($dest) }
+          }
+          else
+            { &mylink($destl,$dest) }
+        }
+      }
+    }
+  }
+  else # Source does not exist (and is nonmagic):
+  {
+    my $msg;
+    if($mode)
+      { $msg="File/Directory $source does not exist" }
+    else
+      { $msg="Neither $dest nor $source exists" }
+    if($paranoia)
+      { die "$msg\nStopped" }
+    print STDERR "Warning: $msg\n";
+  }
+}
+
+sub errorunlessmode { my($a)=@_;
+  if($mode) { return }
+  if($a) { print STDERR "Error" }
+  else   { print STDERR "Warning" }
+  print STDERR " in line $.: "
+    . "None of the options --short -s --long -l is specified.\n";
+  if($a) { die "Stopped" }
+}
+
+our $commentdepth=0;
+while(<>)
+{
+  chomp;
+  my $currline=$_;
+  if(/^\s*\#\@\{/i)
+    { $commentdepth++; next }
+  if(/^\s*\#\@\}/i)
+  {
+    unless($commentdepth)
+      {  die "Error in line $.: Closing comment without opening one\nStopped" }
+    $commentdepth--;
+    next
+  }
+  next if($commentdepth);
+  if(/^\s*\#\@shortnamesfirst/i)
+    { $shortfirst=1; next }
+  if(/^\s*\#\@((original)|(long))namesfirst/i)
+    { $shortfirst=''; next }
+  if(/^\s*\#\@requiremode/i)
+    { &errorunlessmode(1); next }
+  if(/^\s*\#\@magicdots/i)
+    { $magicdots=1; next }
+  if(/^\s*\#\@nomagicdots/i)
+    { $magicdots=''; next }
+  if(/^\s*\#\@uppercase/i)
+    { $uppercase=1; &errorunlessmode(''); next }
+  if(/^\s*\#\@lowercase/i)
+    { $lowercase=1; &errorunlessmode(''); next }
+  if(/^\s*\#\@nouppercase/i)
+    { $uppercase=''; next }
+  if(/^\s*\#\@nolowercase/i)
+    { $lowercase=''; next }
+  if(/^\s*\#\@quiet/i)
+    { $quiet=$1; next }
+  if(/^\s*\#\@noquiet/i)
+    { $quiet=''; next }
+  s/\#(.*)$//;
+  my @A=split;
+  if($#A==0)
+  {
+    if($magicdots)  { &action($A[0],'.') }
+    else            { &action($A[0],$A[0]) }
+  }
+  elsif($#A==1)
+  {
+    if($shortfirst) {&action($A[1],$A[0])}
+    else            {&action($A[0],$A[1])}
+  }
+  elsif($#A>0) { die "Error in line $.: "
+   . "More than two words are not allowed\n$currline\nStopped" }
+}
+while($#REVERSEACTION>=0)
+{
+  my($func,$arg)=@{pop @REVERSEACTION};
+  &$func($arg);
+}
+if($commentdepth)
+  { print STDERR "Warning: File ends with unclosed comment\n" }

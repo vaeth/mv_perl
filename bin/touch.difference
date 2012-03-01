@@ -1,0 +1,116 @@
+#!/usr/bin/perl
+use strict;
+use integer;
+use Pod::Usage;
+use Getopt::Long;
+use Time::localtime;
+
+sub version { '$Revision: 1.1 $ '=~ /Revision:\s([^\s]*)/;
+  print "touch.difference v$1 by Martin Väth\n"
+   .    "martin\@mvath.de\n" ; exit 0 }
+
+$0 =~ /([^\/]*)$/; my $script=$1;
+
+=head1 NAME
+
+touch.difference - correct times of files by a daylight saving offset
+
+=head1 SYNOPSIS
+
+B<touch.difference> [options] I<File1> [I<File2> I<...>]
+
+To get an extended help, type B<touch.difference --man>
+
+=head1 OPTIONS AND ARGUMENTS
+
+=over 8
+
+=item B<--help> or B<-h>
+
+Display brief help
+
+=item B<--man> or B<-?>
+
+Display extended help as a manpage
+
+=item B<--version> or B<-V>
+
+Print version number and exit
+
+=item B<--add=>I<seconds> or B<-a> I<seconds>
+
+Add I<seconds> to the file mtime/atime timestamps
+
+=item B<--sub=>I<seconds> or B<-s> I<seconds>
+
+Sub I<seconds> from the file mtime/atime timestamps
+
+=item B<--noatime>
+
+Do not modify the atime
+
+=item B<--nomtime>
+
+Do not modify the mtime
+
+=item B<--verbose> or B<-v>
+
+Be verbose
+
+=item B<--dry-run> or B<-n>
+
+Do not actually modify the times
+
+=item B<-->
+
+Last option
+
+=back
+
+=head1 AUTHOR
+
+Martin VE<auml>th E<lt>martin@mvath.deE<gt>
+
+=cut
+
+# Default for the Options:
+
+my $seconds=0;
+my $verbose='';
+my $dry='';
+my $addatime=1;
+my $addmtime=1;
+
+# Parse Options:
+
+$Getopt::Long::bundling=1;
+GetOptions(
+  'help|h', sub { pod2usage(1) },
+  'man|?', sub { pod2usage(-verbose=>2) },
+  'version|V', \&version,
+  'verbose!', \$verbose,
+  'v', \$verbose,
+  'dry-run!', \$dry,
+  'n', \$dry,
+  'atime!', \$addatime,
+  'mtime!', \$addmtime,
+  'add|a=i', \$seconds,
+  'sub|s=i', sub { $seconds=-@_[1] }
+) or pod2usage(2);
+
+# Actual touch function:
+
+sub dotouch {
+  my $file=@_[0];
+  my($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
+     $atime,$mtime,$ctime,$blksize,$blocks) = stat($file);
+  $atime+=$seconds if $addatime;
+  $mtime+=$seconds if $addmtime;
+  printf "%s %s (%s)\n",$file,ctime($mtime),ctime($atime) if $verbose;
+  utime($atime,$mtime,$file) unless $dry;
+}
+
+# Main part
+
+for my $file (@ARGV)
+  { &dotouch($file) }

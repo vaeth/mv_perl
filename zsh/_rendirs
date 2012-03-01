@@ -1,0 +1,20 @@
+#compdef rendirs
+_arguments -s -S : \
+'(* -)'{'--help','-h'}'[print a brief help]' \
+'(* -)'{'--man','-\\?'}'[show extended help as a manpage]' \
+'(* -)'{'--version','-V'}'[print version]' \
+{'(--quiet)-q','(-q)--quiet'}'[quiet]' \
+'(--short -s '{'--long)-l','-l)--long'}'[always rename to long names]' \
+'(--long -l '{'--short)-s','-s)--short'}'[always rename to short names]' \
+{'(--paranoia)-p','(-p)--paranoia'}'[stop if a file is not found]' \
+{'(--continue)-c','(-c)--continue'}'[continue after rename errors]' \
+'--delete[delete nonempty files if renamed to "."]' \
+{'(--dotonly)-d','(-d)--dotonly'}'[only create/delete empty files]' \
+{'(--ignoredot)-D','(-D)--ignoredot'}'[ignore entries concerning magic filename "."]' \
+{'(--shortnamesfirst)-S','(-S)--shortnamesfirst'}'[@ShortNamesFirst]' \
+{'(--magic-dots)-m','(-m)--magic-dots'}'[assume the short filename is "."]' \
+'--uppercase[also look for uppercase version]' \
+'--lowercase[also look for lowercase version]' \
+'(--dry-run -n '{'--showonly)-N','-N)--showonly'}'[show only what would be done]' \
+'(--showonly -N '{'--dry-run)-n','-n)--dry-run'}'[--showonly with translated dirs]' \
+'*:dirs:_files -/'

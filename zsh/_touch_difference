@@ -1,0 +1,12 @@
+#compdef touch.difference
+_arguments -s -S : \
+'(* -)'{'--help','-h'}'[print a brief help]' \
+'(* -)'{'--man','-\\?'}'[show extended help as a manpage]' \
+'(* -)'{'--version','-V'}'[print version]' \
+{'(--dry-run)-n','(-n)--dry-run'}'[do not modify anything]' \
+{'(--verbose)-v','(-v)--verbose'}'[be verbose]' \
+'(--sub -s '{'--add)-a','-a)--add'}'+[add N seconds]:add-seconds:(0 1 60 3600)' \
+'(--add -a '{'--sub)-s','-s)--sub'}'+[sub N seconds]:sub-seconds:(0 1 60 3600)' \
+'--noatime[do not modify the atime]' \
+'--nomtime[do not modify the mtime]' \
+'*:files:_files'

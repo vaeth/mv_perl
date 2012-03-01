@@ -1,0 +1,27 @@
+#compdef prep
+_arguments -S -A '-*' : \
+'(1 * -)'{'-help','-H','-\\?'}'[help]' \
+'(-1 -2 -3 -4 -5 -6 -7 -8 -9 -C -A -B)'-{C,{1..9}}'[print lines context]' \
+'(-A -B -1 -2 -3 -4 -5 -6 -7 -8 -9 -C)-A+[print context lines after]:number of lines after match:(0 1 2 3 4 5 6 7 8 9)' \
+'(-A -B -1 -2 -3 -4 -5 -6 -7 -8 -9 -C)-B+[print context lines before]:number of lines before match:(0 1 2 3 4 5 6 7 8 9)' \
+'-c[only count matches]' \
+'-f+[read regexp from file]:regexp-file:_files' \
+'-F[read regexp from stdin]' \
+'-g[do not groff man pages]' \
+'-h[do not display filenames on matches]' \
+'-i[ignore case]' \
+'-l[list only filenames]' \
+'-n[print each match preceeded by its line number offset]' \
+'-b[print each match preceeded by its byte offset]' \
+'-p[treat regexp as a plain string, not as a regular expression (FASTER!)]' \
+'-s[recurse subdirectories]' \
+'-S[recurse subdirectories and suppress "forgotten quote" error]' \
+'-r[do recurse manually (not via find command)]' \
+'-t+[truncate line to NUM chars]:truncate-num:(0 79)' \
+'-v[invert matches]' \
+'-V[print also passed regexp]' \
+'-w[print only lines where the match is a complete word]' \
+'-x[print only lines where the match is a whole line]' \
+{'(-Z)-z','(-z)-Z'}'[ignore/do not list z .Z .gz .tar ...]' \
+'1:search: ' \
+'*:files:_files'

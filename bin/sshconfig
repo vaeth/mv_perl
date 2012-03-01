@@ -1,0 +1,253 @@
+#!/usr/bin/perl
+use strict;
+use integer;
+use Pod::Usage;
+use Getopt::Long;
+
+sub version { '$Revision: 1.2 $ '=~ /Revision:\s([^\s]*)/;
+  print "sshconfig v$1 by Martin Väth\n"
+   .    "martin\@mvath.de\n" ; exit 0 }
+
+#$0 =~ /([^\/]*)$/; our $script=$1;
+
+=head1 NAME
+
+sshconfig - modify ~/.ssh/config for hosts with dynamic IPs
+
+=head1 SYNOPSIS
+
+B<sshconfig> [options] I<hostname>
+
+To get an extended help, type B<sshconfig --man> or B<sshconfig -?>
+
+=head1 DESCRIPTION
+
+The purpose of this script is to modify F<~/.ssh/config>
+so that it is possible to login to hosts with dynamic IPs
+with tools like ssh/scp/sftp/rsync(via ssh).
+
+To this end, the B<Host> section in F<~/.ssh/config> (created if necessary)
+for I<hostname> is modified (or created at the end of F<~/.ssh/config>)
+in the following way:
+
+=over 4
+
+=item 1.
+
+The I<IP-address> (which is read from standard input) is used
+for the B<HostName> entry (if this entry does not exist, it is created).
+
+Of course, I<IP-address> can also be any valid hostname (if it can be
+resolved). This might be useful if you already used some other tool
+to modify F</etc/hosts> to contain the corresponding IP-address.
+
+=item 2.
+
+The I<hostname> is used for the B<HostKeyAlias> entry (if this
+entry does not exist, it is created).
+
+=back
+
+This script does not check/modify any other configuration files of ssh
+than F<~/.ssh/config>.
+Moreover, only sections called B<Host> I<hostname> are checked.
+The later means in particular, wildcards in I<hostname> are treated as
+normal symbols, and so sections matching I<hostname> only by
+interpretation of wildcards will not be considered to match.
+
+=head1 OPTIONS AND ARGUMENTS
+
+=over 8
+
+=item B<--help>
+
+Display brief help.
+
+=item B<--man> or B<-?>
+
+Display extended help as a manpage.
+
+=item B<--delete> or B<--uninstall> or B<-d> or B<-u>
+
+Delete the B<HostName> and B<HostKeyAlias> entries from the
+B<Host> section in F<~/.ssh/config>
+(and delete this section resp. this file as well if it is
+then empty). In other words: Uninstall the changes made by the
+previous call of this script as far as possible.
+
+=item B<--ip=>I<IP-address> or B<-i> I<IP-address>
+
+Use I<IP-address> instead of reading this data from standard input.
+This is useful if you use this script from a batch file or if you
+only want to enter a single command containing all relevant data.
+
+=item B<--host=>I<true-hostname> or B<-h> I<true-hostname> 
+
+Use I<true-hostname> as the entry for B<HostKeyAlias>. This can be used in
+connection with wildcards in I<hostname> to allow ssh to reckognize all
+matching names to be interpreted as I<true-hostname>. Note however,
+if you make use of this feature, that you have to use the same wildcards
+when you call this script the next time (or you have to modifiy
+F<~/.ssh/config> manually), because only sections matching
+I<hostname> exactly (i.e. with the same wildcards) will be
+modified by this script.
+
+=item B<--show> or B<--debug> or B<-n> or B<-s>
+
+Show only what would be done, do not actually execute it.
+
+=item B<--version> or B<-v> or B<-V>
+
+print version number
+
+=item B<-->
+
+Last option
+
+=back
+
+=head1 AUTHOR
+
+Martin VE<auml>th E<lt>martin@mvath.deE<gt>
+
+=cut
+
+# Default for the Options:
+
+our $TrueHost=undef;
+our $IPAddress=undef;
+our $uninstall='';
+our $show='';
+
+# Parse Options:
+
+$Getopt::Long::bundling=1;
+GetOptions(
+  'help', sub { pod2usage(1) },
+  'man|?', sub { pod2usage(-verbose=>2) },
+  'version|V|v', \&version,
+  'ip|i=s', sub { $IPAddress=@_[1] },
+  'host|h=s', sub { $TrueHost=@_[1] },
+  'delete|uninstall|d|u', \$uninstall,
+  'show|debug|n|s', \$show
+) or pod2usage(2);
+
+# Parse Main argument:
+
+if($#ARGV<0) { pod2usage('No hostname given') }
+if($#ARGV>0) { pod2usage('Only one hostname may be given') }
+our $hostname=$ARGV[0];
+
+# Set Variables according to all options:
+
+$TrueHost=$hostname unless defined($TrueHost);
+unless(defined($IPAddress))
+{
+  print "Enter IP Address: " if(-t STDIN && -t STDOUT);
+  $IPAddress=<STDIN>; chomp $IPAddress;
+}
+
+# Read ~/.ssh/config and find proper Host section:
+
+our $dir="$ENV{'HOME'}/.ssh";
+our $file="$dir/config";
+our $data='';
+{ local(*INPUT, $/); open(INPUT,$file) and $data=<INPUT> }
+
+our $start=undef;
+our $startmatch=undef;
+our $end=undef;
+our $hostmatch;
+
+if($data =~ /^(\s*Host\s+\Q$hostname\E\s*)$/mig)
+{
+  $startmatch=pos($data);
+  $hostmatch=$1;
+  $start=$startmatch-length($hostmatch);
+  if($data =~ /^(\s*Host\s)/mig) { $end=pos($data)-length($1) }
+}
+
+sub indata { my $a=shift; pos($data)=$startmatch;
+  unless($data=~/$a/mig) { return '' }
+  if(defined($end) && (pos($data)>$end)) { return '' }
+  return 1
+}
+
+# Now the main task:
+
+our $NameIP='HostName';
+our $NameAlias='HostKeyAlias';
+
+# It is important that we search *everything* before we change $data
+
+our ($NameIPFound,$NameAliasFound);
+
+if(defined($start))
+{
+  $NameIPFound=&indata('^\s*' . $NameIP . '\s');
+  $NameAliasFound=&indata('^\s*' . $NameAlias . '\s');
+}
+
+if($uninstall)
+{
+  my $modified='';
+  if(defined($start))
+  {
+    if($NameIPFound) { pos($data)=$startmatch; $modified=1;
+      $data=~ s/\G(.*?)\n\s*$NameIP\s[^\n]*/$1/msi }
+    if($NameAliasFound) { pos($data)=$startmatch; $modified=1;
+      $data=~ s/\G(.*?)\n\s*$NameAlias\s[^\n]*/$1/msi }
+
+    # Remove the whole section if only spaces are left:
+
+    pos($data)=$start;
+    if   ($data =~ s/\G\Q$hostmatch\E[\s\r\n]*(Host\s)/$1/si) { $modified=1 }
+    else { pos($data)=$start;
+      if ($data =~ s/\G\Q$hostmatch\E[\s\r\n]*$/$1/si) { $modified=1 }
+    }
+
+    # If nothing is left, remove ~/.ssh/config and possibly also ~/.ssh:
+
+    if($data =~ /^[\s\r\n]*$/s)
+    {
+      if($show)
+        { print "rm -- $file; rmdir -- $dir" }
+      else
+        { unlink $file; rmdir -- $dir }
+      exit 0
+    }
+  }
+  unless($modified) { exit 0 }
+}
+else # not $uninstall
+{
+  if(defined($start))
+  {
+    if($NameIPFound) { pos($data)=$startmatch;
+      $data=~ s/\G(.*?)^(\s*$NameIP\s+)[^\r\n]*/$1$2$IPAddress/msi }
+    else { substr($data,$startmatch,0,"\n$NameIP $IPAddress") }
+    if($NameAliasFound) { pos($data)=$startmatch;
+      $data=~ s/\G(.*?)^(\s*$NameAlias\s+)[^\r\n]*/$1$2$TrueHost/msi }
+    else { substr($data,$startmatch,0,"\n$NameAlias $TrueHost") }
+  }
+  else
+    { $data.="\nHost $hostname\n$NameIP $IPAddress\n$NameAlias $TrueHost\n" }
+}
+
+# Write $data:
+
+umask 0077;
+unless(-d $dir)
+{
+  if($show) { print "mkdir $dir; " }
+  else      { mkdir $dir,0700 }
+}
+if($show)
+  { print "echo >$file <<#EOF#\n",$data,"#EOF#\n" }
+else
+{
+  local(*FILE, $/);
+  open(FILE,">$file") || die "Cannot open $file for writing\nStopped";
+  print FILE $data
+}
+exit 0

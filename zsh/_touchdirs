@@ -1,0 +1,8 @@
+#compdef touchdirs
+_arguments -s -S : \
+'(* -)'{'--help','-h'}'[print a brief help]' \
+'(* -)'{'--man','-\\?'}'[show extended help as a manpage]' \
+'(* -)'{'--version','-V'}'[print version]' \
+{'(--dry-run -n '{'--show)-s','-s)--show'},'(--show -s '{'--dry-run)-n','-n)--dry-run'}}'[only show what would be done]' \
+{'(--follow-links)-f','(-f)--follow-link'}'[follow links for recursion and getting times]' \
+'*:dirs:_files -/'

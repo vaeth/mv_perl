@@ -1,0 +1,546 @@
+#!/usr/bin/perl
+
+# double $Revision: 1.1 $ by Martin Väth
+# martin@mvath.de
+
+# If the Environment-Variable path contains a '/', we assume that we are
+# in a Unix-like environment. Otherwise, we assume we are in DOS.
+
+if($ENV{'PATH'} =~ /\// )
+  { $unix=1; $sep="\/" }
+else
+  { $sep="\\" }
+
+sub help { $0 =~ /([^\/]*)$/; print <<"EOHELP";
+Usage: $1 [Option] ... [Option]  FILENAMES [@ SECONDLIST]
+Purpose: Print all files from FILENAMES which are double (ALL coincidences!).
+By default, two files are considered as equal, if their content is the same.
+If [@ SECONDLIST] is given, FILENAMES are also checked whether they occur in
+SECONDLIST (only the first coincidence in SECONDLIST is output for each match).
+Options:
+-N require for equality also that the filenames (without path) are the same.
+-t require also that the (last modification) filestamps are the same.
+-d do not check the content of the files, only consider their length.
+-n do not even check the length (implies -N and -d); the files need not exist.
+-p as -n, but require additionally that even the paths of the files coincide
+   (different notations for the same paths are not considered as equal).
+-f ignore files which are not readable by effective user.
+-v be verbose and print progress dots (on STDERR).
+-V be verbose but do not print progress dots (on STDERR).
+-\@ MAGIC: Use MAGIC in place of \@ as the magic filename to separate the lists.
+-a use an alternative algorithm which preserves the order (much slower!).
+-x use external diff/comp program to do the comparison
+   (may be faster if there are long files with the same length and which
+   differ only near the end). Sadly, this switch implies -a (Reason: The faster
+   algorithm requires some implicit information which is not provided by diff),
+-s Read additional parameters (i.e. filenames) from standard input.
+-- last option.
+EOHELP
+exit;
+}
+
+$magic='@';
+&help if($ARGV[0] eq '');
+sub readarg { $optarg=$optrest; $optrest='';
+  if($optarg eq '') { $optarg=shift(@ARGV) }
+}
+optparse:while($ARGV[0] =~ /^-(.)(.*)$/)
+{
+  shift;
+  while($1 ne '')
+  {
+    $optlett=$1; $optrest=$2;
+    if   ($optlett eq 'N'){ $nametest=1; $pathtest='' }
+    elsif($optlett eq 't'){ $timetest=1 }
+    elsif($optlett eq 'd'){ $nodiff=1; $nolength='' }
+    elsif($optlett eq 'n'){ $nolength=$nodiff=$nametest=1; $pathtest=''; $nodisk=1 }
+    elsif($optlett eq 'p'){ $nolength=$nodiff=$nametest=$pathtest=1 }
+    elsif($optlett eq 'f'){ $ignorebad=1 }
+    elsif($optlett eq 'v'){ $verbose=1; $showdot=1 }
+    elsif($optlett eq 'V'){ $verbose=1; $showdot='' }
+    elsif($optlett eq '@'){ &readarg; $magic=$optarg }
+    elsif($optlett eq 'a'){ $bubble=1 }
+    elsif($optlett eq 's'){ $standardin=1 }
+    elsif($optlett eq 'x'){ $bubble=1; $extern=1 }
+    elsif($optlett =~ /[hH?]/){ &help }
+    elsif($optlett eq '-'){
+      if   ($optrest eq ''){ last optparse }
+      elsif($optrest =~ /^h(elp)?$/i || $optrest eq '?'){ &help }
+      else{ die "Illegal option: --$optrest\nStopped" }
+      last
+    }
+    else{ die "Illegal option: $optlett\nStopped" }
+    last unless($optrest =~ /^(.)(.*)$/)
+  }
+}
+
+if($standardin)
+{
+  while(<STDIN>)
+  { chop; push(@ARGV,$_) }
+}
+
+# Look for the magic string.
+
+$lastfile=$#ARGV;
+for($i=0;$i<=$#ARGV;$i++)
+{
+  if($ARGV[$i] eq "$magic")
+  {
+    # The magic string is not a file we can read.
+    # By marking it in @double, the bubble-comparison will ignore it.
+    $lastfile=$i-1;
+    $badfile[$i]=1;
+    $double[$i]=1;
+    $withmagic=1;
+    last # Only the first occurence of $magic is really magic.
+  }
+}
+
+if($showdot)
+  { $|=1; $dotcount=0 }
+if($verbose)
+{
+  $i=$lastfile+1;
+  print STDERR "Number of files: $i\n";
+  if($withmagic)
+  {
+    $i=$#ARGV-$i;
+    print STDERR "Number of files to check against: $i\n";
+    print STDERR "Total number of files: $#ARGV\n";
+  }
+}
+
+# Read the filelength into @size and
+# mark @badfile if file does not exist or is not readable
+
+if((!$nolength) || ($timetest) || ($ignorebad))
+{
+  for($i=$#ARGV;$i>=0;$i--)
+  {
+    if($i!=$lastfile+1) # ignore the magic index
+    {
+      if((!$nodisk) && (-f "$ARGV[$i]"))
+      {
+        unless($nolength)
+          { $size[$i]=(-s "$ARGV[$i]") }
+        if($ignorebad)
+        {
+          unless(-r "$ARGV[$i]")
+            { $badfile[$i]=1 }
+        }
+      }
+      else
+        { $size[$i]=-1; $badfile[$i]=1 }
+      if($showdot)
+      {
+        if(++$dotcount>=100)
+        {
+          $dotcount=0;
+          print STDERR "-";
+          $wasdot=1;
+        }
+      }
+    }
+  }
+}
+
+sub flushdot { if($wasdot) { print STDERR "\n"; $wasdot=''} }
+#&flushdot;
+
+# The following function compares the names (=arguments without paths)
+# alphanumerically (-1,0,1 is returned when name_1 <,=,> name_2)
+
+# In perl 5, one should better use my() in place of local(), but I want
+# to run the program also with perl 4.
+
+sub namecomp
+{
+  local($n1,$n2)=@_;
+  $n1 =~ s/^.*$sep//o;
+  $n2 =~ s/^.*$sep//o;
+  return("$n1" cmp "$n2");
+}
+
+# The following function compares the timestamps of the files corresponding
+# to the two indices in $a and $b
+# (-1,0,1 is returned when time_1 <,=,> time_2)
+
+sub timecomp
+{
+  local(@A,$time);
+  @A=stat("$ARGV[$a]");
+  $time=$A[9];
+  @A=stat("$ARGV[$b]");
+  return($A[9] <=> $time)
+}
+
+# There are two independent algorithms:
+# The bubble-comparison and a tricky sort comparison.
+# The bubble-comparison only needs to know whether two files are equal.
+# The following function does this:
+# It returns 1 if $a and $b are indices which refer to equal files
+# (for which @badfile is not set) and '' otherwise.
+# This function uses the external programs diff/comp to decide this.
+
+sub isequalextern
+{
+  if(($badfile[$a])||($badfile[$b]))
+    { return '' }
+  if($ARGV[$a] eq $ARGV[$b])
+    { return 1 }
+  if($nametest)
+  {
+    if($pathtest)
+      { return '' }
+    if((&namecomp($ARGV[$a],$ARGV[$b]))!=0)
+      { return '' }
+  }
+  unless($nolength)
+  {
+    if($size[$a] != $size[$b])
+      { return '' }
+    unless($nodiff)
+    {
+      if($unix)
+      {
+        if(system("diff -q \"$ARGV[$a]\" \"$ARGV[$b]\" >/dev/null"))
+          { return '' }
+      }
+      else
+      {
+        if(system("comp $ARGV[$a] $ARGV[$b] >nul"))
+          { return '' }
+      }
+    }
+  }
+  if($timetest)
+  {
+    if((&timecomp)!=0)
+      { return '' }
+  }
+  return 1
+}
+
+# For the sort comparison algorithm, we need a smarter comparison function
+# which returns a transitive result: It is NOT sufficient that our comparison
+# function returns 0 if the files are equal and 1/-1 otherwise.
+# In fact, we must have that if file A is strictly less than file B, and B is
+# strictly less than C, then A and C are different.
+# For this reason, we must compare files alphanumerically. I do not know a
+# standard unix program which provides this functionality, and so we have to
+# do the comparison on foot.
+# We are paid for this by the fact that our algoriths needs less comparison
+# steps: Not O(n^2) but O(n(log n))
+# (or whatever the complexity is of the sorting algorithm that is used by perl;
+#  in case of quicksort this is at least O(n(log n)) in the average).
+
+# The behaviour of the following function depends on the value of $sorting.
+# If $sorting is 1, it returns -1,0,1 depending whether the file corresponding
+# to index $a is <,=,> than the file for index $b.
+# This is done in a way as described above but additionally such that
+# indices with @badfile set are always larger than other indices. Moreover, if
+# two files are equal it is not returned a zero,
+# but instead the one with the smaller index is considered as smaller.
+# So actually, if $sorting is 1, the value 0 is never returned.
+# If $sorting is '', then the behaviour is slightly different:
+# The value 0 is returned if the files corresponding to the indices $a and $b
+# are equal and none of it has $badfile set; otherwise the same value is
+# returned which would also be returned if $sorting=1.
+
+# For time reasons, the variable $rcomp is used but not declared as local.
+
+sub compare
+{
+  if(($showdot) && ($sorting))
+  {
+    if(++$dotcount>100)
+    {
+      $dotcount=0;
+      print STDERR ".";
+      $wasdot=1;
+    }
+  }
+  if($badfile[$a])
+  {
+    if(($sorting) && ($badfile[$b]))
+      { return($a <=> $b) }
+    return 1
+  }
+  if($badfile[$b])
+    { return(-1) }
+  if($ARGV[$a] ne $ARGV[$b])
+  {
+    if($nametest)
+    {
+      if($pathtest)
+        { return($ARGV[$a] cmp $ARGV[$b]) }
+      if(($rcomp=&namecomp($ARGV[$a],$ARGV[$b]))!=0)
+        { return $rcomp }
+    }
+    unless($nolength)
+    {
+      if(($rcomp=($size[$a] <=> $size[$b]))!=0)
+        { return $rcomp }
+      unless($nodiff)
+      {
+         local($A,$B);
+         unless(open(FA,"<$ARGV[$a]"))
+         {
+           &flushdot;
+           print STDERR "Warning: Cannot open file $ARGV[$a] but system claimed contrary\n";
+           $badfile[$a]=1;
+         }
+         unless(open(FB,"<$ARGV[$b]"))
+         {
+           &flushdot;
+           print STDERR "Warning: Cannot open file $ARGV[$b] but system claimed contrary\n";
+           $badfile[$b]=1;
+         }
+         if($badfile[$a])
+         {
+           if($badfile[$b])
+           {
+             if($sorting)
+               { return($a <=> $b) }
+           }
+           else { close(FB) }
+           return 1;
+         }
+         if($badfile[$b])
+         {
+           close(FA);
+           return(-1);
+         }
+         binmode(FA); binmode(FB);
+         while(($aread=read(FA,$A,1024))>0)
+         {
+           $bread=read(FB,$B,1024);
+           if($bread!=$aread)
+           {
+             &flushdot;
+             print STDERR "Warning: Length of $ARGV[$a] and $ARGV[$b] differs but system claimed contrary\n";
+             close(FB); close(FA);
+             return ($aread <=> $bread);
+           }
+           if(($rcomp=($A cmp $B))!=0)
+           {
+             close(FB); close(FA);
+             return $rcomp;
+           }
+         }
+         close(FA);
+         $bread=read(FB,$B,1);
+         close(FB);
+         if($bread>0)
+         {
+           &flushdot;
+           print STDERR "Warning: Length of $ARGV[$a] and $ARGV[$b] differs but system claimed contrary\n";
+           return (0 <=> $bread);
+         }
+      }
+    }
+    if($timetest)
+    {
+      if(($rcomp=&timecomp)!=0)
+        { return $rcomp }
+    }
+  }
+  if($sorting)
+    { return($a<=>$b) }
+  return 0
+}
+
+# The following function requires that
+# $sorting=''
+# Then the function has the same functionality than &isequalextern except that
+# external programs are used only if $extern is set.
+
+sub isequal
+{
+  if($extern)
+    { return(&isequalextern) }
+  return(&compare==0)
+}
+
+# The next function performs the bubble-comparison.
+# Since this is one of the two "main" functions, it is not necessary
+# to declare some variables as local.
+# Moreover, $a and $b must be global since they are implicit
+# parameters in &isequal (and its subfunctions)
+
+sub bubble
+{
+  for($a=0;$a<=$lastfile;$a++)
+  {
+    unless($double[$a])
+    {
+      $foundpair='';
+      for($b=$a+1;$b<=$#ARGV;$b++)
+      {
+        unless($double[$b])
+        {
+          if(&isequal)
+          {
+            unless($foundpair)
+            {
+              $foundpair=1;
+              if($wasdot) { print STDERR "\n" }
+              if($b<=$lastfile)
+                { print "Double: $ARGV[$a]" }
+              else
+                { print "Match:  $ARGV[$a]" }
+              $double[$a]=1;
+            }
+            elsif($b>$lastfile)
+              { print " and" }
+            $double[$b]=1;
+            if($b>$lastfile)
+            {
+              print " matches with $ARGV[$b]";
+              last # print only the first occurence in SECONDLIST
+            }
+            print " $ARGV[$b]"
+          }
+        }
+      }
+      if($foundpair)
+      {
+        print "\n";
+        $wasdot=''
+      }
+      elsif($showdot)
+      {
+        print STDERR ".";
+        $wasdot=1
+      }
+    }
+  }
+  if($wasdot) { print STDERR "\n" }
+}
+
+# The following function performs a binary search on the array @index.
+# The comparison function used is:        $a=$index[$j], &compare
+# where $j denotes a temporary index to compare with; the return value should
+# be <,=,> 0 if the entry corresponding to index $j is <,=,> than the search.
+# (Recall that in our case &compare compares $a with $b;
+#  thus we actually search for the file corresponding to index $b).
+# Returns -1 if search was unsuccesfull, otherwise it returns the LARGEST index
+# with equality.
+
+sub binsearch
+{
+  local($l,$r,$m,$c,$ret);
+  $ret=-1;
+  for($l=0,$r=$#index;$l<=$r;)
+  {
+    $m=int(($l+$r)/2); # Find the middle; for odd sizes it is not important
+                       # which of the two middle elements is chosen
+    $a=$index[$m]; $c=&compare; # Compare entry of index $m with search
+    if($c<=0)
+      { $l=$m+1; if($c==0) { $ret=$m } }
+    else #$c>0
+      { $r=$m-1 }
+    # If we would have wanted to return the SMALLEST index, we would only
+    # have to put the test $c==0 into the "else" part
+    # (and have to change $c<=0 to $c<0, of course).
+    # If we would have wanted to return SOME index (and gain speed), we could
+    # just return with $m as soon as we have equality.
+  }
+  return $ret
+}
+
+# The following function performs the tricky sort comparison.
+# Since this is one of the two "main" functions, it is not necessary
+# to declare some variables as local.
+# Moreover, @index, $a and $b must be global since they are implicit
+# parameters in &binsearch and &compare.
+
+sub tricky
+{
+  # The idea of the algorithm is to sort FILENAMES.
+  # For time reasons we do not sort @ARGV, @badfile, ... but instead
+  # one indexlist and will later make all references via this indexlist:
+
+  for($i=$lastfile;$i>=0;$i--)
+    { $index[$i]=$i }
+  $sorting=1;
+  @index=sort compare @index;
+  $sorting='';
+# &flushdot;
+
+  # Now we "sort in" all names ($b) of SECONDLIST with a binary search:
+  # If there is no match, we are done with the corresponding index $b.
+  # If there is a match, we let @double of the corresponding match point to $b
+  #   (unless @double already was a pointer: In this case, we are done with $b)
+
+  for($b=$lastfile+2;$b<=$#ARGV;$b++)
+  {
+    if($showdot)
+    {
+      if(++$dotcount>=100)
+      {
+        $dotcount=0;
+        print STDERR ",";
+        $wasdot=1;
+      }
+    }
+    if(($i=&binsearch)>=0)
+    {
+      unless($double[$index[$i]]>0)
+        { $double[$index[$i]]=$b }
+    }
+  }
+  &flushdot;
+
+  # It now remains to step once through the sorted list:
+  # We only have to check whether successive files are double or
+  # whether @double points to an element of SECONDLIST
+
+  $a=-1; # $a denotes the previous element to compare with
+  $foundpair='';
+  for($i=0;$i<=$lastfile;$i++)
+  {
+    $b=$index[$i];
+    if($a>=0)
+    {
+      if(&compare==0)
+      {
+        unless($foundpair)
+        {
+          $foundpair=1;
+          print "Double: $ARGV[$a]"
+        }
+        print " $ARGV[$b]"
+      }
+      elsif($foundpair)
+      {
+        $foundpair='';
+        print "\n"
+      }
+    }
+    if($double[$b]>0) # If we have a match with SECONDLIST:
+    {
+      unless($foundpair)
+        { print "Match:  $ARGV[$b]" }
+      else
+        { print " and" }
+      print " matches with $ARGV[$double[$b]]\n";
+      # Since this is the highest index that matches,
+      # we do not need to compare with current index in the next loop:
+      $a=-1; $foundpair='';
+    }
+    else
+      { $a=$b }
+  }
+  if($foundpair)
+    { print "\n" }
+}
+
+# Now the "main" program:
+# We call either &bubble or &tricky, depending on the arguments.
+
+if($bubble)
+  { &bubble }
+else
+  { &tricky }

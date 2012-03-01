@@ -1,0 +1,286 @@
+#!/usr/bin/perl
+
+# renreg $Revision: 1.2 $ by Martin Väth
+# martin@mvath.de
+
+# If the Environment-Variable path contains a '/', we assume that we are
+# in a Unix-like environmnet. Otherwise, we assume we are in DOS.
+if($ENV{'PATH'} =~ /\// )
+  { $delim=$sdelim="\'"; $scdefault='%' }
+else
+  { $sdelim='"'; $scdefault='+';
+    $dosinfo="\n\nIf you use Perl 5, you have to quote the arguments by \"\"" }
+
+sub help { $0 =~ /([^\/]*)$/; print <<"EOHELP";
+Usage: $1 [Option] ... [Option]        FROM  TO  [FROM  TO ] ...  [\@ ...]
+or     $1 [Option] ... -n ... [Option]  TO  FROM [FROM  FROM ...] [\@ ...]
+Purpose: Rename Files.  FROM may be regular expressions.
+If [\@ FILE FILE ...] is given, use this filelist instead of current directory.
+
+-n:   Number mode: Use second form of call
+-s:   Show only what would be done, do not actually rename
+-f/F: Force rename if destination already exists (F: do not even warn)
+-c x: Counter starts with digit number x (x: decimal). Default is 1.
+-S x: Step counter by x (x: decimal). Default is 1.
+-C\&:  \& becomes special character for counter in place of $scdefault (see -hr)
+-i:   Ignore case
+-g:   Replace all occurences in name (global)
+-v:   Be verbose
+-V:   Be extremely verbose (for debugging purposes only)
+-\@ magic: Use magic in place of \@ as the magic filename to separate arguments
+--:   Last option (to be able to look for strings like -i)
+-hs:  Print help on regular expression (in FROM)
+-hr:  Print help on special characters in TO
+Examples:
+  $1 $delim(\\n\*)\\.doc$delim $delim\$1.txt$delim          (rename all \*.doc into \*.tex)
+  $1 $delim(\.\*)\\.doc$delim $delim\$1.txt$delim           (the same)
+  $1 $sdelim.*\\.((wav)|(voc))$sdelim $delim${scdefault}3d.\$1$delim   (enumerate all \*.wav/voc)$dosinfo
+EOHELP
+exit;
+}
+
+sub shelp { print <<'EOREG';
+Regular expression for FROM (match must always be exact):
+.            Any character
+\n           Any character except '.'
+A*           None or more repeats of A
+A+           One or more repeats of A
+A? or A{0,1} Optional A (=none or one repeat of A)
+A{4}B{2,4}   AAAA followed by 2,3 or 4 repeats of B
+A|B          A or B
+(AB)+        Group AB, one or more repeats of this group
+\1           Same content as first group braced with ()
+\b \B \r \f \t  word boundary (No word boundary) return formfeed tab
+[A-Z\b]      any capital letter or backspace
+[^A-Z\d]     all except capital letter or digit
+\d \D        digit [0-9] (all except digit)
+\w \W        alphanumeric [a-zA-Z0-9_] (all except alphanumeric)
+\s \S        whitespace (all except whitespace)
+\115 \x4d \x4D character with octal value 115 (hexadezimal value 4d) (="M")
+\<character> usually becomes <character>, e.g. \( becomes (
+
+Examples: <f.?l+\.> matches <full.> <fill.> <fl.> but not <feel.> <file> <ff.>
+(.*) \(or not \1\)  matches  to be (or not to be) but not  a bee (or not a B)
+EOREG
+exit;
+}
+
+sub rhelp { print <<"EOREP";
+Special characters for TO:
+
+The first matching string from FROM which has been braced is output by
+\$1 or \$\{1\}    the second by \$2 or \$\{2\}  etc.
+
+${scdefault}d   Use a decimal         counting number
+${scdefault}?d  Use a decimal         counting number of ? digits
+${scdefault}x   Use a hex (lowercase) counting number
+${scdefault}?x  Use a hex (lowercase) counting number of ? digits
+${scdefault}X   Use a hex (uppercase) counting number
+${scdefault}?X  Use a hex (uppercase) counting number of ? digits
+EOREP
+exit;
+}
+
+sub countprep
+{
+  local($rr,$format);
+  $cmod='';
+  $replace=$repmask;
+  while($replace =~ /$screg(([1-9][0-9]*)?)([dxX])/)
+  {
+    $cmod=1;
+    if($1)
+      { $format="%0$1$3" }
+    else
+      { $format="%$3" }
+    $rr=sprintf("$format",$counter);
+    $replace =~ s/$screg([1-9][0-9]*)?[dxX]/$rr/;
+  }
+}
+
+sub prepsearch
+{
+  local($smod)=('');
+  if(($ARGV[0] eq "") || ($ARGV[0] eq "$magic")) { exit 0 }
+  $search=$ARGV[0]; shift(@ARGV);
+  $vverbose && print "FROM (as passed from shell): $search\n";
+
+  # Replace \n by [^.]
+  # Quote all unquoted $ ^ / ` " ' @ or # characters.
+  # For security reasons, eliminate \x where x is unknown letter.
+  # Moreover, if an uneven number of \ occurs at the end, eliminate last one.
+  # Finally, make match exact, i.e. add ^ at beginning and $ at end.
+  if($search =~ s/^((\\\\)*)(\\n)/$1\[^.\]/g) {$smod=1}
+  while($search =~ s/([^\\])((\\\\)*)(\\n)/$1$2\[^.\]/) {$smod=1}
+  if($search =~ s/^((\\\\)*)([\/\$\^\`\"\'\#\@])/$1\\$3/g) {$smod=1}
+  while($search =~ s/([^\\])((\\\\)*)([\/\`\"\'\#\@])/$1$2\\$4/) {$smod=1}
+  if($search =~ s/^((\\\\)*)(\\[aceg-qu-zACE-Z])/$1/g) {$smod=1}
+  while($search =~ s/([^\\])((\\\\)*)(\\[aceg-qu-zACE-Z])/$1$2/) {$smod=1}
+  if($search =~ s/^(\\\\)*\\$/$1/g) {$smod=1}
+  if($search =~ s/([^\\])(\\\\)*\\$/$1$2/g) {$smod=1}
+  $search = "^$search\$";
+  if($vverbose || ($verb && $smod))
+    { print "FROM (in Perl format): $search\n" }
+}
+
+sub preprep
+{
+  local($repmod)=('');
+  if($ARGV[0] eq "") { &help }
+  $repmask=$ARGV[0]; shift(@ARGV);
+  $vverbose && print "TO (as passed from shell): $repmask\n";
+
+  # Quote all unquoted ` " ' # / or @ characters
+  # Unquoted $: If 1-9... or {1-9...}  follows, replace by {1-9...};
+  #             Otherwise: Quote $
+  # For security reasons, eliminate \x where x is unknown replacement letter.
+  # Moreover, if an uneven number of \ occurs at the end, eliminate last one.
+  if($repmask =~ s/^((\\\\)*)([\/\`\"\'\#\@])/$1\\$3/g) {$repmod=1}
+  while($repmask =~ s/([^\\])((\\\\)*)([\/\`\"\'\#\@])/$1$2\\$4/) {$repmod=1}
+  if($repmask =~ s/^((\\\\)*\$)([1-9]\d*)(\D|$)/$1\{$3\}$4/g) {$repmod=1}
+  while($repmask =~ s/([^\\])((\\\\)*\$)([1-9]\d*)(\D|$)/$1$2\{$4\}$5/) {$repmod=1}
+
+  # In order to substitute all non-${1-9...} by something,
+  # temporarily replace ${1-9...} by x#{1-9...} and at the end x# by $
+  $repmask =~ s/^((\\\\)*)\$(\{[1-9]\d*\})/$1x\#$3/g;
+  while($repmask =~ s/([^\\])((\\\\)*)\$(\{[1-9]\d*\})/$1$2x\#$4/) {}
+  if($repmask =~ s/^((\\\\)*)\$/$1\\\$/g) {$repmod=1}
+  while($repmask =~ s/([^\\])((\\\\)*)\$/$1$2\\\$/) {$repmod=1}
+  $repmask =~ s/x\#/\$/g;
+
+  if($repmask =~ s/^((\\\\)*)(\\[ac-eg-mo-qsu-zA-Z0-9])/$1/g) {$repmod=1}
+  while($repmask =~ s/([^\\])((\\\\)*)(\\[ac-eg-mo-qsu-zA-Z0-9])/$1$2/) {$repmod=1}
+  if($repmask =~ s/^(\\\\)*\\$/$1/g) {$repmod=1}
+  if($repmask =~ s/([^\\])(\\\\)*\\$/$1$2/g) {$repmod=1}
+  if($vverbose || ($verbose && $repmod))
+    { print "TO (Perl mask): $repmask\n" }
+  &countprep;
+}
+
+sub prepstrings
+{
+  unless($prepared)
+  {
+    $prepared=1;
+    if($nmode) { &preprep }
+    &help if($ARGV[0] eq "");
+  }
+  &prepsearch;
+  unless($nmode) { &preprep }
+}
+
+sub setsc
+{
+  local($scnew)=@_;
+  if($scnew =~ /[\d\\dxX\#\/\$\"\'\`]/o)
+    { die "Not allowed as special character: $scnew\n" }
+  $sc=$screg=$scnew;
+  $screg =~ s/(\W)/\\$1/g;
+}
+
+$magic='@';
+$counter=$step=1;
+&setsc($scdefault);
+
+sub readarg { $optarg=$optrest; $optrest='';
+  if($optarg eq '') { $optarg=shift(@ARGV) }
+}
+sub helping {
+  if   ($optarg =~ /^\s*s/i){ &shelp }
+  elsif($optarg =~ /^\s*r/i){ &rhelp }
+  else{ &help }
+}
+optparse:while($ARGV[0] =~ /^-(.)(.*)$/)
+{
+  shift;
+  while($1 ne '')
+  {
+    $optlett=$1; $optrest=$2;
+    if   ($optlett eq 'n'){ $nmode=1 }
+    elsif($optlett eq 's'){ $showonly=1 }
+    elsif($optlett eq 'S'){ &readarg; $step=$optarg }
+    elsif($optlett eq 'f'){ $force=1 }
+    elsif($optlett eq 'F'){ $force=1; $nowarn=1 }
+    elsif($optlett eq 'c'){ &readarg; $counter=$optarg }
+    elsif($optlett eq 'C'){ &readarg; &setsc(substr($optarg,0,1)) }
+    elsif($optlett eq 'i'){ $ignore='i' }
+    elsif($optlett eq 'g'){ $global='g' }
+    elsif($optlett eq 'v'){ $verbose=1 }
+    elsif($optlett eq 'V'){ $verbose=1; $vverbose=1 }
+    elsif($optlett eq '@'){ &readarg; $magic=$optarg }
+    elsif($optlett =~ /[hH?]/){ &readarg; &helping }
+    elsif($optlett eq '-'){
+      if   ($optrest eq ''){ last optparse }
+      elsif($optrest =~ /^help(.*)$/i || $optrest =~ /^h(.*)$/i ||
+            $optrest =~ /^\?(.*)$/) { $optrest=$1; &readarg; &helping }
+      else{ die "Illegal option: --$optrest\nStopped" }
+      last
+    }
+    else{ die "Illegal option: $optlett\nStopped" }
+    last unless($optrest =~ /^(.)(.*)$/)
+  }
+}
+
+&help if($ARGV[0] eq '');
+
+&prepstrings;
+# After we read the first string, we look for @ (more precisely for magic):
+if($nmode) { $argstep=1 } else { $argstep=2 }
+for($i=0;$i<=$#ARGV;$i+=$argstep)
+{
+  if($ARGV[$i] eq "$magic") { last }
+}
+if($i<=$#ARGV)
+{
+  for($i=$#ARGV-$i-1,$j=$#ARGV;$i>=0;$i--,$j--)
+    { $dir[$i]="$ARGV[$j]" }
+}
+else
+  { opendir(DIR,'.'); @dir=readdir(DIR); closedir(DIR); }
+while(1)
+{
+  foreach $fname (@dir)
+  {
+    if(($fname ne ".") && ($fname ne ".."))
+    {
+      $_=$fname;
+      $vverbose && $cmod && print "TO (numbers substituted): $replace\n";
+      eval "\$found=s/\$search/$replace/$ignore$global";
+      die "Illegal filemask:\n$@" if($@);
+      if($found)
+      {
+        if($fname ne $_)
+        {
+          if($showonly)
+            { print "ren $fname $_\n" }
+          elsif($verbose)
+            { print "$fname -> $_\n" }
+          $avoid='';
+          if(-e "$_")
+          {
+            $avoid=1 unless($force);
+            unless($nowarn)
+            {
+              print STDERR "Warning: $_ already exists";
+              if($showonly)
+                { print "\n" }
+              else
+              {
+                if($force)
+                  { print STDERR " (renamed anyway)\n" }
+                else
+                  { print STDERR " (not renamed)\n" }
+              }
+            }
+          }
+          unless(($showonly) || ($avoid))
+            { rename($fname,$_) }
+        }
+        $counter+=$step;
+        &countprep;
+      }
+    }
+  }
+  &prepstrings;
+}
+

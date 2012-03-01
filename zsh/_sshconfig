@@ -1,0 +1,10 @@
+#compdef sshconfig
+_arguments -s -S : \
+'(* -)--help[print a brief help]' \
+'(* -)'{'--man','-\\?'}'[show extended help as a manpage]' \
+'(* -)'{'--version','-v','-V'}'[print version]' \
+{'(--debug -n '{'--show)-s','-s)--show'},'(--show -s '{'--debug)-n','-n)--debug'}}'[only show what would be done]' \
+{'(--delete -d '{'--uninstall)-u','-u)--uninstall'},'(--uninstall -u '{'--delete)-d','-d)--delete'}}'[delete HostName, HostKeyAlias]' \
+{'(--ip)-i+','(-i)--ip='}'[ip address]:IP:(1.2.3.4 000.000.000.000)' \
+{'(--host)-h+','(-h)--host='}'[set host as HostKeyAlias]:true-host: ' \
+'*:hostname:compadd -- $(sed -n -e "s/^Host //p" -- ~/.ssh/config 2>/dev/null)'

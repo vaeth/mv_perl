@@ -1,0 +1,21 @@
+#compdef rrep
+_arguments -S -A '-*' : \
+'(1 2 * -)'{'-help','-h','-H','-\\?'}'[help]' \
+'(2)-g[Grep only]' \
+'-o[Replace only the first occurence in each line (default)]' \
+'-a[Replace all occurences in each line]' \
+'-i[Ignore case]' \
+'(-S)-s[Recurse subdirectories]' \
+'(-s)-S[Recurse subdirectories and suppress "forgotten quote" error]' \
+'-y[Assume "yes" on all queries but ask before changing files (implies -a)]' \
+'-Y[Assume "yes" on all queries (implies -a); quiet operation]' \
+'-Z[As -Y but print changes]' \
+'-p[Treat "Search" as plain character string]' \
+'-P[Treat "Replace" as plain character string]' \
+'-F[Ask for "Search" and "Replace" instead of reading from command line]' \
+'-f+[Read "Search" and "Replace" from FILE]:file containing search/replace:_files' \
+'-w[Print warning if "Search" or "Replace" have been modified]' \
+'-V[Be verbose (implies -w)]' \
+'1:search: ' \
+'2:replace: ' \
+'*:files:_files'

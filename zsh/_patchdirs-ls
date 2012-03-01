@@ -1,0 +1,13 @@
+#compdef patchdirs-ls
+_arguments -s -S : \
+'(* -)'{'--help','-h'}'[print help]' \
+'(* -)'{'--version','-V'}'[print version]' \
+{'(--strip)-p+','(-p)--strip='}'[cut first num "/" levels]:strip-num:(0)' \
+{'(--show)-s','(-s)--show'}'[only show what would be done]' \
+{'(--verbose)-v+','(-v)--verbose='}'[verbose level NUM]:verbose-level:(0)' \
+{'(--delete)-d','(-d)--delete'}'[delete files not in destlist (default)]' \
+{'(--nodelete)-D','(-D)--nodelete'}'[do not delete any files]' \
+{'(--twins)-t+','(-t)--twins='}'[choose twin mode]:twin-mode:(0 1 2 3 4)' \
+{'(--ignorevoid)-e','(-e)--ignorevoid'}'[continue if file does not exist]' \
+'(--twins -t --ignorevoid -e '{'--ignore)-i+','-i)--ignore='}'[same as --twins=4 --ignorevoid]' \
+'*:file:_files'

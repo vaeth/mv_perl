@@ -1,0 +1,1261 @@
+#!/usr/bin/perl -w
+use strict;
+use integer;
+use Getopt::Long;
+use Pod::Usage;
+use File::Find;
+use Fcntl ':mode';
+use Time::localtime;
+#use Digest::MD5;
+
+our ($script)=($0=~/([^\/]*)$/);
+sub version () { '$Revision: 1.10 $ '=~ /Revision:\s([^\s]*)/;
+  print "Patchdirs v$1 by Martin Väth\n"
+   .    "martin\@mvath.de\n" ; exit 0 }
+
+our ($dirsepdef,$mdot,$ddot)=('/','.','..');
+our $sepdef='"';
+
+=head1 NAME
+
+patchdirs - calculate checksums, patch directory structure, look for duplicates
+
+=head1 SYNOPSIS
+
+There are three modes of calling:
+
+=over 8
+
+=item B<patchdirs> [options] B<store> I<dirs> B<E<gt>>I<destlist>
+
+=item B<patchdirs> [options] B<restore> I<destlist>
+
+=item B<patchdirs> [options] B<double> I<dirs>
+
+=back
+
+Instead of the keywords B<store> B<restore> B<double>
+also one of the options B<--store> B<--restore> B<--double>
+can be specified to choose the mode.
+
+Options B<--man> (or B<-?>) respectively B<--help> (or B<-h>)
+give an explicit help as a manpage resp. an ascii-text.
+
+=head1 DESCRIPTION
+
+In B<store> mode, the directories I<dirs> are listed recursively, together
+with MD5-checksum, length, attributes, owner/group, and (modification) dates.
+The output is meant to be redirected to some file. (Note that you can modify
+this file or use options to add/subtract times to "reconstruct" a different
+tree later on).
+
+The B<restore> mode can be used to keep two different filesystems in sync
+(without a direct connection) or to restore an older state of the filesystem.
+In this mode, the argument I<destlist> should be the file (or several files)
+created in B<store> mode on the original filesystem.
+The directory structure of the current filesystem is then modified to match
+I<destlist> as far as possible:
+This includes creation of directories and symbolic links and
+moving/renaming/copying/deletion of already existing files and
+changing of mod/owner/dates. To recognize identical files, the checksum
+information is used (and only if it is equal a heuristic is used).
+  Of course, no new files can be created from the checksum information alone:
+A list of missing files (compared to I<destlist>) is output at the end.
+I took much care that the restoration works fine even if filenames have been
+swapped in a circular way or exchanged with directory names.
+  Of course, I give no guarantee that all special cases are treated correctly.
+However, the command is written in a way that the actual changes are the last
+thing which is done: Thus, if the program exits with a "normal" error,
+no changes to the filesystem have been done so far. I recommend to run this
+mode first with the B<-n> option and to glance through the output before
+doing the actual run. If long directories are to be considered and so the
+calculation of checksums takes a considerable amount of time, I recommend
+also to scan the current directory structure first in B<store> mode and to
+read the checksum information only with the B<-f> switch.
+
+The B<double> mode can be used to find duplicate files:
+All files which are double in I<dirs> (according to the checksum) are listed.
+If more than two files are duplicate, they all occur on the same line of
+output. Each line and also the list of lines is sorted alphabetically.
+If you frequently have to compare new files against a fixed directory tree,
+this call is very useful in conjunction with the B<-f> option.
+Note that if you want to "update" an older I<destlist> and you have only
+added new files you can use the B<-f> option also for store mode
+to save a lot of time.
+
+=head1 OPTIONS AND ARGUMENTS
+
+=over 8
+
+=item B<--file=>I<file> or B<-f> I<file>
+
+In addition (for B<store> or B<double> mode) respectively instead
+(for B<restore> mode) of getting the actual tree structure (with checksums)
+by recursing through the directories, the required data
+(filenames/checksums/modes/...) is read from I<file>.
+I<file> might have been obtained by an earlier call in B<store> mode.
+
+This has two purposes:
+
+=over 4
+
+=item 1.
+
+It is I<very> fast, since no checksums have to be calculated -
+use it if you frequently have to compare files against a fixed
+directory tree.
+
+=item 2.
+
+You might use this feature to I<hide> from the program the
+existence of certain files (manipulate I<file> by hand).
+
+=back
+
+It is explicitly admissible to use this option repeatedly:
+The I<file>s are then concatenated. It is also admissible
+to pass a comma-separated list of filenames to this option.
+As usual in Perl, if a filename is "-", standard input is used instead.
+If a filename occurs more than once within <file>, always the first
+occurence of this name is assumed to be the correct one.
+(In particular, if a file listed for B<double> mode occurs in
+I<file>, then its checksum is I<never> calculuted, even if
+it occurs in I<dirs>).
+
+=item B<--files=>I<file1> I<file2> ...  or B<-i> I<file1> I<file2> ...
+
+Synonymous to B<--file> I<file1> B<--file> I<file2> ...
+
+The advantage over the B<--file> option is that this works perfectly
+with the shell pattern expansion. For example (if you work with a usual
+unix shell) you can use B<--files *.pds> to read all files matching
+the pattern B<*.pds>.
+
+A disadvantage compared to the B<--file> option is that another option
+(starting with the character B<->) B<must> follow to mark the end of
+the list. For this reason, it is not possible with this option to use
+a filename starting with the character B<-> (the only exception is the name
+B<-> itself which has the usual magic meaning).
+As with B<--file>, the character B<,> is considered as a separation character
+for several names.
+
+=item B<--sum-cmds=>I<cmds> or B<-S> I<cmds>
+
+You may list several checksum-commands in I<cmds>, separated by ";".
+For each of the commands in I<cmds>, "command I<filename>" is
+executed in the directory where filename resides.
+It is expected that command prints the checksum to standard
+output (possibly followed by some other data after a whitespace).
+If several commands are listed, each one is executed and the actual checksum
+is built by concatenating the outputs of the programs with ":".
+The command "." is magic and means that the Perl package
+B<Digest::MD5> is used. The size of the file is always automatically the first
+"checksum".
+
+=over 4
+
+=item Example: --sum-cmds='.;cksum;sum;sum -s'
+
+will concatenate the checksums of B<Digest::MD5>
+and of the standard unix commands "cksum I<name>", "sum I<name>",
+and "sum -s I<name>". This example creates an extremely long
+(slow but secure) checksum.
+
+=back
+
+The default is --sum-cmds='.' which means that only
+B<Digest::MD5> is used (which is reasonably secure and fast).
+
+=item B<--strip=>I<num> or B<-p> I<num>
+
+Cut the first I<num> "/" from the directory names in the filenames read from
+I<destlist> or with the B<-f> option.
+For B<restore> mode (without the B<-f> option), I<num>E<gt>0 means
+that only the filenames of I<destfile> are stripped and automatically the
+current directory and I<all> its subdirectories are considered as the current
+directory structure. (Treat with care: Recall that all files not
+existing in I<destfile> are deleted by default).
+If I<num>E<lt>0, then "../" is prepended -I<num> times.
+
+=item B<--output-strip=>I<num> or <-P> I<num>
+
+Cut the first I<num> "/" from the directory names in the filenames output in
+B<store> mode. Note that <num>=1 usually has no effect, because only "./" is
+stripped which is prepended again for clarity.
+If I<num>E<lt>0, then "../" is prepended -I<num> times.
+
+=item B<--dry-run> or B<-n>
+
+Only show what would be done, do not alter anything.
+
+=item B<--show> or B<-s>
+
+Same as -n
+
+=item B<--separator=>I<X> or B<-x> I<X>
+
+Use I<X> as field separator in I<destlist> (default is E<34>).
+
+=item B<--dirsep=>I<X> or B<-X> I<X>
+
+Use I<X> as directory separator (default is /).
+
+=item B<--delete> or B<-d>
+
+Delete files/dirs not in DESTLIST (default)
+
+=item B<--owner> or B<-o>
+
+Modify owner/group (default)
+
+=item B<--attrib> or B<-a>
+
+Modify permission attributes (default)
+
+=item B<--time> or B<-t>
+
+Modify modification time (default)
+
+=item B<--copy> or B<-z>
+
+Duplicate files if this appears appropriate (default)
+
+=item B<--checksum> or B<-c>
+
+Calculate checksum (default) (only for store)
+
+=item B<--recurse> or B<-r>
+
+Recurse (default)
+
+=item B<--follow-link> or B<-F>
+
+Follow symbolic links (loops are avoided)
+
+=item B<--addseconds=>I<num>
+
+Add I<num> seconds when reading the time of a file (useful for FAT partitions)
+
+=item B<--subseconds=>I<num>
+
+Sub I<num> seconds when reading the time of a file (useful for FAT partitions)
+
+=item B<--upper> or B<-u>
+
+Make all names uppercase (useful for FAT partitions)
+
+=item B<--lower> or B<-l>
+
+Make all names lowercase (useful for FAT partitions)
+
+=item B<--nodelete> or B<-D>
+
+Do not delete any files/dirs
+
+=item B<--noowner> or B<-O>
+
+Do not modify owner/group
+
+=item B<--noattrib> or B<-A>
+
+Do not modify permission attributes
+
+=item B<--notime> or B<-T>
+
+Do not modify modification time
+
+=item B<--nocopy> or B<-Z>
+
+Do not duplicate files
+
+=item B<--nochecksum> or B<-C>
+
+Do not calculate checksum (only for B<store> mode)
+
+=item B<--norecurse> or B<-R>
+
+Do not recurse, i.e. use only the explicitly given dirs
+
+=item B<--nofollow-link>
+
+Do not follow symbolic links (default)
+
+=item B<--noupper> or B<-U>
+
+Do not make all names uppercase (default)
+
+=item B<--nolower> or B<-L>
+
+Do not make all names lowercase (default)
+
+=item B<--force>
+
+If ambiguity occurs: Do not stop but instead move first candidate
+
+=item B<--quiet> or B<-q>
+
+Be quiet
+
+=item B<--version> or B<-V>
+
+Print version number
+
+=back
+
+The options B<-O> B<-A> B<-T> B<-C> "B<-X= >" in B<store> mode create an output
+which might be better readable by humans for diff, but it should not be read
+in again in B<restore> mode.
+(For B<-X> this is OK, provided that the same separator is used for
+B<restore> mode, too;
+the separator should of course not conflict with the other symbols).
+For B<double> mode, it does not harm if files have been generated with
+B<-T> B<-A> B<-O>.
+
+
+=head1 AUTHOR
+
+Martin VE<auml>th E<lt>martin@mvath.deE<gt>
+
+=cut
+
+# Default for the Options:
+
+our $outstrip=0;
+our $strip=0;
+our $force='';
+our $quiet='';
+our $show='';
+our $follow='';
+our $dodelete=1;
+our $modowner=1;
+our $modattrib=1;
+our $modtime=1;
+our $dupcopy=1;
+our $calccheck=1;
+our $dirsep=$dirsepdef;
+our $sep=$sepdef;
+our $sumcmds='.';
+our $upper='';
+our $lower='';
+our @FILES=();
+our $recurse=1;
+our $mode='';
+our $addseconds=0;
+our $subseconds=0;
+
+# Parse Options:
+
+$Getopt::Long::bundling=1;
+GetOptions(
+  'help|h', sub { pod2usage(1) },
+  'man|?', sub { pod2usage(-verbose=>2) },
+  'version|V', \&version,
+  'show|dry-run|s|n', \$show,
+  'delete|d', \$dodelete,
+  'nodelete|D', sub { $dodelete='' },
+  'owner|o', \$modowner,
+  'noowner|O', sub { $modowner='' },
+  'attrib|a', \$modattrib,
+  'noattrib|A', sub { $modattrib='' },
+  'time|t', \$modtime,
+  'notime|T', sub { $modtime='' },
+  'copy|z', \$dupcopy,
+  'nocopy|Z', sub { $dupcopy='' },
+  'checksum|c', \$calccheck,
+  'nochecksum|C', sub { $calccheck='' },
+  'recurse|r', \$recurse,
+  'norecurse|R', sub { $recurse='' },
+  'follow-link|F', \$follow,
+  'nofollow-link', sub { $follow='' },
+  'upper|u', \$upper,
+  'noupper|U', sub { $upper='' },
+  'lower|l', \$lower,
+  'nolower|L', sub { $lower='' },
+  'output-strip|P=i', \$outstrip,
+  'strip|p=i', \$strip,
+  'separator|x=s', \$sep,
+  'dirsep|X=s', \$dirsep,
+  'sum-cmds|S=s', \$sumcmds,
+  'file|f=s', \@FILES,
+  'files|i=s', sub { push @FILES,$_[1];
+    push @FILES,shift @ARGV while(@ARGV && !($ARGV[0]=~/^-./)) },
+  'force', \$force,
+  'quiet|q', \$quiet,
+  'addseconds=i', \$addseconds,
+  'subseconds=i', \$subseconds,
+  'store', sub { $mode="store" },
+  'restore', sub { $mode="restore" },
+  'double', sub { $mode="double" }
+) or pod2usage(2);
+
+# Interpreting the parsed values:
+
+@FILES = split(/,/,join(',',@FILES));
+
+$addseconds-=$subseconds;
+
+
+# Get mode unless this was specified as an option
+unless($mode)
+{
+  $mode=shift;
+  unless(defined($mode))
+    { pod2usage("$script: Mode must be specified") }
+}
+
+our $Mdot=$mdot; $Mdot =~ s/(\W)/\\$1/g;
+our $Ddot=$ddot; $Ddot =~ s/(\W)/\\$1/g;
+our $Dirsep=$dirsep; $Dirsep =~ s/(\W)/\\$1/g;
+our @SUMCMDS=split(/;/,$sumcmds);
+# We do 'use Digest::MD5' at run-time, only if it is needed:
+# In this way, the non-existence of this module does not give an error if
+# by the options only other checksum-programs are required.
+# Since 'use' is executed at compile-time, we have to use 'require' and do the
+# import()-initialization by hand.
+foreach my $i (@SUMCMDS)
+{
+  if($i eq '.')
+    { require Digest::MD5; Digest::MD5->import(); last }
+}
+
+our @A=(); our %Afullname=(); our @Adirs=();
+our @B=(); our %Bfullname=(); our %Bcheck=();
+if($mode eq "store")
+{
+  &standardlist;
+  &printlist(\@A);
+}
+elsif($mode eq "restore")
+{
+  if($#FILES>=0)
+  {
+    { # Dirty Perl trick: We fake arguments for while(<>) ...
+      local (@ARGV)=@FILES;
+      &readlist(\@B,\@Adirs,\%Bfullname);
+    }
+    &readlist(\@A,\@Adirs,\%Afullname);
+  }
+  else
+  {
+    &readlist(\@A,\@Adirs,\%Afullname);
+    if($strip>0)
+      { @Adirs=('.'); $strip=0 }
+    &makelist(\@B,\%Bfullname,\@Adirs);
+  }
+  &MakeCheck(\@B,\%Bcheck);
+  &patchlist;
+}
+elsif($mode eq "double")
+{
+  &standardlist;
+  &printdoubles;
+}
+else { pod2usage("$script: No mode specified") }
+
+sub standardlist ()
+{
+  if($#ARGV<0 && $#FILES<0) { @ARGV=($mdot) }
+  @A=(); %Afullname=();
+  if($#FILES>=0)
+  {
+    { # Dirty Perl trick: We fake arguments for while(<>) ...
+      local (@ARGV)=@FILES;
+      &readlist(\@A,\@Adirs,\%Afullname);
+    }
+  }
+  if($#ARGV>=0)
+    { &makelist(\@A,\%Afullname,\@ARGV) }
+}
+
+our ($A,$fullhash,$dirs,$justrecursing,$alldirs);
+sub makelist (\@\%\@)
+{ local($A,$fullhash,$dirs)=@_;
+  my @mydirs=();
+  foreach my $a (@$dirs)
+  {
+    my $b=&unifyname($a);
+    if(-d $b)
+      { push @mydirs,$b }
+  }
+  if($#mydirs<0)
+    { return }
+  @mydirs=sort @mydirs;
+  local $justrecursing=''; foreach (@mydirs) { &makeentry }
+  $justrecursing=1;
+  find(
+  {
+    follow_fast=>$follow,
+    preprocess=>sub
+    {
+      unless($quiet)
+        { print STDERR "Scanning Directory $File::Find::dir\n" }
+      return sort(@_)
+    },
+    wanted=>\&makeentry
+  },@mydirs);
+}
+sub makeentry () {
+  if(($_ eq $mdot) || ($_ eq $ddot)) { return }
+  unless($recurse)
+    { $File::Find::prune=1 }
+  my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,
+  $size,$atime,$mtime,$ctime,$blksize,$blocks)=($follow)?stat($_):lstat($_);
+  my $name=$_;
+  if($justrecursing)
+    { $name=&unifyname("$File::Find::dir$dirsep$_") }
+  if(defined($fullhash->{$name}))
+    { return }
+  my $checksum;
+  if(S_ISLNK($mode))
+  {
+    my $linkname=readlink;
+    $checksum="->$linkname";
+  }
+  elsif(S_ISDIR($mode))
+    { $checksum='dir' }
+  elsif(S_ISREG($mode))
+  {
+    if($calccheck)
+    {
+      unless($quiet)
+        { printf STDERR "Checksumming $name\n" }
+      $checksum=$size;
+      foreach my $cmd (@SUMCMDS)
+      {
+        if($cmd eq '.')
+        {
+          open(FILE,"<$_") or die "$script: Cannot open $name\n$!\nStopped";
+          binmode(FILE);
+          my $cksum=Digest::MD5->new->addfile(*FILE)->b64digest;
+          $checksum.=":$cksum";
+          close(FILE);
+        }
+        elsif($cmd ne '')
+        {
+          my @C=split(/\s/,`$cmd \"$_\"`);
+          $checksum.=":$C[0]"
+        }
+      }
+    }
+    else { $checksum=$size }
+  }
+  else
+    { $checksum=sprintf("other:%x",S_IFMT($mode)) }
+  $mode=sprintf("%04o", S_IMODE($mode));#$mode & 07777
+  my $time=ctime($mtime+$addseconds);
+  my $owner="$uid.$gid";
+  push @$A,[ $name, $checksum, $mode, $owner, $time ];
+  $fullhash->{$name}=$#$A;
+}
+
+sub printlist (\@)
+{ my($A)=@_;
+  foreach my $f (@$A)
+  {
+    my ($name, $checksum, $mode, $owner, $time)=@$f;
+    if($outstrip>0)
+    {
+      unless($name =~ s/^(.*?$Dirsep){$outstrip}/$mdot$dirsep/o)
+      {
+        print STDERR "Warning: Ignoring $name (contains less $dirsep "
+         .  "than you want to strip).\n";
+        next
+      }
+    }
+    if($outstrip<0)
+      { $name = "$ddot$dirsep" x (-$outstrip) . "$name" }
+    print "$name$sep$checksum";
+    $modattrib and print "$sep$mode";
+    $modowner and print "$sep$owner";
+    $modtime and print "$sep$time";
+    print "\n";
+  }
+}
+
+sub readlist (\@\@\%)
+{ local($A,$alldirs,$fullhash)=@_;
+  my %hashdir=();
+  while(<>)
+  {
+    chomp;
+    if(/^\s*$/o) { next }
+    if(/^\s*\#/o){ next }
+    my ($name,$checksum,$mode,$owner,$time)=split(/$sep/o);
+    if($strip>0)
+    {
+      unless($name =~ s/^(.*?$Dirsep){$strip}/.$dirsep/o)
+      {
+        print STDERR "Warning: Ignoring $name (contains less $dirsep "
+         .  "than you want to strip).\n";
+        next
+      }
+    }
+    if($strip<0)
+      { $name = "$ddot$dirsep" x (-$strip) . "$name" }
+    $name=&unifyname($name);
+    my $currdir=$mdot;
+    if($name =~ /^(.*)$Dirsep/o)
+      { $currdir=$1 }
+    else
+      { $name = "$currdir$dirsep$name" }
+    if(defined($fullhash->{$name}))
+      { print STDERR "Warning: Ignoring second occurence of $name\n"; next }
+    $hashdir{$currdir}='';
+    push @$A,[ $name, $checksum, $mode, $owner, $time ];
+    $fullhash->{$name}=$#$A;
+#   if($twolists && eof) { $twolists=''; return }
+  }
+  @$alldirs=keys(%hashdir);
+}
+
+sub unifyname ($)
+{ my($name)=@_;
+  my @globbed=glob($name);
+  if($#globbed>=0)
+    { $name=$globbed[0] }
+  $name =~ s/$Dirsep($Dirsep)+/$dirsep/go;     # //  -> /
+  $name =~ s/$Dirsep($Mdot$Dirsep)+/$dirsep/go;# /./ -> /
+                                               # At the end:
+  $name =~ s/$Dirsep$Mdot$//o;                 # /.  -> ''
+  $name =~ s/(.)$Dirsep$/$1/o;                 # */  -> * (if * is nonempty)
+  unless($name =~ /^(($Mdot)|($Ddot))?$Dirsep/o)# * -> ./* (if reasonable)
+    { $name= "$mdot$dirsep$name" }
+  $name =~ s/^$Mdot$Dirsep$Ddot$Dirsep/$ddot$dirsep/go; # ./../ -> ../
+  $name =~ # /*/../ -> / (if * is not ..)
+    s/($Dirsep([^$Dirsep]*)$Dirsep$Ddot$Dirsep)/($2 eq $ddot)?$1:$dirsep/ge;
+  $name =~ s/($Dirsep([^$Dirsep]*)$Dirsep$Ddot)$/($2 eq $ddot)?$1:$dirsep/e;
+  if($upper)    { return uc($name) }
+  elsif($lower) { return lc($name) }
+  if($name =~ /^$Mdot$Dirsep(($Ddot)|($Mdot))$/o)
+    { return $1 }
+  return $name
+}
+
+sub MakeCheck (\@\%)
+{ my ($A,$check)=@_;
+  %$check=();
+  for(my $j=0;$j<=$#$A;$j++)
+  {
+    my ($name, $checksum, $mode, $owner, $time) = @{$A->[$j]};
+    unless(defined($check->{$checksum})) { $check->{$checksum}=[] }
+    push @{$check->{$checksum}},$j;
+  }
+}
+
+our ($tolink,@NotExist,%FromName);
+our (@MkDirCmds,@LinkCmds,@MovCmds,@CopyCmds,@DelCmds,@RmDirCmds);
+our (@AfterRmDirCmds,@ModCmds);
+our (@copylist,%NeededDir,@DeletedIndex);
+sub patchlist ()
+{
+  my $willdie='';
+  local @NotExist=();# List of missing files
+  local %FromName=();# Index: File to move. Content: Where to move.
+  local @MkDirCmds=();
+  local @LinkCmds=();
+  local @MovCmds=();
+  local @CopyCmds=();
+  local @DelCmds=();
+  local @RmDirCmds=();
+  local @AfterRmDirCmds=();
+  local @ModCmds=();
+  local @copylist=();# Content: Two-element-array(reference):
+                     #          From(as index), To(as name)
+  local %NeededDir=();#Directories which implicitly exist in a pathname
+  local @DeletedIndex=(); $#DeletedIndex=$#B;# Did we decide to move this file?
+
+  # Pass 1: We decide which files to move where (collect into %FromName).
+  #         Also build @ModCmds, @LinkCmd, @MkDirCmds, @copylist, @NotExist,
+  #         @DeletedIndex,%NeededDir.
+  for(my $i=0;$i<=$#A;$i++)
+  {
+    #if(($i%50)==0) { print STDERR "." }
+    my $f=$A[$i];
+    my ($Aname, $Achecksum, $Amode, $Aowner, $Atime)=@$f;
+    if(&isordinary($Achecksum))
+    {
+      my $sumarr=$Bcheck{$Achecksum};
+      if(defined($sumarr))   # We have a file with the required checksum for $f
+      {
+        my $move=1;
+        my @movecand=();   # Optimal move candidates
+        my @movecandsub=();# Suboptimal move candidates
+        foreach my $j (@$sumarr)
+        {                    # For all existing files $g with this checksum
+          if($DeletedIndex[$j]) {next}# (Only if this file has not been moved)
+          my $g=$B[$j];
+          my ($Baname, $Bchecksum)=@$g;
+          my $ia=$Afullname{$Baname};
+          if(defined($ia))
+          {                  # Some file should stay at $g's place.
+            if($ia!=$i)
+            {                # If this file is differrent than $f and ...
+              my $fa=$A[$ia];
+              my ($Aaname, $Aachecksum, $Aamode, $Aaowner, $Aatime)=@$fa;
+              if($Aachecksum ne $Bchecksum) #...if this file has another
+              {                             #   checksum
+                push @movecandsub,$j;       #    -> $g is candidate for moving
+              }
+              # If it has the same checksum, we assume that it cannot be moved
+            }
+            else             # This is the same file as $f: No moving required
+            {
+              $move=''; @movecand=($j); @movecandsub=(); last;
+            }
+          }
+          else               # $g should even be deleted
+          {                  # -> very good candidate
+            push @movecand,$j;
+          }
+        }
+        if(($#movecand<0) && ($#movecandsub<0))
+        { # Although we have files with a matching checksum, each of these
+          # files already appears to be on the right place or has already
+          # been moved to the right place.
+          if($dupcopy)
+          {
+            my ($isnew,$j)=&makedirsfor($Aname,$Achecksum);
+            if($isnew)
+            {
+              $j=$sumarr->[0];
+              push @copylist,[$j,$Aname];
+            }
+            &changemods($Aname,$Amode,$Aowner,$Atime,'',$isnew,$j);
+          }
+          else
+            { push @NotExist,$f }
+        }
+        else
+        {
+          my $j;            # Index of chosen movecandidate
+          my $morecand='';  # More than 1 candidate -> print an error/warning.
+          if($#movecand==0) # There is precisely one optimal:
+            { $j=$movecand[0] }
+          else
+          {
+            push @movecand,@movecandsub;
+            if($#movecand==0) # There is precisely one (sub)optimal
+              { $j=$movecand[0] }
+            else # There is some ambiguity.
+            {    # In this case, we decide by the name
+              my @name=();
+              my @namesub=(); # suboptimal (case insensitive) matching
+              foreach my $jt (@movecand)
+              {
+                my $g=$B[$jt];
+                my ($Bname)=@$g;
+                my $Abase=&basename($Aname);
+                my $Bbase=&basename($Bname);
+                if(($Abase ne '') && ($Bbase ne ''))
+                {
+                  if($Abase eq $Bbase)
+                    { push @name,$jt }
+                  elsif(uc($Abase) eq uc($Bbase))
+                    { push @namesub,$jt }
+                }
+              }
+              if($#name==0)   # There is precisely one optimal:
+                { $j=$name[0] }
+              else
+              {
+                push @name,@namesub;
+                if($#name<0)  # No name at all:
+                {
+                  $morecand=1;
+                  $j=$movecand[0];
+                }
+                else          # Several optimal names or only suboptimal names:
+                {
+                  $morecand=1;# We have a warning/error in any case
+                  $j=$name[0];
+                }
+              }
+            }
+          }
+          my $g=$B[$j];
+          my ($Bname)=@$g;
+          if($move)
+          {
+            if($morecand)
+            {
+              if($force)
+                { print STDERR "Warning" }
+              else
+                { print STDERR "Error"; $willdie=1 }
+              print STDERR ": "
+               . "The following are candidates for moving to $Aname\n";
+              foreach my $jt (@movecand)
+              {
+                local *STDOUT=*STDERR;
+                &printnice($B[$jt])
+              }
+              if($force)
+              {
+                print STDERR "\tI have chosen the candidate $Bname\n";
+              }
+              else
+              {
+                print STDERR "\tWith option --force my choice is $Bname\n"
+              }
+            }
+            if(defined($FromName{$Bname}))
+            {
+              die "Error: This error should never occur.\n"
+               .  "\tMy logic would move the same files several times "
+               .  "to different occassions. "
+               .  "To be on the safe side, I do nothing at all.\n"
+               .  "Stopped";
+            }
+            $FromName{$Bname}=$Aname;
+            $DeletedIndex[$j]=1;
+            &makedirsfor($Aname,'');
+          }
+          &changemods($Aname,$Amode,$Aowner,$Atime,'','',$j);
+        }
+      }
+      else# No file with a checksum for $f exists -> No chance to copy it.
+        { push @NotExist,$f }
+    }
+    else # directory, link, or other strange filetype:
+    {
+      my $tolinkRemember=$tolink; # $tolink is set by
+                                  # &isordinary as a side effect
+      if(&isdircheck($Achecksum)) # Directory:
+      {
+        my ($isnew,$j)=&makedirsfor("$Aname$dirsep",'');
+        &changemods($Aname,$Amode,$Aowner,$Atime,'',$isnew,$j);
+      }
+      elsif(&isother($Achecksum)) # Other strange filetype:
+      {
+        my ($isnew,$j)=&makedirsfor("$Aname",$Achecksum);
+        if($isnew)
+        {
+          push @LinkCmds,"touch \"$Aname\"";
+          print STDERR "Warning: Special type file $Aname created "
+           . "as ordinary file\n";
+        }
+        &changemods($Aname,$Amode,$Aowner,$Atime,'',$isnew,$j);
+      }
+      else                        # Link:
+      {
+        my ($isnew,$j)=&makedirsfor("$Aname",$Achecksum);
+        if($isnew)
+          { push @LinkCmds,"ln -s \"$tolinkRemember\" \"$Aname\"" }
+        &changemods($Aname,$Amode,$Aowner,$Atime,1,$isnew,$j);
+      }
+    }
+  }
+
+  # Pass 1.5: Create @CopyCmds
+  # There are two reasons why the name could have been changed in the meantime:
+  # Either the original name (in $B) might have been changed by &makedirsfor
+  # (in case of name collision), or the file should have been moved away.
+  # For the first reason, we had to collect the source only in index form.
+  foreach my $a (@copylist)
+  {
+    my $to=$a->[1];
+    my $from=&thename($B[$a->[0]]);
+    my $froma=$FromName{$from};
+    if($froma)
+      { $from=$froma }
+    push @CopyCmds,"cp -p -i \"$from\" \"$to\"";
+  }
+
+  # Pass 2: We search for the existing files which have not already been moved.
+  #         The corresponding delete commands are collected in @DelCmds.
+  foreach my $g (@B)
+  {
+    my ($Bname, $Bchecksum, $Bmode, $Bowner, $Btime)=@$g;
+    unless(defined($FromName{$Bname}))
+    {
+      unless(defined($Afullname{$Bname}))
+      {
+        if(&isdircheck($Bchecksum))
+        {
+          unless(defined($NeededDir{$Bname}))
+          {
+            #push @RmDirCmds,"test -h \"$Bname\" && rm -- \"$Bname\" || rmdir -- \"$Bname\""
+            if($follow)
+              { push @RmDirCmds,"test -h \"$Bname\" && rm -- \"$Bname\" || rmdir -- \"$Bname\"" }
+            else
+              { push @RmDirCmds,"rmdir -- \"$Bname\"" }
+          }
+        }
+        elsif($dodelete)
+          { push @DelCmds,"rm -- \"$Bname\"" }
+      }
+    }
+  }
+
+  # Now we prepare the move action (from the index of %FromName to its content)
+  # We may not just collect the corresponding 'mv' commands, since loops are
+  # not excluded (e.g. if two filenames were swapped).
+  foreach my $p (keys(%FromName))
+  {
+    my $q=$FromName{$p};
+    delete $FromName{$p};
+    if(defined($q))
+    { # We have not moved $p yet.
+      my @T=($p,$q);
+      my $loop='';
+      for(;;)
+      {
+        my $qold=$q;
+        $q=$FromName{$q};
+        delete $FromName{$qold};
+        unless(defined($q))
+        { # Our `loop' is no loop: It just has finished
+          last;
+        }
+        if($q eq $p)
+        { # Our loop has reached the start:
+          # At first, we create a temporary filename in the directory of $p
+          $loop=1;
+          $p =~ /^(.*$Dirsep)/;
+          my $tempname=&mktempname($p);
+          # Next, we close the loop over the temporary file:
+          push @T,$tempname;
+          unshift @T,$tempname;
+          last;
+        }
+        push @T,$q;
+      }
+      my $i=$#T;
+      my $to=$T[$i];
+      unless($loop)
+      {
+        my $g=$Bfullname{$to};
+        if(defined($g))
+        {
+          my $checksum=undef;
+          if($g ne '')
+            { $checksum=&thechecksum($B[$g]) }
+          if(&isdircheck($checksum))
+          { # We should move a file onto a yet existing directory:
+            my $tempname=&mktempname($to);
+            push @AfterRmDirCmds,"rmdir -- \"$to\"";
+            push @AfterRmDirCmds,"mv -i \"$tempname\" \"$to\"";
+            $to=$tempname;
+          }
+          elsif(&islinkcheck($checksum))
+          { # We should move a file onto a symbolic link:
+            push @MovCmds,"test -h \"$to\" && rm -- \"$to\"";
+          }
+          else
+          { # We should move a file onto a file/other which will not be moved:
+            if($dodelete)
+              { push @MovCmds,"rm -- \"$to\"" }
+            elsif(!$force)
+            {
+              my $from=$T[$#T-1];
+              print STDERR "Error: You have chosen to not delete any file, "
+               .  "but I should move $from onto $to.\n"
+               .  "\tSince $to should not be moved somewhere else, "
+               .  "this would erase it.\n"
+               .  "\tI cannot resolve this conflict, and for this reason, "
+               .  "I will do nothing.\n"
+               .  "\tUse --force, if you want to get asked during moving.\n";
+              $willdie=1;
+            }
+          }
+        }
+        else
+          { $Bfullname{$to}='' }
+        delete $Bfullname{$T[0]};
+      }
+      while(--$i>=0)
+      {
+        my $from=$T[$i];
+        if($from eq $to)
+        {
+          die "Error: This error should never occur. "
+           .  "My logic would move a file to itself. "
+           .  "To be on the safe side, I do nothing at all.\n"
+           .  "Stopped";
+        }
+        push @MovCmds,"mv -i \"$from\" \"$to\"";
+        $to=$from;
+      }
+    }
+  }
+
+  # Now we are done and can actually execute the commands.
+  # Before we do so, we reverse the @ModCmds: In this way, the commands are
+  # sorted depth first (more or less), and so the modification times of the
+  # directories are preserved as far as possible.
+  @ModCmds=reverse @ModCmds;
+  # The same holds for the @RmDirCmds:
+  @RmDirCmds=reverse(sort @RmDirCmds);
+  # There might be reasons to do nothing:
+  $willdie and die "Due to earlier errors, I do nothing at all.\nStopped";
+  doexec(\@MkDirCmds);
+  doexec(\@MovCmds);
+  doexec(\@CopyCmds);
+  doexec(\@LinkCmds);
+  doexec(\@DelCmds);
+  doexec(\@RmDirCmds);
+  doexec(\@AfterRmDirCmds);
+  doexec(\@ModCmds);
+  if($#NotExist>=0)
+  {
+    print "\nThe following files could not be created by renaming:\n"
+      unless($quiet);
+    foreach my $f (@NotExist)
+      { printnice($f) }
+  }
+}
+
+# This function sets $mode/$owner/$time for $name if appropriate
+# (the commands are collected in @ModCmds).
+# Whether this is appropriate depends on the other flags.
+# $islink is true iff $name is a symbolic link (which needs other commands).
+# If $isnew is false, then only the values differing from $B[$j] are set.
+sub changemods ($$$$$$$)
+{ my($name,$mode,$owner,$time,$islink,$isnew,$j)=@_;
+  if((!$isnew) && defined($j) && ($j ne ''))
+  {
+    my $g=$B[$j];
+    my ($Bname, $Bchecksum, $Bmode, $Bowner, $Btime)=@$g;
+    unless($modattrib && defined($mode) && ($mode ne '') &&
+            ((!defined($Bmode)) || ($Bmode ne $mode)))
+      { undef $mode }
+    unless($modowner && defined($owner) && ($owner ne '') &&
+            ((!defined($Bowner)) || ($Bowner ne $owner)))
+      { undef $owner }
+    unless($modtime && defined($time) && ($time ne '') &&
+            ((!defined($Btime)) || ($Btime ne $time)))
+      { undef $time }
+  }
+  else
+  {
+    unless($modattrib && defined($mode) && ($mode ne ''))
+      { undef $mode }
+    unless($modowner && defined($owner) && ($owner ne ''))
+      { undef $owner }
+    unless($modtime && defined($time) && ($time ne ''))
+      { undef $time }
+  }
+  if($islink)
+  {
+    # chmod and touch have no --no-derefence option and thus are useless
+    # to modify a link.
+    if(defined($owner))
+      { push @ModCmds,"chown -h \"$owner\" \"$name\"" }
+  }
+  else
+  {
+    if(defined($mode))
+      { push @ModCmds,"chmod \"$mode\" \"$name\"" }
+    if(defined($owner))
+      { push @ModCmds,"chown \"$owner\" \"$name\"" }
+    if(defined($time))
+      { push @ModCmds,"touch --date=\"$time\" \"$name\"" }
+  }
+}
+
+# This tricky function serves two purposes:
+# 1. If the checksum argument is empty, the directories contained
+#    in the path of $p are created (if they do not already exist),
+#    and these directories are marked in %NeededDir.
+#    If the directories overlap with existing files, the original files are
+#    renamed to temporary names.
+#    All necessary side-effects are done during renaming, too (hopefully).
+# 2. If the file $p does not already exist (with $checksum as checksum),
+#    then it (and the directories in the path) are virtually created.
+#    "virtually" means that no real "creation" action is done, but that
+#    the new file is inserted into the list of files. As for 1., if necessary
+#    the original file $p is renamed to a temporary filename.
+# In both cases, the return value is an array of two entries.
+# The first entry is boolean and true iff the (longest) directory resp. file
+# had to be created. The second entry contains the index of the found
+# respectively newly created index. If no action is to be done for $p$
+# (e.g. because $p is empty), then the return value is ('',undef).
+sub makedirsfor($$)
+{ my($p,$checksum)=@_;
+  my $defact='';
+  unless(defined($checksum) && ($checksum ne ''))
+  {
+    $defact=1;
+    unless($p =~ /^(.*)($Dirsep)+/)
+      { return ('',undef) }
+    $p=$1;
+    $checksum='dir';
+  }
+  my $j=$Bfullname{$p};
+  if(defined($j))
+  {
+    my $g=$B[$j];
+    my ($Bname, $Bchecksum, $Bmode, $Bowner, $Btime)=@$g;
+    $p=$Bname;# If in doubt, we choose the unique name.
+    if($defact)
+    {
+      if(&isdircheck($Bchecksum))
+      {
+        &NeededDirWithParents($Bname);
+        return ('',$j)
+      }
+    }
+    elsif($Bchecksum eq $checksum) { return ('',$j) }
+    # A directory must be created whose name is already be used by a file/link.
+    # We rename the file:
+    my $tempname=&mktempname($p);
+    push @MkDirCmds,"mv -i \"$Bname\" \"$tempname\"";
+    # We remember the new name in our current list of filenames:
+    # Make sure that the index number does not change:
+    # We need it for $DeletedIndex and for @copylist.
+    $g->[0]=$tempname;
+    $B[$j]=$g;
+    $Bfullname{$tempname}=$j; # Remember also in the hash-list.
+    # If we already decided to move this file, use the new filename:
+    if(defined($FromName{$p}))
+    {
+      $FromName{$tempname}=$FromName{$p};
+      delete $FromName{$p};
+    }
+  }
+  elsif($p =~ /^($Mdot($Dirsep)*)*$/)# The '.' directories need not be created
+    { return ('',undef) }
+  # Create a new entry for the directory/file
+  push @B,[$p, $checksum, undef, undef, undef];
+  $j=$#B;
+  $Bfullname{$p}=$j;
+  if($defact)
+    { $NeededDir{$p}='' }
+  # First create recursively all required directories, and then $p
+  &makedirsfor($p,undef,undef);
+  if($defact)
+    { push @MkDirCmds,"mkdir \"$p\"" }
+  return (1,$j);
+}
+# Mark the Directory and all its parents as needed:
+sub NeededDirWithParents ($)
+{ my($p)=@_;
+  $NeededDir{$p}='';
+  if($p =~ /^(.*)$Dirsep/)
+    { &NeededDirWithParents($1) }
+}
+
+
+# Create a temporary filename in the directory of $p.
+our %tempnamelist=();
+sub mktempname ($)
+{ my($p)=@_;
+  $p =~ /^(.*$Dirsep)/;
+  my $temppath=$1;
+  for(my $i=0;;$i++)
+  {
+    my $tempname="$temppath$i$$.tmp";
+    unless(exists($Afullname{$tempname}) ||
+           exists($Bfullname{$tempname}) ||
+           exists($tempnamelist{$tempname}) ||
+           (-e $tempname))
+    {
+      $tempnamelist{$tempname}='';
+      return $tempname
+    }
+  }
+}
+
+sub isdircheck ($)
+{ my($A)=@_;
+  if(defined($A))
+    { return ($A =~ /^\s*dir\s*$/i) }
+  return '';
+}
+
+sub isother ($)
+{ my($A)=@_;
+  if(defined($A))
+    { return ($A=~/^\s*other\s*:?\s*(.*)$/i) }
+  return '';
+}
+
+sub basename ($)
+{ my($a)=@_;
+  $a =~ /([^$Dirsep]*)$/;
+  return $1
+}
+
+# Must set $tolink as a side effect, if file is a link.
+sub islinkcheck ($)
+{ my($A)=@_;
+  $tolink='';
+  if($A =~ /^\s*\-\>\s*(.*)/)
+    { $tolink=$1; return 1}
+  return '';
+}
+
+# Must set $tolink as a side effect, if file is a link.
+sub isordinary ($)
+{ my($A)=@_;
+  if((&isdircheck($A)) || (&isother($A))) { return '' }
+  return (!&islinkcheck($A))
+}
+
+sub doexec (\@)
+{ my($A)=@_;
+  foreach my $s (@$A)
+  {
+    if((!$quiet) || $show)
+      { print "$s\n" }
+    unless($show)
+      { system $s }
+  }
+}
+
+sub printdoubles ()
+{
+  @A=sort { $a->[1] cmp $b->[1] } @A;
+  my @finallist=();
+  my @doubles=();
+  my $prevc='dir';
+  for(my $i=0;$i<=$#A;$i++)
+  {
+    my $c=($A[$i]->[1]);
+    if(($c eq $prevc) && (&isordinary($c)))
+    {
+      if($#doubles<0)
+        { push (@doubles,&thename($A[$i-1])) }
+      push (@doubles,&thename($A[$i]));
+    }
+    elsif($#doubles>=0)
+    {
+      &pushsorted(\@finallist,\@doubles);
+      @doubles=();
+    }
+    $prevc=$c;
+  }
+  if($#doubles>=0)
+    { &pushsorted(\@finallist,\@doubles) }
+  foreach my $doublist (sort { $a->[0] cmp $b->[0] } @finallist)
+  {
+    print "Same Checksum: " unless($quiet);
+    my $head='';
+    foreach my $d (@$doublist)
+      { print "$head$d"; $head=" " }
+    print "\n";
+  }
+}
+sub pushsorted (\@\@)
+{ my($dest,$source)=@_;
+  my @sorted=sort @$source;
+  push @$dest,\@sorted;
+}
+
+sub thename (\@)
+{ my($f)=@_;
+  return $f->[0] }
+sub thechecksum (\@)
+{ my($f)=@_;
+  return $f->[1] }
+
+sub printnice (\@)
+{ my($f)=@_;
+  my ($name, $checksum, $mode, $owner, $time)=@$f;
+  print "$name";
+  print " $time" if defined($time);
+  print " $owner" if defined($owner);
+  print " $mode" if defined($mode);
+  print " $checksum" if defined($checksum);
+  print "\n"
+}

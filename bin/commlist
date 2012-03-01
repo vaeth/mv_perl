@@ -1,0 +1,133 @@
+#!/usr/bin/perl
+use strict;
+use integer;
+use Pod::Usage;
+use Getopt::Long;
+
+sub version { '$Revision: 1.1 $ ' =~ /Revision:\s([^\s]*)/;
+	print	"commlist v$1 by Martin Väth\n"
+	.	"martin\@mvath.de\n"; exit 0 }
+
+=head1 NAME
+
+commlist - print lines common/not common to two list of files
+
+=head1 SYNOPSIS
+
+B<commlist> [options] I<fileA1> I<fileA2> ... B<""> I<fileB1> I<fileB2> ...
+
+To get an extended help, type B<commlist --man> or B<commlist -?>
+
+=head1 DESCRIPTION
+
+The files I<fileA...> are compared against the files I<fileB...>,
+and lines of I<fileA...> which are also/not occurring in one of the files
+I<fileB...> are output in a first/second columns.
+Option B<-1> or B<-2> suppresses the corresponding column.
+The special name B<-> specifies standard input.
+
+In contrast to the standard unix B<comm> utility, unsorted input data is ok.
+Moreover, the order of the lines output corresponds to that of I<fileA...>
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<--help> or B<-h>
+
+Display brief help.
+
+=item B<--man> or B<-?>
+
+Display extended help as a manpage.
+
+=item B<-1> or B<-2>
+
+Suppress the first or second column of output, respectively.
+
+=item B<--common=>I<string> or B<-c> I<string>
+
+Prefix the column of lines also occurring in I<fileB...> with I<string>.
+The default is the empty string.
+
+=item B<--only=>I<string> or B<-o> I<string>
+
+Prefix the column of lines not occurring in I<fileB...> with I<string>.
+The default is the empty string or the tab character, depending on whether
+this is the second column or not.
+
+=item B<--version> or B<-v>
+
+print version number
+
+=item B<-->
+
+Last option
+
+=back
+
+=head1 AUTHOR
+
+Martin VE<auml>th E<lt>martin@mvath.deE<gt>
+
+=cut
+
+# Parse Options:
+
+my $suppress1='';
+my $suppress2='';
+my $only=undef;
+my $common='';
+
+$Getopt::Long::bundling=1;
+GetOptions(
+	'help|h', sub { pod2usage(1) },
+	'man|?', sub { pod2usage(-verbose=>2) },
+	'only|o=s', \$only,
+	'common|c=s', \$common,
+	'1', \$suppress1,
+	'2', \$suppress2,
+	'version|V', \&version
+) or pod2usage(2);
+unless(defined($only)) {
+	$only=(($suppress1) ? '' : "\t")
+}
+
+my @fileA=();
+my @fileB=();
+
+my $found='';
+foreach (@ARGV) {
+	if($found) {
+		push(@fileB, $_);
+		next
+	}
+	if($_ eq '') {
+		$found=1
+	}
+	else {
+		push(@fileA, $_)
+	}
+}
+unless($found) { &pod2usage(1) }
+unless(@fileA) { exit(0) }
+
+my %B=();
+if(@fileB) {
+	@ARGV=@fileB;
+	while(<>) {
+		chomp;
+		$B{$_}=undef
+	}
+}
+@ARGV=@fileA;
+while(<>) {
+	my $c=$_;
+	chomp $c;
+	if(exists($B{$c})) {
+		print($common,$_) unless($suppress1)
+	}
+	else {
+		print($only,$_) unless($suppress2)
+	}
+}
