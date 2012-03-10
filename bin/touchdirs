@@ -8,9 +8,11 @@ use Fcntl ':mode';
 use Time::localtime;
 use File::stat;
 
+&shprint('rm','',"'","\$'","'\$","\$''\$","'\$\$'"); exit(0);
+
 my ($mdot,$ddot,$dirsep)=('.','..','/');
 
-sub version () { '$Revision: 1.2 $ '=~ /Revision:\s([^\s]*)/;
+sub version () { '$Revision: 1.3 $ '=~ /Revision:\s([^\s]*)/;
   print "Touchdirs v$1 by Martin Väth\n"
    .    "martin\@mvath.de\n" ; exit 0 }
 
@@ -24,12 +26,36 @@ B<touchdirs> [options] I<dirs>
 
 =head1 DESCRIPTION
 
-Look for all files in I<dirs> and then change the timestamp
-according to the newest file contained.
+Look for all files in I<dirs> and then change all dirs' mtimestamps according
+to the newest file contained (empty dirs' mtimestamps are ignored)
 
 =head1 OPTIONS AND ARGUMENTS
 
 =over 8
+
+=item B<--ignore=>I<regexp> or B<-i> I<regexp>
+
+Ignore files whose (relative) path matches I<regexp>.
+
+=item B<--ignore-case=>I<regexp> or B<-I> I<regexp>
+
+Ignore files whose (relative) path matches I<regexp>, ignoring case.
+
+=item B<--dotdirs> or B<-d>
+
+Ignore .* dirs. Equivalent to B<--ignore=/\..*/> (needs quoting in shell)
+
+=item B<--dotfiles> or B<-D>
+
+Ignore .* files. Equivalent to B<--ignore=/\.[^/]*$> (needs quoting in shell)
+
+=item B<--dot>
+
+Ignore .* files/dirs. Equivalent to B<--ignore=/\.> or to B<-dD>
+
+=item B<--git> or B<-g>
+
+Ignore .git dirs. Equivalent to B<--ignore=/\.git/>
 
 =item B<--follow-link> or B<-F>
 
@@ -56,6 +82,8 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 my $show='';
 my $follow='';
+my @exclude=();
+my @iexclude=();
 
 # Parse Options:
 
@@ -64,6 +92,12 @@ GetOptions(
   'help|h', sub { pod2usage(1) },
   'man|?', sub { pod2usage(-verbose=>2) },
   'version|V', \&version,
+  'ignore|i=s', \@exclude,
+  'ignore-case|I=s', \@iexclude,
+  'dotdir|d', sub { push(@exclude,'/\..*/') },
+  'dotfile|D', sub { push(@exclude,'/\.[^/]*$') },
+  'dot', sub { push(@exclude,'/\.') },
+  'git|g', sub { push(@exclude,'/\.git/') },
   'show|dry-run|s|n', \$show,
   'follow-link|F', \$follow,
   'nofollow-link', sub { $follow='' }
@@ -86,15 +120,30 @@ foreach my $topdir (@ARGV)
     if($oritime ne $newtime)
     {
       my $time=ctime($newtime);
-      print "touch --date=$time $dir\n";
-      unless($show) { system("touch","--date=$time","$dir") }
+      &shprint('touch --date=' . &shq($time),$dir);
+      unless($show) { system('touch',"--date=$time",'--',$dir) }
     }
   }
 }
 
-sub dotouch {
+sub exclude ($) {
+  my($path)=@_;
+  foreach my $regex (@exclude) {
+    if($path=~/$regex/) { return 1 }
+  }
+  foreach my $regex (@iexclude) {
+    if($path=~/$regex/i) { return 1 }
+  }
+  return ''
+}
+
+sub dotouch () {
 # if(($_ eq $mdot) || ($_ eq $ddot)) { return }
   if(-d $_) { return }
+  my $path=$File::Find::dir . '/' . $_;
+  if(&exclude($path)) {
+    $path=~s/\n/\n\#\ /gom; print "# Ignored: $path\n"; return
+  }
   my $time=(($follow)?stat($_)->mtime:lstat($_)->mtime);
   my $dirname=$File::Find::dir;
   while($dirname ne '')
@@ -107,7 +156,7 @@ sub dotouch {
     }
     else
     {
-      push @DIR,$dirname;
+      push(@DIR,$dirname);
       $DIR{$dirname}=$time
     }
     if($dirname=~/$dirsep/o)
@@ -118,3 +167,17 @@ sub dotouch {
     else {last}
   }
 }
+
+sub shq ($) {
+  my($a)=(@_);
+  $a=~s/\'/\'\\\'\'/go; $a="'$a'";
+  $a=~s/(^|[^\\])\'([\da-zA-Z\_\-\,\.\:\/]*)\'/$1$2/g;
+  return(($a ne '') ? $a : "''");
+}
+sub shqs ($) { return ' ' . &shq($_[0]) }
+sub shdash {
+  my($s,$r,$t)=(shift,'','');
+  for my $i (@_) { $t=1 if($i=~/^-/); $r.=&shqs($i) }
+  return(($t) ? ($s . ' --' . $r) : ($s . $r))
+}
+sub shprint { print &shdash(@_) . "\n" }

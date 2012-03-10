@@ -9,9 +9,9 @@ use Time::localtime;
 #use Digest::MD5;
 
 our ($script)=($0=~/([^\/]*)$/);
-sub version () { '$Revision: 1.10 $ '=~ /Revision:\s([^\s]*)/;
+sub version () { '$Revision: 1.11 $ '=~ /Revision:\s([^\s]*)/;
   print "Patchdirs v$1 by Martin Väth\n"
-   .    "martin\@mvath.de\n" ; exit 0 }
+   .    "martin\@mvath.de\n" ; exit(0) }
 
 our ($dirsepdef,$mdot,$ddot)=('/','.','..');
 our $sepdef='"';
@@ -377,8 +377,8 @@ GetOptions(
   'dirsep|X=s', \$dirsep,
   'sum-cmds|S=s', \$sumcmds,
   'file|f=s', \@FILES,
-  'files|i=s', sub { push @FILES,$_[1];
-    push @FILES,shift @ARGV while(@ARGV && !($ARGV[0]=~/^-./)) },
+  'files|i=s', sub { push(@FILES,$_[1]);
+    push(@FILES,shift(@ARGV)) while(@ARGV && !($ARGV[0]=~/^-./)) },
   'force', \$force,
   'quiet|q', \$quiet,
   'addseconds=i', \$addseconds,
@@ -475,7 +475,7 @@ sub makelist (\@\%\@)
   {
     my $b=&unifyname($a);
     if(-d $b)
-      { push @mydirs,$b }
+      { push(@mydirs,$b) }
   }
   if($#mydirs<0)
     { return }
@@ -544,7 +544,7 @@ sub makeentry () {
   $mode=sprintf("%04o", S_IMODE($mode));#$mode & 07777
   my $time=ctime($mtime+$addseconds);
   my $owner="$uid.$gid";
-  push @$A,[ $name, $checksum, $mode, $owner, $time ];
+  push(@$A,[ $name, $checksum, $mode, $owner, $time ]);
   $fullhash->{$name}=$#$A;
 }
 
@@ -601,7 +601,7 @@ sub readlist (\@\@\%)
     if(defined($fullhash->{$name}))
       { print STDERR "Warning: Ignoring second occurence of $name\n"; next }
     $hashdir{$currdir}='';
-    push @$A,[ $name, $checksum, $mode, $owner, $time ];
+    push(@$A,[ $name, $checksum, $mode, $owner, $time ]);
     $fullhash->{$name}=$#$A;
 #   if($twolists && eof) { $twolists=''; return }
   }
@@ -638,7 +638,7 @@ sub MakeCheck (\@\%)
   {
     my ($name, $checksum, $mode, $owner, $time) = @{$A->[$j]};
     unless(defined($check->{$checksum})) { $check->{$checksum}=[] }
-    push @{$check->{$checksum}},$j;
+    push(@{$check->{$checksum}},$j);
   }
 }
 
@@ -694,7 +694,7 @@ sub patchlist ()
               my ($Aaname, $Aachecksum, $Aamode, $Aaowner, $Aatime)=@$fa;
               if($Aachecksum ne $Bchecksum) #...if this file has another
               {                             #   checksum
-                push @movecandsub,$j;       #    -> $g is candidate for moving
+                push(@movecandsub,$j);      #    -> $g is candidate for moving
               }
               # If it has the same checksum, we assume that it cannot be moved
             }
@@ -705,7 +705,7 @@ sub patchlist ()
           }
           else               # $g should even be deleted
           {                  # -> very good candidate
-            push @movecand,$j;
+            push(@movecand,$j);
           }
         }
         if(($#movecand<0) && ($#movecandsub<0))
@@ -718,12 +718,12 @@ sub patchlist ()
             if($isnew)
             {
               $j=$sumarr->[0];
-              push @copylist,[$j,$Aname];
+              push(@copylist,[$j,$Aname]);
             }
             &changemods($Aname,$Amode,$Aowner,$Atime,'',$isnew,$j);
           }
           else
-            { push @NotExist,$f }
+            { push(@NotExist,$f)}
         }
         else
         {
@@ -733,7 +733,7 @@ sub patchlist ()
             { $j=$movecand[0] }
           else
           {
-            push @movecand,@movecandsub;
+            push(@movecand,@movecandsub);
             if($#movecand==0) # There is precisely one (sub)optimal
               { $j=$movecand[0] }
             else # There is some ambiguity.
@@ -749,16 +749,16 @@ sub patchlist ()
                 if(($Abase ne '') && ($Bbase ne ''))
                 {
                   if($Abase eq $Bbase)
-                    { push @name,$jt }
+                    { push(@name,$jt)}
                   elsif(uc($Abase) eq uc($Bbase))
-                    { push @namesub,$jt }
+                    { push(@namesub,$jt)}
                 }
               }
               if($#name==0)   # There is precisely one optimal:
                 { $j=$name[0] }
               else
               {
-                push @name,@namesub;
+                push(@name,@namesub);
                 if($#name<0)  # No name at all:
                 {
                   $morecand=1;
@@ -814,7 +814,7 @@ sub patchlist ()
         }
       }
       else# No file with a checksum for $f exists -> No chance to copy it.
-        { push @NotExist,$f }
+        { push(@NotExist,$f) }
     }
     else # directory, link, or other strange filetype:
     {
@@ -830,7 +830,7 @@ sub patchlist ()
         my ($isnew,$j)=&makedirsfor("$Aname",$Achecksum);
         if($isnew)
         {
-          push @LinkCmds,"touch \"$Aname\"";
+          push(@LinkCmds,&shdash('touch',$Aname));
           print STDERR "Warning: Special type file $Aname created "
            . "as ordinary file\n";
         }
@@ -839,8 +839,9 @@ sub patchlist ()
       else                        # Link:
       {
         my ($isnew,$j)=&makedirsfor("$Aname",$Achecksum);
-        if($isnew)
-          { push @LinkCmds,"ln -s \"$tolinkRemember\" \"$Aname\"" }
+        if($isnew) {
+          push(@LinkCmds,&shdash('ln -s',$tolinkRemember,$Aname))
+        }
         &changemods($Aname,$Amode,$Aowner,$Atime,1,$isnew,$j);
       }
     }
@@ -858,7 +859,7 @@ sub patchlist ()
     my $froma=$FromName{$from};
     if($froma)
       { $from=$froma }
-    push @CopyCmds,"cp -p -i \"$from\" \"$to\"";
+    push(@CopyCmds,&shdash('cp -p -i',$from,$to));
   }
 
   # Pass 2: We search for the existing files which have not already been moved.
@@ -874,15 +875,14 @@ sub patchlist ()
         {
           unless(defined($NeededDir{$Bname}))
           {
-            #push @RmDirCmds,"test -h \"$Bname\" && rm -- \"$Bname\" || rmdir -- \"$Bname\""
-            if($follow)
-              { push @RmDirCmds,"test -h \"$Bname\" && rm -- \"$Bname\" || rmdir -- \"$Bname\"" }
-            else
-              { push @RmDirCmds,"rmdir -- \"$Bname\"" }
+            if($follow) { push(@RmDirCmds,'test -h' . &shqs($Bname) .
+              &shdash(' && rm',$Bname) . &shdash(' || rmdir',$Bname))
+            }
+            else { push(@RmDirCmds,&shdash('rmdir',$Bname)) }
           }
         }
         elsif($dodelete)
-          { push @DelCmds,"rm -- \"$Bname\"" }
+          { push(@DelCmds,&shdash('rm',$Bname)) }
       }
     }
   }
@@ -914,11 +914,11 @@ sub patchlist ()
           $p =~ /^(.*$Dirsep)/;
           my $tempname=&mktempname($p);
           # Next, we close the loop over the temporary file:
-          push @T,$tempname;
+          push(@T,$tempname);
           unshift @T,$tempname;
           last;
         }
-        push @T,$q;
+        push(@T,$q);
       }
       my $i=$#T;
       my $to=$T[$i];
@@ -933,18 +933,18 @@ sub patchlist ()
           if(&isdircheck($checksum))
           { # We should move a file onto a yet existing directory:
             my $tempname=&mktempname($to);
-            push @AfterRmDirCmds,"rmdir -- \"$to\"";
-            push @AfterRmDirCmds,"mv -i \"$tempname\" \"$to\"";
+            push(@AfterRmDirCmds,&shdash('rmdir',$to));
+            push(@AfterRmDirCmds,&shdash('mv -i',$tempname,$to));
             $to=$tempname;
           }
           elsif(&islinkcheck($checksum))
           { # We should move a file onto a symbolic link:
-            push @MovCmds,"test -h \"$to\" && rm -- \"$to\"";
+            push(@MovCmds,'test -h' . &shqs($to) . &shdash(' && rm',$to));
           }
           else
           { # We should move a file onto a file/other which will not be moved:
             if($dodelete)
-              { push @MovCmds,"rm -- \"$to\"" }
+              { push(@MovCmds,&shdash('rm',$to)) }
             elsif(!$force)
             {
               my $from=$T[$#T-1];
@@ -973,7 +973,7 @@ sub patchlist ()
            .  "To be on the safe side, I do nothing at all.\n"
            .  "Stopped";
         }
-        push @MovCmds,"mv -i \"$from\" \"$to\"";
+        push(@MovCmds,&shdash('mv -i',$from,$to));
         $to=$from;
       }
     }
@@ -1040,16 +1040,16 @@ sub changemods ($$$$$$$)
     # chmod and touch have no --no-derefence option and thus are useless
     # to modify a link.
     if(defined($owner))
-      { push @ModCmds,"chown -h \"$owner\" \"$name\"" }
+      { push(@ModCmds,&shdash('chown -h',$owner,$name)) }
   }
   else
   {
     if(defined($mode))
-      { push @ModCmds,"chmod \"$mode\" \"$name\"" }
+      { push(@ModCmds,&shdash('chmod',$mode,$name)) }
     if(defined($owner))
-      { push @ModCmds,"chown \"$owner\" \"$name\"" }
+      { push(@ModCmds,&shdash('chown',$owner,$name)) }
     if(defined($time))
-      { push @ModCmds,"touch --date=\"$time\" \"$name\"" }
+      { push(@ModCmds,&shdash('touch --date=' . &shq($time),$name)) }
   }
 }
 
@@ -1099,7 +1099,7 @@ sub makedirsfor($$)
     # A directory must be created whose name is already be used by a file/link.
     # We rename the file:
     my $tempname=&mktempname($p);
-    push @MkDirCmds,"mv -i \"$Bname\" \"$tempname\"";
+    push(@MkDirCmds,&shdash('mv -i',$Bname,$tempname));
     # We remember the new name in our current list of filenames:
     # Make sure that the index number does not change:
     # We need it for $DeletedIndex and for @copylist.
@@ -1116,7 +1116,7 @@ sub makedirsfor($$)
   elsif($p =~ /^($Mdot($Dirsep)*)*$/)# The '.' directories need not be created
     { return ('',undef) }
   # Create a new entry for the directory/file
-  push @B,[$p, $checksum, undef, undef, undef];
+  push(@B,[$p, $checksum, undef, undef, undef]);
   $j=$#B;
   $Bfullname{$p}=$j;
   if($defact)
@@ -1124,7 +1124,7 @@ sub makedirsfor($$)
   # First create recursively all required directories, and then $p
   &makedirsfor($p,undef,undef);
   if($defact)
-    { push @MkDirCmds,"mkdir \"$p\"" }
+    { push(@MkDirCmds,&shdash('mkdir',$p)) }
   return (1,$j);
 }
 # Mark the Directory and all its parents as needed:
@@ -1215,8 +1215,8 @@ sub printdoubles ()
     if(($c eq $prevc) && (&isordinary($c)))
     {
       if($#doubles<0)
-        { push (@doubles,&thename($A[$i-1])) }
-      push (@doubles,&thename($A[$i]));
+        { push(@doubles,&thename($A[$i-1])) }
+      push(@doubles,&thename($A[$i]));
     }
     elsif($#doubles>=0)
     {
@@ -1239,7 +1239,7 @@ sub printdoubles ()
 sub pushsorted (\@\@)
 { my($dest,$source)=@_;
   my @sorted=sort @$source;
-  push @$dest,\@sorted;
+  push(@$dest,\@sorted);
 }
 
 sub thename (\@)
@@ -1249,7 +1249,7 @@ sub thechecksum (\@)
 { my($f)=@_;
   return $f->[1] }
 
-sub printnice (\@)
+sub printnice ($)
 { my($f)=@_;
   my ($name, $checksum, $mode, $owner, $time)=@$f;
   print "$name";
@@ -1259,3 +1259,17 @@ sub printnice (\@)
   print " $checksum" if defined($checksum);
   print "\n"
 }
+
+sub shq ($) {
+  my($a)=(@_);
+  $a=~s/\'/\'\\\'\'/go; $a="'$a'";
+  $a=~s/(^|[^\\])\'([\da-zA-Z\_\-\,\.\:\/]*)\'/$1$2/g;
+  return(($a ne '') ? $a : "''");
+}
+sub shqs ($) { return ' ' . &shq($_[0]) }
+sub shdash {
+  my($s,$r,$t)=(shift,'','');
+  for my $i (@_) { $t=1 if($i=~/^-/); $r.=&shqs($i) }
+  return(($t) ? ($s . ' --' . $r) : ($s . $r))
+}
+sub shprint { print &shdash(@_) . "\n" }

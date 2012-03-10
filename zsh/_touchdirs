@@ -3,6 +3,12 @@ _arguments -s -S : \
 '(* -)'{'--help','-h'}'[print a brief help]' \
 '(* -)'{'--man','-\\?'}'[show extended help as a manpage]' \
 '(* -)'{'--version','-V'}'[print version]' \
+{'--ignore=','-i+'}'[ignore regexp path]:regexp:(/ "/[^/]*\$")' \
+{'--ignore-case=','-I+'}'[ignore regexp path, ignoring case]:regexp:(/ "/[^/]*\$")' \
+{'(-d --dot -g --git)--dotdir','(--dotdir --dot -g --git)-d'}'[ignore .* dirs]' \
+{'(-D --dot)--dotfile','(--dotfile --dot)-D'}'[ignore .* files]' \
+'(-d --dotdir -D --dotfile -g --git)--dot[ignore .* files/dirs]' \
+{'(-g)--git','(--git)-g'}'[ignore .git dirs]' \
 {'(--dry-run -n '{'--show)-s','-s)--show'},'(--show -s '{'--dry-run)-n','-n)--dry-run'}}'[only show what would be done]' \
 {'(--follow-links)-f','(-f)--follow-link'}'[follow links for recursion and getting times]' \
 '*:dirs:_files -/'

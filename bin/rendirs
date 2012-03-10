@@ -5,7 +5,7 @@ use integer;
 use Getopt::Long;
 use Pod::Usage;
 
-sub version { '$Revision: 5.3 $ '=~ /Revision:\s([^\s]*)/;
+sub version { '$Revision: 5.4 $ '=~ /Revision:\s([^\s]*)/;
   print "RenDirs v$1 by Martin Väth\n"
    .    "martin\@mvath.de\n" ; exit 0 }
 
@@ -503,32 +503,32 @@ sub casetest { my($p,$n,$s)=@_;
 }
 
 sub myunlink { my($n)=@_;
-  unless($quiet)    { print "rm -- $n\n" }
+  unless($quiet)    { &shprint('rm',$n) }
   unless($showonly) { unlink $n }
 }
 
 sub myrmdir { my($n)=@_;
-  unless($quiet)    { print "rmdir -p -- $n\n" }
-  unless($showonly) { system('rmdir','-p',$n) }
+  unless($quiet)    { &shprint('rmdir -p',$n) }
+  unless($showonly) { system('rmdir','-p','--',$n) }
 }
 
 sub mytouch { my($n)=@_;
-  unless($quiet)    { print "touch $n\n" }
+  unless($quiet)    { &shprint('touch',$n) }
   unless($showonly) { open(FH,">$n"); close(FH) }
 }
 
 sub mymkdir { my($n)=@_;
-  unless($quiet)    { print "mkdir -p $n\n" }
-  unless($showonly) { system('mkdir','-p',$n) }
+  unless($quiet)    { &printfdash('mkdir -p',$n) }
+  unless($showonly) { system('mkdir','-p','--',$n) }
 }
 
 sub mylink { my($a,$b)=@_;
-  unless($quiet)    { print "ln -s $a $b\n" }
-  unless($showonly) { system("ln","-s",$a,$b) }
+  unless($quiet)    { &shprint('ln -s',$a,$b) }
+  unless($showonly) { system('ln','-s','--',$a,$b) }
 }
 
 sub myrename { my($a,$b)=@_;
-  unless($quiet)    { print "mv $a $b\n" }
+  unless($quiet)    { &shprint('mv',$a,$b) }
   unless($showonly) { rename $a,$b }
 }
 
@@ -808,3 +808,17 @@ while($#REVERSEACTION>=0)
 }
 if($commentdepth)
   { print STDERR "Warning: File ends with unclosed comment\n" }
+
+sub shq ($) {
+  my($a)=(@_);
+  $a=~s/\'/\'\\\'\'/go; $a="'$a'";
+  $a=~s/(^|[^\\])\'([\da-zA-Z\_\-\,\.\:\/]*)\'/$1$2/g;
+  return(($a ne '') ? $a : "''");
+}
+sub shqs ($) { return ' ' . &shq($_[0]) }
+sub shdash {
+  my($s,$r,$t)=(shift,'','');
+  for my $i (@_) { $t=1 if($i=~/^-/); $r.=&shqs($i) }
+  return(($t) ? ($s . ' --' . $r) : ($s . $r))
+}
+sub shprint { print &shdash(@_) . "\n" }

@@ -38,7 +38,7 @@ Here is a brief overview of the scripts:
   If you really must use Perl 4, you can use the scripts prep and
   rrep below which together have almost the same functionality.
 
-- patchdirs v1.10. This script serves two purposes:
+- patchdirs v1.11. This script serves two purposes:
   1. It allows to keep directory trees in sync for computers which have no
      direct connection. On the one hand, it allows to (recursively) list files
      together with their checksums (and dates, owners, modes).
@@ -65,7 +65,7 @@ Here is a brief overview of the scripts:
   This script is still in experimental state. It requires at least
   Perl 5 (with elementary modules).
 
-- rendirs v5.3. The "very standard" ISO9660 CD-Rom format only allows names
+- rendirs v5.4. The "very standard" ISO9660 CD-Rom format only allows names
   of 8+3 characters. If there are some reasons to use this format with
   with non-packaged files, it is often convenient to create
   additionally a list containing the original filenames (and perhaps
@@ -112,5 +112,5 @@ Here is a brief overview of the scripts:
 
 - touch.difference v1.1. Correct times of files by a daylight saving offset
 
-- touchdirs v1.2. Touch directories according to their newest file
+- touchdirs v1.3. Touch directories according to their newest file
 
