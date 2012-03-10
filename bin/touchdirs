@@ -8,8 +8,6 @@ use Fcntl ':mode';
 use Time::localtime;
 use File::stat;
 
-&shprint('rm','',"'","\$'","'\$","\$''\$","'\$\$'"); exit(0);
-
 my ($mdot,$ddot,$dirsep)=('.','..','/');
 
 sub version () { '$Revision: 1.3 $ '=~ /Revision:\s([^\s]*)/;
