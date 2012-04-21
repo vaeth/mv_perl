@@ -107,8 +107,9 @@ Here is a brief overview of the scripts:
   to upper or lower case (including directory names, recursively).
   Very useful in connection with DOS partitions or archives.
 
-- comp v1.2. Similar to diff -r -q, but compares also attributes, time,
-  owner, ... Also calls like comp *.tex DIR are admissible.
+- comp v2.0. Similar to diff -r -q, but compares also metadata like
+  attributes, time, owner, ...
+  Also calls like comp *.tex DIR are admissible.
 
 - touch.difference v1.1. Correct times of files by a daylight saving offset
 

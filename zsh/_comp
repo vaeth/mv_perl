@@ -1,20 +1,23 @@
 #compdef comp
-_arguments -S -A '-*' : \
-'-d[Do not compare date/attributes/... of highest directories]' \
-'-r[Do not compare recursively (except for one step in directory arguments)]' \
-'-c[Compare only filesizes and attributes, not the contents of the files]' \
-'-t[Do not compare time/date for directories (useful for DOS)]' \
-'-i[Ignore case differences in paths]' \
-'-W[Do not print warnings about strange attributes]' \
-'-w0[Do not print any warnings or differing attributes/owners/groups/dates]' \
-'-wo[Do not compare owner/group]' \
-'-wt[Do not compare the time/date]' \
-'-wa[Do not compare the attributes]' \
-'-v[Print verbose filenames]' \
-'-D[debug]' \
-'-l[Compare attributes of symbolic links instead of files (no resolving)]' \
-'-p[Pedantic\: Compare also access/imode-change time, hardlink number]' \
-'-1[Do not complain if LastDir contains an unmatched file]' \
-'-2[Do not complain if LastDir does not contain a required file.]' \
-'-T[TeX Mode\: Ignore *.dvi *.aux *.toc ...]' \
+_arguments -s -S : \
+'(1 * -)'{'--help','-h'}'[print a brief help]' \
+'(1 * -)'{'--man','-\\?'}'[show extended help as a manpage]' \
+'(1 * -)'{'--version','-V'}'[print version]' \
+{'(--down)-d','(-d)--down'}'[do not compare metadata of highest directory]' \
+{'(--norecurse)-r','(-r)--norecurse'}'[do not compare recursively]' \
+{'(--nocomp)-c','(-c)--nocomp'}'[do not compare content of the files]' \
+{'(--ignore-case)-i','(-i)--ignore-case'}'[ignore case in paths]' \
+{'(--verbose)-v','(-v)--verbose'}'[verbose file names]' \
+{'(--debug)-D','(-D)--debug'}'[debug]' \
+{'(--noresolve)-l','(-l)--noresolve'}'[do not resolve symlinks]' \
+{'(--pedantic)-p','(-p)--pedantic'}'[compare other data like hardlink number]' \
+{'(--too-pedantic)-P','(-P)--too-pedantic'}'[compare other data like device identifiers]' \
+{'(--only-first)-1','(-1)--only-first'}'[do not complain if LastDir contains unmatched files]' \
+{'(--only-last)-2','(-2)--only-last'}'[do not complain if LastDir does contain required file]' \
+{'(--tex)-x','(-x)--tex'}'[TeX Mode\: Ignore *.dvi *.aux *.toc ...]' \
+{'(--neverwarn --nowarn --noowner --notime --nodirtime --noattr -W -o -t -T -a)-w','(--nowarn --noowner --notime --nodirtime --noattr -W -o -t -T -a -w)--neverwarn'}'[do not print warnings]' \
+{'(--nowarn)-W','(-W)--nowarn'}'[do not print warnings about strange attributes]' \
+{'(--noowner)-o','(-o)--noowner'}'[do not warn about differing ownership]' \
+{'(--notime --nodirtime -T)-t','(--nodirtime -T -t)--notime'}'[do not warn about differing dir timestamps]' \
+{'(--noattr)-a','(-a)--noattr'}'[do not warn about differing attributes]' \
 '*:mask:_files'
