@@ -4,7 +4,7 @@ use integer;
 use Pod::Usage;
 use Getopt::Long;
 
-sub version { '$Revision: 1.1 $ ' =~ /Revision:\s([^\s]*)/;
+sub version { '$Revision: 1.2 $ ' =~ /Revision:\s([^\s]*)/;
 	print	"commlist v$1 by Martin Väth\n"
 	.	"martin\@mvath.de\n"; exit 0 }
 
@@ -74,15 +74,15 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 # Parse Options:
 
-my $suppress1='';
-my $suppress2='';
-my $only=undef;
-my $common='';
+my $suppress1 = '';
+my $suppress2 = '';
+my $only = undef;
+my $common = '';
 
-$Getopt::Long::bundling=1;
+$Getopt::Long::bundling = 1;
 GetOptions(
 	'help|h', sub { pod2usage(1) },
-	'man|?', sub { pod2usage(-verbose=>2) },
+	'man|?', sub { pod2usage(-verbose => 2) },
 	'only|o=s', \$only,
 	'common|c=s', \$common,
 	'1', \$suppress1,
@@ -90,20 +90,20 @@ GetOptions(
 	'version|V', \&version
 ) or pod2usage(2);
 unless(defined($only)) {
-	$only=(($suppress1) ? '' : "\t")
+	$only = (($suppress1) ? '' : "\t")
 }
 
-my @fileA=();
-my @fileB=();
+my @fileA = ();
+my @fileB = ();
 
-my $found='';
+my $found = '';
 foreach (@ARGV) {
 	if($found) {
 		push(@fileB, $_);
 		next
 	}
 	if($_ eq '') {
-		$found=1
+		$found = 1
 	}
 	else {
 		push(@fileA, $_)
@@ -112,22 +112,22 @@ foreach (@ARGV) {
 unless($found) { &pod2usage(1) }
 unless(@fileA) { exit(0) }
 
-my %B=();
+my %B = ();
 if(@fileB) {
-	@ARGV=@fileB;
+	@ARGV = @fileB;
 	while(<>) {
 		chomp;
-		$B{$_}=undef
+		$B{$_} = undef
 	}
 }
-@ARGV=@fileA;
+@ARGV = @fileA;
 while(<>) {
-	my $c=$_;
+	my $c = $_;
 	chomp $c;
 	if(exists($B{$c})) {
-		print($common,$_) unless($suppress1)
+		print($common, $_) unless($suppress1)
 	}
 	else {
-		print($only,$_) unless($suppress2)
+		print($only, $_) unless($suppress2)
 	}
 }

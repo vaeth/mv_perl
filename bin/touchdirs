@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 use strict;
 use integer;
 use Getopt::Long;
@@ -10,9 +10,9 @@ use File::stat;
 
 my ($mdot,$ddot,$dirsep)=('.','..','/');
 
-sub version () { '$Revision: 1.3 $ '=~ /Revision:\s([^\s]*)/;
-  print "Touchdirs v$1 by Martin Väth\n"
-   .    "martin\@mvath.de\n" ; exit 0 }
+sub version () { '$Revision: 1.4 $ ' =~ /Revision:\s([^\s]*)/;
+	print "Touchdirs v$1 by Martin Väth\n"
+	 .    "martin\@mvath.de\n" ; exit 0 }
 
 =head1 NAME
 
@@ -78,104 +78,121 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 # Default for the Options:
 
-my $show='';
-my $follow='';
-my @exclude=();
-my @iexclude=();
+my $show = '';
+my $follow = '';
+my @exclude = ();
+my @iexclude = ();
 
 # Parse Options:
 
-$Getopt::Long::bundling=1;
+$Getopt::Long::bundling = 1;
 GetOptions(
-  'help|h', sub { pod2usage(1) },
-  'man|?', sub { pod2usage(-verbose=>2) },
-  'version|V', \&version,
-  'ignore|i=s', \@exclude,
-  'ignore-case|I=s', \@iexclude,
-  'dotdir|d', sub { push(@exclude,'/\..*/') },
-  'dotfile|D', sub { push(@exclude,'/\.[^/]*$') },
-  'dot', sub { push(@exclude,'/\.') },
-  'git|g', sub { push(@exclude,'/\.git/') },
-  'show|dry-run|s|n', \$show,
-  'follow-link|F', \$follow,
-  'nofollow-link', sub { $follow='' }
+	'help|h', sub { pod2usage(1) },
+	'man|?', sub { pod2usage(-verbose => 2) },
+	'version|V', \&version,
+	'ignore|i=s', \@exclude,
+	'ignore-case|I=s', \@iexclude,
+	'dotdir|d', sub { push(@exclude, '/\..*/') },
+	'dotfile|D', sub { push(@exclude, '/\.[^/]*$') },
+	'dot', sub { push(@exclude, '/\.') },
+	'git|g', sub { push(@exclude, '/\.git/') },
+	'show|dry-run|s|n', \$show,
+	'follow-link|F', \$follow,
+	'nofollow-link', sub { $follow = '' }
 ) or pod2usage(2);
-($#ARGV>=0) or pod2usage(-verbose=>2);
+($#ARGV >= 0) or pod2usage(-verbose => 2);
 
-my @DIR=();
-my %DIR=();
-foreach my $topdir (@ARGV)
-{
-  @DIR=();
-  %DIR=();
-  find({ bydepth=>1, follows=>$follow, wanted=>\&dotouch }, $topdir);
-  @DIR=sort @DIR;
-  @DIR=reverse @DIR;
-  foreach my $dir (@DIR)
-  {
-    my $oritime=(($follow)?stat($dir)->mtime:lstat($dir)->mtime);
-    my $newtime=$DIR{$dir};
-    if($oritime ne $newtime)
-    {
-      my $time=ctime($newtime);
-      &shprint('touch --date=' . &shq($time),$dir);
-      unless($show) { system('touch',"--date=$time",'--',$dir) }
-    }
-  }
+my @DIR = ();
+my %DIR = ();
+foreach my $topdir (@ARGV) {
+	@DIR = ();
+	%DIR = ();
+	find({ bydepth => 1, follows => $follow, wanted => \&dotouch }, $topdir);
+	@DIR = sort @DIR;
+	@DIR = reverse @DIR;
+	foreach my $dir (@DIR) {
+		my $oritime = (($follow)?stat($dir)->mtime:lstat($dir)->mtime);
+		my $newtime = $DIR{$dir};
+		if($oritime ne $newtime) {
+			my $time = ctime($newtime);
+			&shprint('touch --date=' . &shq($time), $dir);
+			unless($show) { system('touch', "--date=$time", '--', $dir) }
+		}
+	}
 }
 
 sub exclude ($) {
-  my($path)=@_;
-  foreach my $regex (@exclude) {
-    if($path=~/$regex/) { return 1 }
-  }
-  foreach my $regex (@iexclude) {
-    if($path=~/$regex/i) { return 1 }
-  }
-  return ''
+	my($path) = @_;
+	foreach my $regex (@exclude) {
+		if($path =~ /$regex/) {
+			return 1
+		}
+	}
+	foreach my $regex (@iexclude) {
+		if($path =~ /$regex/i) {
+			return 1
+		}
+	}
+	return ''
 }
 
 sub dotouch () {
-# if(($_ eq $mdot) || ($_ eq $ddot)) { return }
-  if(-d $_) { return }
-  my $path=$File::Find::dir . '/' . $_;
-  if(&exclude($path)) {
-    $path=~s/\n/\n\#\ /gom; print "# Ignored: $path\n"; return
-  }
-  my $time=(($follow)?stat($_)->mtime:lstat($_)->mtime);
-  my $dirname=$File::Find::dir;
-  while($dirname ne '')
-  {
-    if(exists($DIR{$dirname}))
-    {
-      my $oritime=$DIR{$dirname};
-      if($time>$oritime)
-        { $DIR{$dirname}=$time }
-    }
-    else
-    {
-      push(@DIR,$dirname);
-      $DIR{$dirname}=$time
-    }
-    if($dirname=~/$dirsep/o)
-    {
-      $dirname=~/^(.*)$dirsep+/o;
-      $dirname=$1;
-    }
-    else {last}
-  }
+#	if(($_ eq $mdot) || ($_ eq $ddot)) { return }
+	if(-d $_) {
+		return
+	}
+	my $path = $File::Find::dir . '/' . $_;
+	if(&exclude($path)) {
+		$path =~ s/\n/\n\#\ /gom; print "# Ignored: $path\n"
+		return
+	}
+	my $time = (($follow)?stat($_)->mtime:lstat($_)->mtime);
+	my $dirname = $File::Find::dir;
+	while($dirname ne '') {
+		if(exists($DIR{$dirname})) {
+			my $oritime = $DIR{$dirname};
+			if($time>$oritime) {
+				$DIR{$dirname} = $time
+			}
+		}
+		else {
+			push(@DIR, $dirname);
+			$DIR{$dirname} = $time
+		}
+		if($dirname =~ /$dirsep/o) {
+			$dirname =~ /^(.*)$dirsep+/o;
+			$dirname = $1;
+		}
+		else {
+			last
+		}
+	}
 }
 
-sub shq ($) {
-  my($a)=(@_);
-  $a=~s/\'/\'\\\'\'/go; $a="'$a'";
-  $a=~s/(^|[^\\])\'([\da-zA-Z\_\-\,\.\:\/]*)\'/$1$2/g;
-  return(($a ne '') ? $a : "''");
+sub shq ($)
+{
+	my($a) = (@_);
+	$a =~ s/\'/\'\\\'\'/go; $a = "'$a'";
+	$a =~ s/(^|[^\\])\'([\da-zA-Z\_\-\,\.\:\/]*)\'/$1$2/g;
+	return(($a ne '') ? $a : "''");
 }
-sub shqs ($) { return ' ' . &shq($_[0]) }
-sub shdash {
-  my($s,$r,$t)=(shift,'','');
-  for my $i (@_) { $t=1 if($i=~/^-/); $r.=&shqs($i) }
-  return(($t) ? ($s . ' --' . $r) : ($s . $r))
+
+sub shqs ($)
+{
+	return ' ' . &shq($_[0])
 }
-sub shprint { print &shdash(@_) . "\n" }
+
+sub shdash
+{
+	my($s, $r, $t) = (shift, '', '');
+	for my $i (@_) {
+		$t = 1 if($i =~ /^[-+]/);
+		$r .= &shqs($i)
+	}
+	return(($t) ? ($s . ' --' . $r) : ($s . $r))
+}
+
+sub shprint
+{
+	print &shdash(@_) . "\n"
+}

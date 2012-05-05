@@ -5,7 +5,7 @@ use Getopt::Long;
 use Pod::Usage;
 
 sub version {
-	'$Revision: 2.0 $ '=~ /Revision:\s([^\s]*)/;
+	'$Revision: 2.1 $ '=~ /Revision:\s([^\s]*)/;
 	print "comp v$1 by Martin Väth\n"
 	.    "martin\@mvath.de\n";
 	exit 0
@@ -190,25 +190,19 @@ if($verbose) {
 }
 
 if($sloppy) {
-	 $nowarn = $noowner = $notime = $nodirtime = $noattrib = 1
+	$nowarn = $noowner = $notime = $nodirtime = $noattrib = 1
 }
 
 &help unless $#ARGV;
 
-our ($mask, $dorecurse, $prepend, $printprepend);
+our ($dorecurse, $prepend, $printprepend);
 our ($currpath, $isdir, $fullpath, $comparepath);
 our ($printpath, $nextpath, $domatch);
-our ($depth,$makelast,$name,$differ);
-our @A;
-our @B;
-our @Adepth;
-our @Bdepth;
-our @Afull;
-our @Bfull;
-our @Aprint;
-our @Bprint;
-our %Ahash;
-our %Bhash;
+our ($depth,$makelast,$name);
+our $mask = '';
+our $differ = 0;
+our (@A, @Adepth, @Afull, @Aprint, %Ahash);
+our (@B, @Bdepth, @Bfull, @Bprint, %Bhash);
 
 # Translate pathnames into regular expressions.
 # FIXME: Currently, it is impossible to quote the magic characters * ? [ ] -
@@ -289,12 +283,12 @@ sub ProcessDir
 	if(!$isdir) {
 		return
 	}
-	opendir(DIR,"$fullpath"); @dir = readdir(DIR); closedir(DIR);
+	opendir(DIR, $fullpath); @dir = readdir(DIR); closedir(DIR);
 	foreach $fname (@dir) {
-		if(($fname ne ".") && ($fname ne "..")) {
+		if(($fname ne '.') && ($fname ne '..')) {
 			$currpath = "$act$fname"; &AddIfMatch(1);
 			if($isdir && $dorecurse) {
-				$depth++; &ProcessDir($currpath); $depth--
+				++$depth; &ProcessDir($currpath); $depth--
 			}
 		}
 	}
@@ -411,8 +405,9 @@ sub AddIfMatch
 		}
 		else
 		{
-			if($debug)
-				{ print "For  first arg: $comparepath =~ $fullpath\n" }
+			if($debug) {
+				print "For  first arg: $comparepath =~ $fullpath\n"
+			}
 			$A[$#A+1] = $comparepath;
 			$Adepth[$#Adepth+1] = $depth;
 			$Afull[$#Afull+1] = $fullpath;
@@ -426,7 +421,7 @@ our $i;
 our $j;
 
 if($[ < $#ARGV) {
-	for($i = $[; $i < $#ARGV; $i++) {
+	for($i = $[; $i < $#ARGV; ++$i) {
 		&ProcessMask($ARGV[$i])
 	}
 	$makelast = 1; &ProcessMask($ARGV[$i])
@@ -443,7 +438,7 @@ else {
 # This is of course an exceptional trivial case:
 
 $i = $j = $[;
-if(($#A == $i)&&($#B == $j)) {
+if(($#A == $i) && ($#B == $j)) {
 	$name = $A[$i];
 	$isdir = ($name =~ /\/$/);
 	# We have this special treatment only if $A and $B are both directories
@@ -454,7 +449,7 @@ if(($#A == $i)&&($#B == $j)) {
 	}
 }
 
-for($i = $[; $i <= $#A; $i++) {
+for($i = $[; $i <= $#A; ++$i) {
 	$name = $A[$i];
 	$isdir = ($name =~ /\/$/);
 	$j = $Bhash{$name};
@@ -464,32 +459,32 @@ for($i = $[; $i <= $#A; $i++) {
 	else {
 		if($isdir) {# If we deal with a directory and have no match:
 			unless($notforfirst) {
-				$differ++; print "DIR  without matching  last arg: $Aprint[$i]\n";
+				++$differ; print "DIR  without matching  last arg: $Aprint[$i]\n";
 			}
 			# We skip until we are at the current depth again.
 			$depth = $Adepth[$i];
 			while(++$i <= $#A) {
 				if($Adepth[$i] == $depth) {
-					$i--; last
+					--$i; last
 				}
 			}
 		}
 		else {
 			unless($notforfirst) {
-				$differ++; print "File without matching  last arg: $Aprint[$i]\n";
+				++$differ; print "File without matching  last arg: $Aprint[$i]\n";
 			}
 		}
 	}
 }
 
-for($j = $[; $j <= $#B; $j++) {
+for($j = $[; $j <= $#B; ++$j) {
 	$name = $B[$j];
 	$isdir = ($name =~ /\/$/);
 	$i = $Ahash{$name};
 	if($i eq '') {
 		if($isdir) { # If we deal with a directory and have no match:
 			unless($notforlast) {
-				$differ++;
+				++$differ;
 				print "DIR  without matching first arg: $Bprint[$j]\n";
 			}
 			# We skip until we are at the current depth again.
@@ -502,7 +497,7 @@ for($j = $[; $j <= $#B; $j++) {
 		}
 		else {
 			unless($notforlast) {
-				$differ++;
+				++$differ;
 				print "File without matching first arg: $Bprint[$j]\n";
 			}
 		}
@@ -597,7 +592,7 @@ sub comparepair
 		}
 	}
 	if($pedantic) {
-		if($Ahlink !=	$Bhlink) {
+		if($Ahlink != $Bhlink) {
 			&adderror('hardlink-nr')
 		}
 	}
@@ -640,7 +635,7 @@ sub comparepair
 	}
 	if($describe ne '') {
 		if($serious) {
-			$differ++;
+			++$differ;
 			print "$Aprint[$i] and $Bprint[$j] have different $describe\n";
 		}
 		else {

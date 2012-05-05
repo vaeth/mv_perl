@@ -5,11 +5,11 @@ use Pod::Usage;
 use Getopt::Long;
 use Time::localtime;
 
-sub version { '$Revision: 1.1 $ '=~ /Revision:\s([^\s]*)/;
-  print "touch.difference v$1 by Martin Väth\n"
-   .    "martin\@mvath.de\n" ; exit 0 }
+sub version { '$Revision: 1.2 $ '=~ /Revision:\s([^\s]*)/;
+	print "touch.difference v$1 by Martin Väth\n"
+	 .    "martin\@mvath.de\n" ; exit 0 }
 
-$0 =~ /([^\/]*)$/; my $script=$1;
+$0 =~ /([^\/]*)$/; my $script = $1;
 
 =head1 NAME
 
@@ -75,42 +75,43 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 # Default for the Options:
 
-my $seconds=0;
-my $verbose='';
-my $dry='';
-my $addatime=1;
-my $addmtime=1;
+my $seconds = 0;
+my $verbose = '';
+my $dry = '';
+my $addatime = 1;
+my $addmtime = 1;
 
 # Parse Options:
 
-$Getopt::Long::bundling=1;
+$Getopt::Long::bundling = 1;
 GetOptions(
-  'help|h', sub { pod2usage(1) },
-  'man|?', sub { pod2usage(-verbose=>2) },
-  'version|V', \&version,
-  'verbose!', \$verbose,
-  'v', \$verbose,
-  'dry-run!', \$dry,
-  'n', \$dry,
-  'atime!', \$addatime,
-  'mtime!', \$addmtime,
-  'add|a=i', \$seconds,
-  'sub|s=i', sub { $seconds=-@_[1] }
+	'help|h', sub { pod2usage(1) },
+	'man|?', sub { pod2usage(-verbose => 2) },
+	'version|V', \&version,
+	'verbose!', \$verbose,
+	'v', \$verbose,
+	'dry-run!', \$dry,
+	'n', \$dry,
+	'atime!', \$addatime,
+	'mtime!', \$addmtime,
+	'add|a=i', \$seconds,
+	'sub|s=i', sub { $seconds = -@_[1] }
 ) or pod2usage(2);
 
 # Actual touch function:
 
 sub dotouch {
-  my $file=@_[0];
-  my($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
-     $atime,$mtime,$ctime,$blksize,$blocks) = stat($file);
-  $atime+=$seconds if $addatime;
-  $mtime+=$seconds if $addmtime;
-  printf "%s %s (%s)\n",$file,ctime($mtime),ctime($atime) if $verbose;
-  utime($atime,$mtime,$file) unless $dry;
+	my $file = @_[0];
+	my($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
+		$atime, $mtime, $ctime, $blksize, $blocks) = stat($file);
+	$atime += $seconds if $addatime;
+	$mtime += $seconds if $addmtime;
+	printf "%s %s (%s)\n", $file, ctime($mtime), ctime($atime) if $verbose;
+	utime($atime, $mtime, $file) unless $dry;
 }
 
 # Main part
 
-for my $file (@ARGV)
-  { &dotouch($file) }
+for my $file (@ARGV) {
+	&dotouch($file)
+}

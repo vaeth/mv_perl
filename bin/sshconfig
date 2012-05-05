@@ -4,9 +4,9 @@ use integer;
 use Pod::Usage;
 use Getopt::Long;
 
-sub version { '$Revision: 1.2 $ '=~ /Revision:\s([^\s]*)/;
-  print "sshconfig v$1 by Martin Väth\n"
-   .    "martin\@mvath.de\n" ; exit 0 }
+sub version { '$Revision: 1.3 $ ' =~ /Revision:\s([^\s]*)/;
+	print "sshconfig v$1 by Martin Väth\n"
+	 .    "martin\@mvath.de\n" ; exit 0 }
 
 #$0 =~ /([^\/]*)$/; our $script=$1;
 
@@ -114,140 +114,169 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 # Default for the Options:
 
-our $TrueHost=undef;
-our $IPAddress=undef;
-our $uninstall='';
-our $show='';
+our $TrueHost = undef;
+our $IPAddress = undef;
+our $uninstall = '';
+our $show = '';
 
 # Parse Options:
 
-$Getopt::Long::bundling=1;
+$Getopt::Long::bundling = 1;
 GetOptions(
-  'help', sub { pod2usage(1) },
-  'man|?', sub { pod2usage(-verbose=>2) },
-  'version|V|v', \&version,
-  'ip|i=s', sub { $IPAddress=@_[1] },
-  'host|h=s', sub { $TrueHost=@_[1] },
-  'delete|uninstall|d|u', \$uninstall,
-  'show|debug|n|s', \$show
+	'help', sub { pod2usage(1) },
+	'man|?', sub { pod2usage(-verbose => 2) },
+	'version|V|v', \&version,
+	'ip|i=s', sub { $IPAddress = @_[1] },
+	'host|h=s', sub { $TrueHost = @_[1] },
+	'delete|uninstall|d|u', \$uninstall,
+	'show|debug|n|s', \$show
 ) or pod2usage(2);
 
 # Parse Main argument:
 
-if($#ARGV<0) { pod2usage('No hostname given') }
-if($#ARGV>0) { pod2usage('Only one hostname may be given') }
+if($#ARGV < 0) {
+	pod2usage('No hostname given')
+}
+if($#ARGV > 0) {
+	pod2usage('Only one hostname may be given')
+}
 our $hostname=$ARGV[0];
 
 # Set Variables according to all options:
 
-$TrueHost=$hostname unless defined($TrueHost);
-unless(defined($IPAddress))
-{
-  print "Enter IP Address: " if(-t STDIN && -t STDOUT);
-  $IPAddress=<STDIN>; chomp $IPAddress;
+$TrueHost = $hostname unless defined($TrueHost);
+unless(defined($IPAddress)) {
+	print "Enter IP Address: " if(-t STDIN && -t STDOUT);
+	$IPAddress = <STDIN>; chomp $IPAddress;
 }
 
 # Read ~/.ssh/config and find proper Host section:
 
-our $dir="$ENV{'HOME'}/.ssh";
-our $file="$dir/config";
-our $data='';
-{ local(*INPUT, $/); open(INPUT,$file) and $data=<INPUT> }
-
-our $start=undef;
-our $startmatch=undef;
-our $end=undef;
-our $hostmatch;
-
-if($data =~ /^(\s*Host\s+\Q$hostname\E\s*)$/mig)
-{
-  $startmatch=pos($data);
-  $hostmatch=$1;
-  $start=$startmatch-length($hostmatch);
-  if($data =~ /^(\s*Host\s)/mig) { $end=pos($data)-length($1) }
+our $dir = "$ENV{'HOME'}/.ssh";
+our $file = "$dir/config";
+our $data = ''; {
+	local(*INPUT, $/);
+	open(INPUT, '<', $file) and $data = <INPUT>
 }
 
-sub indata { my $a=shift; pos($data)=$startmatch;
-  unless($data=~/$a/mig) { return '' }
-  if(defined($end) && (pos($data)>$end)) { return '' }
-  return 1
+our $start = undef;
+our $startmatch = undef;
+our $end = undef;
+our $hostmatch;
+
+if($data =~ /^(\s*Host\s+\Q$hostname\E\s*)$/mig) {
+	$startmatch = pos($data);
+	$hostmatch = $1;
+	$start = $startmatch - length($hostmatch);
+	if($data =~ /^(\s*Host\s)/mig) { $end = pos($data) - length($1) }
+}
+
+sub indata {
+	my $a = shift;
+	pos($data) = $startmatch;
+	unless($data =~ /$a/mig) {
+		return ''
+	}
+	if(defined($end) && (pos($data)>$end)) {
+		return ''
+	}
+	return 1
 }
 
 # Now the main task:
 
-our $NameIP='HostName';
-our $NameAlias='HostKeyAlias';
+our $NameIP = 'HostName';
+our $NameAlias = 'HostKeyAlias';
 
 # It is important that we search *everything* before we change $data
 
-our ($NameIPFound,$NameAliasFound);
+our ($NameIPFound, $NameAliasFound);
 
-if(defined($start))
-{
-  $NameIPFound=&indata('^\s*' . $NameIP . '\s');
-  $NameAliasFound=&indata('^\s*' . $NameAlias . '\s');
+if(defined($start)) {
+	$NameIPFound = &indata('^\s*' . $NameIP . '\s');
+	$NameAliasFound = &indata('^\s*' . $NameAlias . '\s');
 }
 
-if($uninstall)
-{
-  my $modified='';
-  if(defined($start))
-  {
-    if($NameIPFound) { pos($data)=$startmatch; $modified=1;
-      $data=~ s/\G(.*?)\n\s*$NameIP\s[^\n]*/$1/msi }
-    if($NameAliasFound) { pos($data)=$startmatch; $modified=1;
-      $data=~ s/\G(.*?)\n\s*$NameAlias\s[^\n]*/$1/msi }
+if($uninstall) {
+	my $modified = '';
+	if(defined($start)) {
+		if($NameIPFound) {
+			pos($data) = $startmatch; $modified = 1;
+			$data =~ s/\G(.*?)\n\s*$NameIP\s[^\n]*/$1/msi
+		}
+		if($NameAliasFound) {
+			pos($data) = $startmatch; $modified = 1;
+			$data =~ s/\G(.*?)\n\s*$NameAlias\s[^\n]*/$1/msi
+		}
 
-    # Remove the whole section if only spaces are left:
+		# Remove the whole section if only spaces are left:
 
-    pos($data)=$start;
-    if   ($data =~ s/\G\Q$hostmatch\E[\s\r\n]*(Host\s)/$1/si) { $modified=1 }
-    else { pos($data)=$start;
-      if ($data =~ s/\G\Q$hostmatch\E[\s\r\n]*$/$1/si) { $modified=1 }
-    }
+		pos($data) = $start;
+		if($data =~ s/\G\Q$hostmatch\E[\s\r\n]*(Host\s)/$1/si) {
+			$modified = 1
+		}
+		else {
+			pos($data) = $start;
+			if($data =~ s/\G\Q$hostmatch\E[\s\r\n]*$/$1/si) {
+				$modified = 1
+			}
+		}
 
-    # If nothing is left, remove ~/.ssh/config and possibly also ~/.ssh:
+		# If nothing is left, remove ~/.ssh/config and possibly also ~/.ssh:
 
-    if($data =~ /^[\s\r\n]*$/s)
-    {
-      if($show)
-        { print "rm -- $file; rmdir -- $dir" }
-      else
-        { unlink $file; rmdir -- $dir }
-      exit 0
-    }
-  }
-  unless($modified) { exit 0 }
+		if($data =~ /^[\s\r\n]*$/s) {
+			if($show) {
+				print "rm -- $file; rmdir -- $dir"
+			}
+			else {
+				unlink($file); rmdir($dir)
+			}
+			exit 0
+		}
+	}
+	unless($modified) {
+		exit 0
+	}
 }
-else # not $uninstall
-{
-  if(defined($start))
-  {
-    if($NameIPFound) { pos($data)=$startmatch;
-      $data=~ s/\G(.*?)^(\s*$NameIP\s+)[^\r\n]*/$1$2$IPAddress/msi }
-    else { substr($data,$startmatch,0,"\n$NameIP $IPAddress") }
-    if($NameAliasFound) { pos($data)=$startmatch;
-      $data=~ s/\G(.*?)^(\s*$NameAlias\s+)[^\r\n]*/$1$2$TrueHost/msi }
-    else { substr($data,$startmatch,0,"\n$NameAlias $TrueHost") }
-  }
-  else
-    { $data.="\nHost $hostname\n$NameIP $IPAddress\n$NameAlias $TrueHost\n" }
+else { # not $uninstall
+	if(defined($start)) {
+		if($NameIPFound) {
+			pos($data) = $startmatch;
+			$data =~ s/\G(.*?)^(\s*$NameIP\s+)[^\r\n]*/$1$2$IPAddress/msi
+		}
+		else {
+			substr($data, $startmatch, 0, "\n$NameIP $IPAddress")
+		}
+		if($NameAliasFound) {
+			pos($data) = $startmatch;
+			$data =~ s/\G(.*?)^(\s*$NameAlias\s+)[^\r\n]*/$1$2$TrueHost/msi
+		}
+		else {
+			substr($data, $startmatch, 0, "\n$NameAlias $TrueHost")
+		}
+	}
+	else {
+		$data .= "\nHost $hostname\n$NameIP $IPAddress\n$NameAlias $TrueHost\n"
+	}
 }
 
 # Write $data:
 
 umask 0077;
-unless(-d $dir)
-{
-  if($show) { print "mkdir $dir; " }
-  else      { mkdir $dir,0700 }
+unless(-d $dir) {
+	if($show) {
+		print "mkdir -m 700 $dir; "
+	}
+	else {
+		mkdir($dir, 0700)
+	}
 }
-if($show)
-  { print "echo >$file <<#EOF#\n",$data,"#EOF#\n" }
-else
-{
-  local(*FILE, $/);
-  open(FILE,">$file") || die "Cannot open $file for writing\nStopped";
-  print FILE $data
+if($show) {
+	print "echo >$file <<#EOF#\n", $data, "#EOF#\n"
+}
+else {
+	local(*FILE, $/);
+	open(FILE, '>', $file) || die "Cannot open $file for writing\nStopped";
+	print FILE $data
 }
 exit 0

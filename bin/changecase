@@ -1,18 +1,19 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 use integer;
 use Getopt::Long;
 use File::Find;
 use strict;
 
-sub version { '$Revision: 1.1 $ '=~ /Revision:\s([^\s]*)/;
-  print "Changecase v$1 by Martin Väth\n"
-   .    "martin\@mvath.de\n" ; exit 0 }
+sub version { '$Revision: 1.2 $ ' =~ /Revision:\s([^\s]*)/;
+	print "Changecase v$1 by Martin Väth\n"
+	 .    "martin\@mvath.de\n" ; exit 0 }
 
-our ($mdot,$ddot,$dirsep)=('.','..','/');
+our ($mdot, $ddot, $dirsep) = ('.', '..', '/');
 
-$0 =~ /([^\/]*)$/; our $script=$1;
-sub usage { my($exitstatus)=@_;
-  print STDERR <<"EOUSAGE";
+$0 =~ /([^\/]*)$/; our $script = $1;
+sub usage {
+	my($exitstatus)=@_;
+	print STDERR <<"EOUSAGE";
 Usage: $script [options] u\|l
 Change all filenames in current directory and subdirectory to upper/lower case.
 --dir=DIR     -d DIR Change content of DIR instead of $mdot
@@ -21,58 +22,63 @@ Change all filenames in current directory and subdirectory to upper/lower case.
 --quiet       -q     Be quiet
 --version     -V     Print version number
 EOUSAGE
-  exit($exitstatus)
+	exit($exitstatus)
 }
 
 # Default for the Options:
 
-our ($dir,$recurse,$quiet,$mode);
-$dir=$mdot;
-$recurse=1;
-$quiet='';
+our ($dir, $recurse, $quiet, $mode);
+$dir = $mdot;
+$recurse = 1;
+$quiet = '';
 
 # Parse Options:
 
-$Getopt::Long::bundling=1;
+$Getopt::Long::bundling = 1;
 GetOptions(
-  'help|h|?', sub { &usage(0) },
-  'version|V', \&version,
-  'recurse|r', \$recurse,
-  'norecurse|R', sub { $recurse='' },
-  'dir|d=s', sub { (undef,$dir)=@_ },
-  'quiet|q', \$quiet
+	'help|h|?', sub { &usage(0) },
+	'version|V', \&version,
+	'recurse|r', \$recurse,
+	'norecurse|R', sub { $recurse = '' },
+	'dir|d=s', sub { (undef, $dir) = @_ },
+	'quiet|q', \$quiet
 ) or &usage(-1);
 
 # Read first (and only) argument:
 
-$mode=shift;
-unless(defined($mode) && (($mode eq 'l') || ($mode eq 'u')))
-  { &usage(1) }
+$mode = shift;
+unless(defined($mode) && (($mode eq 'l') || ($mode eq 'u'))) {
+	&usage(1)
+}
 
 # Now we start:
 
-find({ bydepth=>$recurse, follows=>1, wanted=>\&dorename }, $dir);
+find({ bydepth => $recurse, follows => 1, wanted => \&dorename }, $dir);
 
-sub dorename
-{
-  if(($_ eq $mdot) || ($_ eq $ddot)) { return }
-  unless($recurse)
-    { $File::Find::prune=1 }
-  my $change;
-  if($mode eq 'u')
-    { $change=uc }
-  else
-    { $change=lc }
-  if($change eq $_)
-    { return }
-  my $source="$File::Find::dir$dirsep$_";
-  my $dest="$File::Find::dir$dirsep$change";
-  if(-e $dest)
-  {
-    print STDERR "Warning: $dest exists; do not rename $source\n";
-    return;
-  }
-  print "$source -> $dest\n" unless($quiet);
-  rename($_,$change) or
-    print STDERR "Warning: Cannot rename $source -> $dest\n";
+sub dorename {
+	if(($_ eq $mdot) || ($_ eq $ddot)) {
+		return
+	}
+	unless($recurse) {
+		$File::Find::prune = 1
+	}
+	my $change;
+	if($mode eq 'u') {
+		$change = uc
+	}
+	else {
+		$change = lc
+	}
+	if($change eq $_) {
+		return
+	}
+	my $source = "$File::Find::dir$dirsep$_";
+	my $dest = "$File::Find::dir$dirsep$change";
+	if(-e $dest) {
+		print STDERR "Warning: $dest exists; do not rename $source\n";
+		return;
+	}
+	print "$source -> $dest\n" unless($quiet);
+	rename($_, $change) or
+		print STDERR "Warning: Cannot rename $source -> $dest\n";
 }
