@@ -91,12 +91,12 @@ Here is a brief overview of the scripts:
   with perl regular expressions and possibility to recurse into
   subdirectories.
 
-- rrep v1.2 (Replace regular expression). As prep above, but in addition,
+- rrep v1.3 (Replace regular expression). As prep above, but in addition,
   it is possible to replace the regular expressions in the files
   (interactively or non-interactively). Very flexible. You should
   also have a look at the script plrep.
 
-- find_double v1.2. Looks for double files (the user may decide whether equal
+- find_double v1.3. Looks for double files (the user may decide whether equal
   names and/or equal content count as double). Needs only O(n log(n))
   comparisons in the mean.
   See also the "patchdirs" script of this collection.
@@ -111,7 +111,10 @@ Here is a brief overview of the scripts:
   attributes, time, owner, ...
   Also calls like comp *.tex DIR are admissible.
 
-- touch.difference v1.2. Correct times of files by a daylight saving offset
+- touch.difference v1.3. Correct times of files
+  (e.g. by a daylight saving offset). The script can also be used to "round"
+  the timestamps to a full second in order to simplify comparison of
+  timestamps on filesystems of different resolution.
 
-- touchdirs v1.4. Touch directories according to their newest file
+- touchdirs v1.5. Touch directories according to their newest file.
 

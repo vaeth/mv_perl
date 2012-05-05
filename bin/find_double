@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# double $Revision: 1.2 $ by Martin Väth
+# double $Revision: 1.3 $ by Martin Väth
 # martin@mvath.de
 
 # If the Environment-Variable path contains a '/', we assume that we are
@@ -512,7 +512,7 @@ sub tricky
 				print "\n"
 			}
 		}
-		if($double[$b]>0) # If we have a match with SECONDLIST: {
+		if($double[$b]>0) { # If we have a match with SECONDLIST:
 			unless($foundpair) {
 				print "Match:	$ARGV[$b]"
 			}

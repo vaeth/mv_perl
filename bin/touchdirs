@@ -10,7 +10,7 @@ use File::stat;
 
 my ($mdot,$ddot,$dirsep)=('.','..','/');
 
-sub version () { '$Revision: 1.4 $ ' =~ /Revision:\s([^\s]*)/;
+sub version () { '$Revision: 1.5 $ ' =~ /Revision:\s([^\s]*)/;
 	print "Touchdirs v$1 by Martin Väth\n"
 	 .    "martin\@mvath.de\n" ; exit 0 }
 
@@ -25,7 +25,9 @@ B<touchdirs> [options] I<dirs>
 =head1 DESCRIPTION
 
 Look for all files in I<dirs> and then change all dirs' mtimestamps according
-to the newest file contained (empty dirs' mtimestamps are ignored)
+to the newest file contained (empty dirs' mtimestamps are ignored).
+The used resolution of timestamps is one second, independent of the
+properties of the filesystem.
 
 =head1 OPTIONS AND ARGUMENTS
 
@@ -143,7 +145,7 @@ sub dotouch () {
 	}
 	my $path = $File::Find::dir . '/' . $_;
 	if(&exclude($path)) {
-		$path =~ s/\n/\n\#\ /gom; print "# Ignored: $path\n"
+		$path =~ s/\n/\n\#\ /gom; print "# Ignored: $path\n";
 		return
 	}
 	my $time = (($follow)?stat($_)->mtime:lstat($_)->mtime);

@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# rrep $Revision: 1.2 $ by Martin Väth
+# rrep $Revision: 1.3 $ by Martin Väth
 # martin@mvath.de
 
 sub help
@@ -247,7 +247,7 @@ sub ProcessDir
 		if(($fname ne '.') && ($fname ne '..')) {
 			$fmmask = '';
 			foreach $maske (@ARGV) {
-				fmmask = 1 if $fname =~ /^$maske$/i
+				$fmmask = 1 if($fname =~ /^$maske$/i)
 			}
 			if($act ne '') {
 				$thefile = $act . '/' . $fname
