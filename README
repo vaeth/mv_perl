@@ -101,7 +101,7 @@ Here is a brief overview of the scripts:
   comparisons in the mean.
   See also the "patchdirs" script of this collection.
 
-- renreg v1.3. Rename and/or number a set of files using regular expressions.
+- renreg v1.4. Rename and/or number a set of files using regular expressions.
 
 - changecase v1.2. A very simple script which allows to change filenames
   to upper or lower case (including directory names, recursively).
