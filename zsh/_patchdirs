@@ -1,4 +1,6 @@
 #compdef patchdirs
+local context state state_descr line ret=1
+typeset -A opt_args
 _arguments -s -S : \
 '(1 * -)'{'--help','-h'}'[print a brief help]' \
 '(1 * -)'{'--man','-\\?'}'[show extended help as a manpage]' \
@@ -38,5 +40,18 @@ _arguments -s -S : \
 '(1 --restore --double)--store[use store mode]' \
 '(1 --store --double)--restore[use restore mode]' \
 '(1 --store --restore)--double[use double mode]' \
-'1:mode:(store restore double)' \
-'*:file:_files'
+'1:command:->cmds' \
+'*:file:_files' && ret=0
+local ret=$?
+case $state in
+cmds)
+	local cmds
+	cmds=(
+	'store:output checksums for files in DIRS'
+	'restore:restore directory structure according to FILE'
+	'double:output duplicate files from DIRS'
+	)
+	_describe -t commands 'command' cmds
+	ret=$?;;
+esac
+return ret

@@ -1,8 +1,22 @@
 #compdef changecase
+local context state state_descr line
+typeset -A opt_args
 _arguments -s -S : \
 '(1 -)'{'--version','-V'}'[print version]' \
 {'(--dir)-d+','(-d)--dir='}'[change content of DIR instead of .]:dir:_files -/' \
 {'(--recurse)-r','(-r)--recurse'}'[recurse (default)]' \
 {'(--norecurse)-R','(-R)--norecurse'}'[do not recurse]' \
 {'(--quiet)-q','(-q)--quiet'}'[quiet]' \
-'1:mode:(u l)'
+'1:mode:->mode'
+local ret=$?
+case $state in
+mode)
+	local mode
+	mode=(
+	'u:change filenames to uppercase'
+	'l:change filenames to lowercase'
+	)
+	_describe -t mode 'mode' mode
+	ret=$?;;
+esac
+return ret
