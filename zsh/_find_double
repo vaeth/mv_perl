@@ -2,6 +2,7 @@
 _arguments -s -S -A '-*' : \
 '-N[require for equality also that the filenames (without path) are the same]' \
 '-t[require also that the (last modification) filestamps are the same]' \
+'-b[report as double if file is only first part of another]' \
 '-d[do not check the content of the files, only consider their length]' \
 '-n[do not even check the length (implies -N and -d); the files need not exist]' \
 '-p[as -n, but require additionally that even the paths of the files coincide]' \
