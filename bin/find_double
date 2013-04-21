@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# double $Revision: 1.4 $ by Martin Väth
+# double $Revision: 1.5 $ by Martin Väth
 # martin@mvath.de
 
 # If the Environment-Variable path contains a '/', we assume that we are
@@ -170,7 +170,7 @@ sub namecomp
 	local($n1, $n2) = @_;
 	$n1 =~ s/^.*$sep//o;
 	$n2 =~ s/^.*$sep//o;
-	return("$n1" cmp "$n2");
+	return("$n1" cmp "$n2")
 }
 
 # The following function compares the timestamps of the files corresponding
@@ -268,7 +268,7 @@ sub compare
 		if(++$dotcount>100) {
 			$dotcount = 0;
 			print STDERR '.';
-			$wasdot = 1;
+			$wasdot = 1
 		}
 	}
 	if($badfile[$a]) {
@@ -296,12 +296,12 @@ sub compare
 				unless(open(FA, '<', $ARGV[$a])) {
 					&flushdot;
 					print STDERR "Warning: Cannot open file $ARGV[$a] but system claimed contrary\n";
-					$badfile[$a] = 1;
+					$badfile[$a] = 1
 				}
 				unless(open(FB, '<', $ARGV[$b])) {
 					&flushdot;
 					print STDERR "Warning: Cannot open file $ARGV[$b] but system claimed contrary\n";
-					$badfile[$b] = 1;
+					$badfile[$b] = 1
 				}
 				if($badfile[$a]) {
 					if($badfile[$b]) {
@@ -311,11 +311,11 @@ sub compare
 					} else {
 						close(FB)
 					}
-					return 1;
+					return 1
 				}
 				if($badfile[$b]) {
 					close(FA);
-					return(-1);
+					return(-1)
 				}
 				binmode(FA); binmode(FB);
 				local($A, $B);
@@ -324,14 +324,17 @@ sub compare
 					if($bread != $aread) {
 						unless($beginning) {
 							&flushdot;
-							print STDERR "Warning: Length of $ARGV[$a] and $ARGV[$b] differs but system claimed contrary\n";
+							print STDERR "warning: length of $ARGV[$a] or $ARGV[$b] changed\n";
 							close(FB); close(FA);
 							return ($aread <=> $bread)
 						}
 						if($aread < $bread) {
 							$B = substr($B, 0, $aread)
-						} else {
+						} elsif($bread > 0) {
 							$A = substr($A, 0, $bread)
+						} else {
+							close(FB); close(FA);
+							return 0
 						}
 					}
 					if(($rcomp = ($A cmp $B)) != 0) {
@@ -346,8 +349,8 @@ sub compare
 				close(FB);
 				if((!$beginning) && ($bread > 0)) {
 					&flushdot;
-					print STDERR "Warning: Length of $ARGV[$a] and $ARGV[$b] differs but system claimed contrary\n";
-					return (0 <=> $bread);
+					print STDERR "warning: length of $ARGV[$a] and $ARGV[$b] changed\n";
+					return (0 <=> $bread)
 				}
 			}
 		}
