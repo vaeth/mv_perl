@@ -7,11 +7,13 @@ use File::Find;
 use Fcntl ':mode';
 use Time::localtime;
 
-my ($mdot,$ddot,$dirsep)=('.','..','/');
+my $dirsep = '/';
 
-sub version () { '$Revision: 2.0 $ ' =~ /Revision:\s([^\s]*)/;
-	print "Touchdirs v$1 by Martin Väth\n"
-	 .    "martin\@mvath.de\n" ; exit 0 }
+sub version () {
+	print("Touchdirs v2.1 by Martin Väth\n",
+		"martin\@mvath.de\n");
+	exit 0
+}
 
 =head1 NAME
 
@@ -55,11 +57,11 @@ Ignore files whose (relative) path matches I<regexp>, ignoring case.
 
 =item B<--dotdirs> or B<-d>
 
-Ignore .* dirs. Equivalent to B<--ignore=/\..*/> (needs quoting in shell)
+Ignore .* dirs. Equivalent to B<--ignore=/\..+/>
 
 =item B<--dotfiles> or B<-D>
 
-Ignore .* files. Equivalent to B<--ignore=/\.[^/]*$> (needs quoting in shell)
+Ignore .* files. Equivalent to B<--ignore=/\.[^/]+$>
 
 =item B<--dot>
 
@@ -73,6 +75,11 @@ Ignore .git dirs. Equivalent to B<--ignore=/\.git/>
 
 Follow links to further directories.
 Also use time of the file the link points to instead of time of the link.
+
+=item B<--quiet> or B<-q>
+
+Do not print ignored directories.
+If specified twice, do not print executed commands, either.
 
 =item B<--dry-run> or B<--show> or B<-n> or B<-s>
 
@@ -97,6 +104,7 @@ my $force = '';
 my $all = '';
 my $show = '';
 my $follow = '';
+my $quiet = 0;
 my @exclude = ();
 my @iexclude = ();
 
@@ -112,21 +120,21 @@ GetOptions(
 	'access|A', \$access,
 	'ignore|i=s', \@exclude,
 	'ignore-case|I=s', \@iexclude,
-	'dotdir|d', sub { push(@exclude, qr'/\..*/') },
-	'dotfile|D', sub { push(@exclude, qr'/\.[^/]*$') },
+	'dotdir|d', sub { push(@exclude, qr'/\..+/') },
+	'dotfile|D', sub { push(@exclude, qr'/\.[^/]+$') },
 	'dot', sub { push(@exclude, qr'/\.') },
 	'git|g', sub { push(@exclude, qr'/\.git/') },
 	'show|dry-run|s|n', \$show,
+	'quiet|q+', \$quiet,
 	'follow-link|F', \$follow,
 	'nofollow-link', sub { $follow = '' }
 ) or pod2usage(2);
 ($#ARGV >= 0) or pod2usage(-verbose => 2);
 
-if($all) {
-	$force = 1
-}
+$force = 1 if($all);
 
 # Compile regular expressions and make one array:
+my $dirsepre = qr/^(.*)$dirsep.*$/o;
 for my $i (@exclude) {
 	if(ref($i) ne 'Regexp') {
 		$i = qr/$i/
@@ -140,6 +148,7 @@ for my $i (@iexclude) {
 }
 @iexclude = ();
 
+# Main Loop
 my @DIR = ();
 my %DIR = ();
 foreach my $topdir (@ARGV) {
@@ -158,7 +167,7 @@ foreach my $topdir (@ARGV) {
 		my($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
 			$atime, $mtime, $ctime, $blksize, $blocks) = ($follow ? stat($dir) : lstat($dir));
 		my ($newatime, $newmtime) = @{$DIR{$dir}};
-		if($force or ($atime != $newatime) or ($mtime != $newmtime)) {
+		if($force || ($atime != $newatime) || ($mtime != $newmtime)) {
 			&touchit($newmtime, $newatime, $dir)
 		}
 	}
@@ -175,31 +184,34 @@ sub myctime ($) {
 sub touchit ($$$) {
 	my ($atime, $mtime, $file) = @_;
 	my $cmtime = &myctime($mtime);
+	return if($show && ($quiet >= 2));
 	if((!$follow) && (-l $file)) {
 		if($atime == $mtime) {
-			&shprint('touch -h    -t ' . &shq($cmtime), $file);
+			&shprint('touch -h    -t ' . &shq($cmtime), $file) if($quiet < 2);
 			system('touch', '-h', '-t', $cmtime, '--', $file) unless $show;
 		} else {
 			my $catime = &myctime($atime);
-			&shprint('touch -h -m -t ' . &shq($cmtime), $file);
+			&shprint('touch -h -m -t ' . &shq($cmtime), $file) if($quiet < 2);
 			system('touch', '-h', '-m', '-t', $cmtime, '--', $file) unless $show;
-			&shprint('touch -h -a -t ' . &shq($catime), $file);
+			&shprint('touch -h -a -t ' . &shq($catime), $file) if($quiet < 2);
 			system('touch', '-h', '-a', '-t', $catime, '--', $file) unless $show;
 		}
 		return
 	}
-	if($atime == $mtime) {
-		&shprint('touch       -t ' . &shq($cmtime), $file)
-	} else {
-		my $catime = &myctime($atime);
-		&shprint('touch    -m -t ' . &shq($cmtime), $file);
-		&shprint('touch    -a -t ' . &shq($catime), $file);
+	if($quiet < 2) {
+		if($atime == $mtime) {
+			&shprint('touch       -t ' . &shq($cmtime), $file)
+		} else {
+			my $catime = &myctime($atime);
+			&shprint('touch    -m -t ' . &shq($cmtime), $file);
+			&shprint('touch    -a -t ' . &shq($catime), $file);
+		}
 	}
-	utime($atime, $mtime, $file) unless $show
+	utime($atime, $mtime, $file) unless($show)
 }
 
 sub exclude ($) {
-	my($path) = @_;
+	my ($path) = @_;
 	foreach my $regex (@exclude) {
 		if($path =~ $regex) {
 			return 1
@@ -209,14 +221,13 @@ sub exclude ($) {
 }
 
 sub dotouch () {
-#	if(($_ eq $mdot) || ($_ eq $ddot)) { return }
 	if(-d $_) {
-		return
+		return if($follow || !(-l $_));
 	}
-	my $path = $File::Find::dir . '/' . $_;
-	if(&exclude($path)) {
-		$path =~ s/\n/\n\#\ /gom;
-		print "# Ignored: $path\n";
+	if(&exclude($_)) {
+		return if($quiet);
+		s/\n/\n\#\ /gom;
+		print "# Ignored:                     $_\n";
 		return
 	}
 	my($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
@@ -238,45 +249,34 @@ sub dotouch () {
 			if($mtime > $orimtime) {
 				$array->[1] = $mtime
 			}
-		}
-		else {
+		} else {
 			push(@DIR, $dirname);
 			$DIR{$dirname} = [ $atime, $mtime ]
 		}
-		if($dirname =~ /$dirsep/o) {
-			$dirname =~ /^(.*)$dirsep+/o;
-			$dirname = $1
-		}
-		else {
-			last
-		}
+		last unless($dirname =~ s/$dirsepre/$1/o)
 	}
 }
 
-sub shq ($)
-{
-	my($a) = (@_);
+sub shq ($) {
+	my ($a) = (@_);
 	$a =~ s/\'/\'\\\'\'/go; $a = "'$a'";
 	$a =~ s/(^|[^\\])\'([\da-zA-Z\_\-\,\.\:\/]*)\'/$1$2/g;
 	return(($a ne '') ? $a : "''");
 }
 
-sub shqs ($)
-{
-	return ' ' . &shq($_[0])
+sub shqs ($) {
+	return(' ' . &shq($_[0]))
 }
 
-sub shdash
-{
+sub shdash {
 	my($s, $r, $t) = (shift, '', '');
 	for my $i (@_) {
 		$t = 1 if($i =~ /^[-+]/);
 		$r .= &shqs($i)
 	}
-	return(($t) ? ($s . ' --' . $r) : ($s . $r))
+	return (($t) ? ($s . ' --' . $r) : ($s . $r))
 }
 
-sub shprint
-{
-	print &shdash(@_) . "\n"
+sub shprint {
+	print(&shdash(@_), "\n")
 }
