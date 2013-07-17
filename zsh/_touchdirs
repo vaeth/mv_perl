@@ -5,6 +5,9 @@ _arguments -s -S : \
 '(* -)'{'--version','-V'}'[print version]' \
 {'--ignore=','-i+'}'[ignore regexp path]:regexp:(/ "/[^/]*\$")' \
 {'--ignore-case=','-I+'}'[ignore regexp path, ignoring case]:regexp:(/ "/[^/]*\$")' \
+{'(-A)--access','(--access)-A'}'[let access time equal mtime]' \
+{'(-f -a --all)--force','(--force -a --all)-f'}'[force touching dirs]' \
+{'(-a -f --force)--all','(--all -f --force)-a'}'[force touching all files]' \
 {'(-d --dot -g --git)--dotdir','(--dotdir --dot -g --git)-d'}'[ignore .* dirs]' \
 {'(-D --dot)--dotfile','(--dotfile --dot)-D'}'[ignore .* files]' \
 '(-d --dotdir -D --dotfile -g --git)--dot[ignore .* files/dirs]' \

@@ -6,11 +6,10 @@ use Pod::Usage;
 use File::Find;
 use Fcntl ':mode';
 use Time::localtime;
-use File::stat;
 
 my ($mdot,$ddot,$dirsep)=('.','..','/');
 
-sub version () { '$Revision: 1.5 $ ' =~ /Revision:\s([^\s]*)/;
+sub version () { '$Revision: 2.0 $ ' =~ /Revision:\s([^\s]*)/;
 	print "Touchdirs v$1 by Martin Väth\n"
 	 .    "martin\@mvath.de\n" ; exit 0 }
 
@@ -32,6 +31,19 @@ properties of the filesystem.
 =head1 OPTIONS AND ARGUMENTS
 
 =over 8
+
+=item B<--force> or B<-f>
+
+Touch dirs even if time did not change: This sets the filestamps to a
+full second and has other effects e.g. on copy-on-write filesystems.
+
+=item B<--all> or B<-a>
+
+As B<--force> but additionally touch all files
+
+=item B<--access> or B<-A>
+
+Let access time be the same as modification time.
 
 =item B<--ignore=>I<regexp> or B<-i> I<regexp>
 
@@ -80,6 +92,9 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 # Default for the Options:
 
+my $access = '';
+my $force = '';
+my $all = '';
 my $show = '';
 my $follow = '';
 my @exclude = ();
@@ -92,46 +107,101 @@ GetOptions(
 	'help|h', sub { pod2usage(1) },
 	'man|?', sub { pod2usage(-verbose => 2) },
 	'version|V', \&version,
+	'force|f', \$force,
+	'all|a', \$all,
+	'access|A', \$access,
 	'ignore|i=s', \@exclude,
 	'ignore-case|I=s', \@iexclude,
-	'dotdir|d', sub { push(@exclude, '/\..*/') },
-	'dotfile|D', sub { push(@exclude, '/\.[^/]*$') },
-	'dot', sub { push(@exclude, '/\.') },
-	'git|g', sub { push(@exclude, '/\.git/') },
+	'dotdir|d', sub { push(@exclude, qr'/\..*/') },
+	'dotfile|D', sub { push(@exclude, qr'/\.[^/]*$') },
+	'dot', sub { push(@exclude, qr'/\.') },
+	'git|g', sub { push(@exclude, qr'/\.git/') },
 	'show|dry-run|s|n', \$show,
 	'follow-link|F', \$follow,
 	'nofollow-link', sub { $follow = '' }
 ) or pod2usage(2);
 ($#ARGV >= 0) or pod2usage(-verbose => 2);
 
+if($all) {
+	$force = 1
+}
+
+# Compile regular expressions and make one array:
+for my $i (@exclude) {
+	if(ref($i) ne 'Regexp') {
+		$i = qr/$i/
+	}
+}
+for my $i (@iexclude) {
+	if(ref($i) ne 'Regexp') {
+		$i = qr/$i/i
+	}
+	Push(@exclude, $i)
+}
+@iexclude = ();
+
 my @DIR = ();
 my %DIR = ();
 foreach my $topdir (@ARGV) {
 	@DIR = ();
 	%DIR = ();
-	find({ bydepth => 1, follows => $follow, wanted => \&dotouch }, $topdir);
-	@DIR = sort @DIR;
-	@DIR = reverse @DIR;
+	find({
+		bydepth => 1,
+		follows => $follow,
+		follow_skip => 2,
+		no_chdir => 1,
+		dangling_symlinks => '',
+		wanted => \&dotouch
+	}, $topdir);
+	@DIR = reverse(@DIR);
 	foreach my $dir (@DIR) {
-		my $oritime = (($follow)?stat($dir)->mtime:lstat($dir)->mtime);
-		my $newtime = $DIR{$dir};
-		if($oritime ne $newtime) {
-			my $time = ctime($newtime);
-			&shprint('touch --date=' . &shq($time), $dir);
-			unless($show) { system('touch', "--date=$time", '--', $dir) }
+		my($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
+			$atime, $mtime, $ctime, $blksize, $blocks) = ($follow ? stat($dir) : lstat($dir));
+		my ($newatime, $newmtime) = @{$DIR{$dir}};
+		if($force or ($atime != $newatime) or ($mtime != $newmtime)) {
+			&touchit($newmtime, $newatime, $dir)
 		}
 	}
+}
+
+sub myctime ($) {
+	my ($time) = @_;
+	$time = localtime($time);
+	return sprintf('%04d%02d%02d%02d%02d%s%02d',
+		(1900 + $time->year()), $time->mon(), $time->mday(),
+		$time->hour(), $time->min(), '.', $time->sec());
+}
+
+sub touchit ($$$) {
+	my ($atime, $mtime, $file) = @_;
+	my $cmtime = &myctime($mtime);
+	if((!$follow) && (-l $file)) {
+		if($atime == $mtime) {
+			&shprint('touch -h    -t ' . &shq($cmtime), $file);
+			system('touch', '-h', '-t', $cmtime, '--', $file) unless $show;
+		} else {
+			my $catime = &myctime($atime);
+			&shprint('touch -h -m -t ' . &shq($cmtime), $file);
+			system('touch', '-h', '-m', '-t', $cmtime, '--', $file) unless $show;
+			&shprint('touch -h -a -t ' . &shq($catime), $file);
+			system('touch', '-h', '-a', '-t', $catime, '--', $file) unless $show;
+		}
+		return
+	}
+	if($atime == $mtime) {
+		&shprint('touch       -t ' . &shq($cmtime), $file)
+	} else {
+		my $catime = &myctime($atime);
+		&shprint('touch    -m -t ' . &shq($cmtime), $file);
+		&shprint('touch    -a -t ' . &shq($catime), $file);
+	}
+	utime($atime, $mtime, $file) unless $show
 }
 
 sub exclude ($) {
 	my($path) = @_;
 	foreach my $regex (@exclude) {
-		if($path =~ /$regex/) {
-			return 1
-		}
-	}
-	foreach my $regex (@iexclude) {
-		if($path =~ /$regex/i) {
+		if($path =~ $regex) {
 			return 1
 		}
 	}
@@ -145,25 +215,37 @@ sub dotouch () {
 	}
 	my $path = $File::Find::dir . '/' . $_;
 	if(&exclude($path)) {
-		$path =~ s/\n/\n\#\ /gom; print "# Ignored: $path\n";
+		$path =~ s/\n/\n\#\ /gom;
+		print "# Ignored: $path\n";
 		return
 	}
-	my $time = (($follow)?stat($_)->mtime:lstat($_)->mtime);
+	my($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
+		$atime, $mtime, $ctime, $blksize, $blocks) = ($follow ? stat($_) : lstat($_));
+	if($access && ($atime != $mtime)) {
+		$atime = $mtime;
+		&touchit($atime, $mtime, $_)
+	} elsif($all) {
+		&touchit($atime, $mtime, $_)
+	}
 	my $dirname = $File::Find::dir;
 	while($dirname ne '') {
 		if(exists($DIR{$dirname})) {
-			my $oritime = $DIR{$dirname};
-			if($time>$oritime) {
-				$DIR{$dirname} = $time
+			my $array = $DIR{$dirname};
+			my ($oriatime, $orimtime) = @$array;
+			if($atime > $oriatime) {
+				$array->[0] = $atime
+			}
+			if($mtime > $orimtime) {
+				$array->[1] = $mtime
 			}
 		}
 		else {
 			push(@DIR, $dirname);
-			$DIR{$dirname} = $time
+			$DIR{$dirname} = [ $atime, $mtime ]
 		}
 		if($dirname =~ /$dirsep/o) {
 			$dirname =~ /^(.*)$dirsep+/o;
-			$dirname = $1;
+			$dirname = $1
 		}
 		else {
 			last
