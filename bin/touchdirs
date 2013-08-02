@@ -10,7 +10,7 @@ use Time::localtime;
 my $dirsep = '/';
 
 sub version () {
-	print("Touchdirs v2.1 by Martin Väth\n",
+	print("Touchdirs v2.2 by Martin Väth\n",
 		"martin\@mvath.de\n");
 	exit 0
 }
@@ -135,6 +135,7 @@ $force = 1 if($all);
 
 # Compile regular expressions and make one array:
 my $dirsepre = qr/^(.*)$dirsep.*$/o;
+my $dirseptail = qr/$dirsep+$/o;
 for my $i (@exclude) {
 	if(ref($i) ne 'Regexp') {
 		$i = qr/$i/
@@ -151,9 +152,14 @@ for my $i (@iexclude) {
 # Main Loop
 my @DIR = ();
 my %DIR = ();
-foreach my $topdir (@ARGV) {
+my ($topdir, $topdirlen);
+foreach my $currdir (@ARGV) {
 	@DIR = ();
 	%DIR = ();
+	$topdir = $currdir;
+	$topdir =~ s/$dirseptail//o;
+	$topdirlen = length($topdir);
+	next if($topdirlen <= 0);
 	find({
 		bydepth => 1,
 		follows => $follow,
@@ -161,7 +167,7 @@ foreach my $topdir (@ARGV) {
 		no_chdir => 1,
 		dangling_symlinks => '',
 		wanted => \&dotouch
-	}, $topdir);
+	}, $currdir);
 	@DIR = reverse(@DIR);
 	foreach my $dir (@DIR) {
 		my($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
@@ -220,14 +226,24 @@ sub exclude ($) {
 	return ''
 }
 
+sub printcomment ($$) {
+	my ($text, $dir) = @_;
+	$dir =~  s/\n/\n\#\ /gom;
+	printf("%s%-29s%s\n", '# ', $text, $dir)
+}
+
+
 sub dotouch () {
 	if(-d $_) {
 		return if($follow || !(-l $_));
 	}
+	if(substr($_, 0, $topdirlen) ne $topdir) {
+		&printcomment("Prune:", $_);
+		$File::Find::prune = 1;
+		return
+	}
 	if(&exclude($_)) {
-		return if($quiet);
-		s/\n/\n\#\ /gom;
-		print "# Ignored:                     $_\n";
+		&printcomment("Ignored:", $_) unless($quiet);
 		return
 	}
 	my($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
@@ -239,7 +255,7 @@ sub dotouch () {
 		&touchit($atime, $mtime, $_)
 	}
 	my $dirname = $File::Find::dir;
-	while($dirname ne '') {
+	while(length($dirname) >= $topdirlen) {
 		if(exists($DIR{$dirname})) {
 			my $array = $DIR{$dirname};
 			my ($oriatime, $orimtime) = @$array;
