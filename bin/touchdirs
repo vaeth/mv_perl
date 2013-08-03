@@ -10,7 +10,7 @@ use Time::localtime;
 my $dirsep = '/';
 
 sub version () {
-	print("Touchdirs v2.2 by Martin Väth\n",
+	print("Touchdirs v2.3 by Martin Väth\n",
 		"martin\@mvath.de\n");
 	exit 0
 }
@@ -183,7 +183,7 @@ sub myctime ($) {
 	my ($time) = @_;
 	$time = localtime($time);
 	return sprintf('%04d%02d%02d%02d%02d%s%02d',
-		(1900 + $time->year()), $time->mon(), $time->mday(),
+		(1900 + $time->year()), 1 + $time->mon(), $time->mday(),
 		$time->hour(), $time->min(), '.', $time->sec());
 }
 
