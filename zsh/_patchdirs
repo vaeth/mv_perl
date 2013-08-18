@@ -1,5 +1,5 @@
 #compdef patchdirs
-local curcontext="$curcontext" state state_descr line ret=1
+local curcontext="$curcontext" state state_descr line
 typeset -A opt_args
 _arguments -C -s -S : \
 '(1 * -)'{'--help','-h'}'[print a brief help]' \
@@ -41,7 +41,7 @@ _arguments -C -s -S : \
 '(1 --store --double)--restore[use restore mode]' \
 '(1 --store --restore)--double[use double mode]' \
 '1:command:->cmds' \
-'*:file:_files' && ret=0
+'*:file:_files'
 local ret=$?
 case $state in
 cmds)
