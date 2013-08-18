@@ -13,12 +13,12 @@ _arguments -s -S -A '-*' : \
 {'(--plain-replace --replace-plain)-P','(--replace-plain -P)--plain-replace','(--plain-replace -P)--replace-plain'}'[use plain srtring for replace]' \
 {'(--never-highlight)-H','(-H)--never-highlight'}'[do not highlight matches]' \
 '(--recurse-suppress -R '{'--recurse)-r+','-r)--recurse='}'[recurse from DIR]:recurse-dir:_files -/' \
-'(--recurse -r)'{'--recurse-suppress)-R+','-R)--recurse-suppress='}'[recurse from DIR]:recurse-dir:_files -/' \
+'(--recurse -r '{'--recurse-suppress)-R+','-R)--recurse-suppress='}'[recurse from DIR]:recurse-dir:_files -/' \
 '(1 2 '{'--file)-f+','-f)--file='}'[read strings from file]:from-file:_files' \
 '(2 '{'--grep)-g','-g)--grep'}'[grep mode]' \
 '(--begin -B --after -A '{'--context)-C+','-C)--context='}'[print NUM lines context]:number of context lines:(0 1 2 3 4)' \
-{'--begin)-B+','-B)--begin='}'[print NUM lines before match]:number of lines before match:(0 1 2 3 4)' \
-{'--after)-A+','-A)--after='}'[print NUM lines after match]:number of lines after match:(0 1 2 3 4)' \
+{'(--begin)-B+','(-B)--begin='}'[print NUM lines before match]:number of lines before match:(0 1 2 3 4)' \
+{'(--after)-A+','(-A)--after='}'[print NUM lines after match]:number of lines after match:(0 1 2 3 4)' \
 '(2 '{'--count)-c','-c)--count'}'[--grep and count only matches]' \
 '(2 '{'--list)-l','-l)--list'}'[--grep and list only matches]' \
 {'(--nonprintable)-n+','(-n)--nonprintable='}'[print nonprintables as CHAR]:nonprintable-char:("~")' \
