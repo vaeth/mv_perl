@@ -1,7 +1,7 @@
 #compdef patchdirs
 local curcontext="$curcontext" state state_descr line
 typeset -A opt_args
-_arguments -C -s -S : \
+_arguments -C -s -S -A '-*' : \
 '(1 * -)'{'--help','-h'}'[print a brief help]' \
 '(1 * -)'{'--man','-\\?'}'[show extended help as a manpage]' \
 '(1 * -)'{'--version','-V'}'[print version]' \

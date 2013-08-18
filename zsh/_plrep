@@ -1,5 +1,5 @@
 #compdef plrep
-_arguments -s -S : \
+_arguments -s -S -A '-*' : \
 '(1 2 * -)'{'--help','-h'}'[print a brief help]' \
 '(1 2 * -)'{'--man','-\\?'}'[show extended help as a manpage]' \
 '(1 2 * -)'{'--version','-V'}'[print version]' \
