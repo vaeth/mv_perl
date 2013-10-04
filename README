@@ -3,11 +3,13 @@ mv_perl - A collection of perl scripts (replacement in files, syncing dirs etc)
 
 Author: Martin Väth <martin@mvath.de>
 
-This project is under the BSD license.
+This project is under a BSD type license, meaning that you can do practically
+everything with it except removing my name.
 
 This is a loose collection of some useful and less useful perl scripts.
 Most scripts are rather old and have not been maintained for a long time
-except for minor bugfixes or cosmetical issues.
+except for minor bugfixes or cosmetical issues (naturally, these older
+scripts are not coded in a modern perl style).
 With some specified exceptions, all scripts run with Perl 4 without
 requiring any modules.
 
@@ -22,7 +24,7 @@ For installation under Gentoo, you can use the ebuild from the mv overlay
 
 Here is a brief overview of the scripts:
 
-- plrep v2.6 (Perl regular expression). This script provides among a more
+- plrep (Perl regular expression). This script provides among a more
   user-friendly variant of the well-known grep (with perl regular
   expressions) a method to replace regular expression within the
   files. Special features include interactive replacement, recursive
@@ -38,7 +40,7 @@ Here is a brief overview of the scripts:
   If you really must use Perl 4, you can use the scripts prep and
   rrep below which together have almost the same functionality.
 
-- patchdirs v1.12. This script serves two purposes:
+- patchdirs. This script serves two purposes:
   1. It allows to keep directory trees in sync for computers which have no
      direct connection. On the one hand, it allows to (recursively) list files
      together with their checksums (and dates, owners, modes).
@@ -58,14 +60,14 @@ Here is a brief overview of the scripts:
      than only a checksum comparison, use the "find_double" perl script of this
      collection).
 
-- patchdirs-ls v1.4. This is somewhat similar to patchdirs but can only
+- patchdirs-ls. This is somewhat similar to patchdirs but can only
   reconstruct from an "ls --recursive" output exclusively on the base
   of names. This is very fast and requires no checksum module/utility.
   However, circular renamings can of course not be recognized.
   This script is still in experimental state. It requires at least
   Perl 5 (with elementary modules).
 
-- rendirs v5.4. The "very standard" ISO9660 CD-Rom format only allows names
+- rendirs. The "very standard" ISO9660 CD-Rom format only allows names
   of 8+3 characters. If there are some reasons to use this format with
   with non-packaged files, it is often convenient to create
   additionally a list containing the original filenames (and perhaps
@@ -78,7 +80,7 @@ Here is a brief overview of the scripts:
   but deals with unsorted input/output.
   Perl 5 (with elementary modules) is required.
 
-- sshconfig v1.3. If you frequently ssh/scp/sftp/rsync to computers with a
+- sshconfig. If you frequently ssh/scp/sftp/rsync to computers with a
   dynamic IP address, you will find this script very useful.
   It modifies/creates a ~/.ssh/config file for you such that you can
   conveniently use the "real" hostname in your commands while the correct
@@ -87,34 +89,34 @@ Here is a brief overview of the scripts:
   associate the correct fingerprint to the host, even if its IP address
   changes. This helps you to detect "man in the middle" attacks.
 
-- prep v1.2 (Perl regular expression). Similar to the well-known grep but
+- prep (Perl regular expression). Similar to the well-known grep but
   with perl regular expressions and possibility to recurse into
   subdirectories.
 
-- rrep v1.3 (Replace regular expression). As prep above, but in addition,
+- rrep (Replace regular expression). As prep above, but in addition,
   it is possible to replace the regular expressions in the files
   (interactively or non-interactively). Very flexible. You should
   also have a look at the script plrep.
 
-- find_double v1.3. Looks for double files (the user may decide whether equal
+- find_double. Looks for double files (the user may decide whether equal
   names and/or equal content count as double). Needs only O(n log(n))
   comparisons in the mean.
   See also the "patchdirs" script of this collection.
 
-- renreg v1.4. Rename and/or number a set of files using regular expressions.
+- renreg. Rename and/or number a set of files using regular expressions.
 
-- changecase v1.2. A very simple script which allows to change filenames
+- changecase. A very simple script which allows to change filenames
   to upper or lower case (including directory names, recursively).
   Very useful in connection with DOS partitions or archives.
 
-- comp v2.1. Similar to diff -r -q, but compares also metadata like
+- comp. Similar to diff -r -q, but compares also metadata like
   attributes, time, owner, ...
   Also calls like comp *.tex DIR are admissible.
 
-- touch.difference v1.3. Correct times of files
+- touch.difference. Correct times of files
   (e.g. by a daylight saving offset). The script can also be used to "round"
   the timestamps to a full second in order to simplify comparison of
   timestamps on filesystems of different resolution.
 
-- touchdirs v1.5. Touch directories according to their newest file.
+- touchdirs. Touch directories according to their newest file.
 

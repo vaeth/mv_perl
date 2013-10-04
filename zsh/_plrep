@@ -22,6 +22,7 @@ _arguments -s -S -A '-*' : \
 '(2 '{'--count)-c','-c)--count'}'[--grep and count only matches]' \
 '(2 '{'--list)-l','-l)--list'}'[--grep and list only matches]' \
 {'(--nonprintable)-n+','(-n)--nonprintable='}'[print nonprintables as CHAR]:nonprintable-char:("~")' \
+{'(--keeptimestamp)-k','(-k)--keeptimestamp'}'[keep filestamps]' \
 {'(--truncate)-t+','(-t)--truncate='}'[truncate to NUM symbols]:truncate-number:(+78)' \
 {'(--Truncate --shift)-T+','(--shift -T)--Truncate=','(--Truncate -T)--shift='}'[show at least NUM symbols from b/e]:number of symbols to show from b/e:(b40 e40)' \
 '1:search: ' \

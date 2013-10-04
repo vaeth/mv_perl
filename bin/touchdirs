@@ -1,16 +1,17 @@
 #!/usr/bin/perl
 use strict;
 use integer;
+no  sort 'stable';
 use Getopt::Long;
 use Pod::Usage;
 use File::Find;
+use File::Spec;
+use File::stat;
 use Fcntl ':mode';
 use Time::localtime;
 
-my $dirsep = '/';
-
 sub version () {
-	print("Touchdirs v2.3 by Martin Väth\n",
+	print("Touchdirs v2.4 by Martin Väth\n",
 		"martin\@mvath.de\n");
 	exit 0
 }
@@ -97,7 +98,7 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 =cut
 
-# Default for the Options:
+# Options and their default:
 
 my $access = '';
 my $force = '';
@@ -108,78 +109,15 @@ my $quiet = 0;
 my @exclude = ();
 my @iexclude = ();
 
-# Parse Options:
+# Global Variables:
 
-$Getopt::Long::bundling = 1;
-GetOptions(
-	'help|h', sub { pod2usage(1) },
-	'man|?', sub { pod2usage(-verbose => 2) },
-	'version|V', \&version,
-	'force|f', \$force,
-	'all|a', \$all,
-	'access|A', \$access,
-	'ignore|i=s', \@exclude,
-	'ignore-case|I=s', \@iexclude,
-	'dotdir|d', sub { push(@exclude, qr'/\..+/') },
-	'dotfile|D', sub { push(@exclude, qr'/\.[^/]+$') },
-	'dot', sub { push(@exclude, qr'/\.') },
-	'git|g', sub { push(@exclude, qr'/\.git/') },
-	'show|dry-run|s|n', \$show,
-	'quiet|q+', \$quiet,
-	'follow-link|F', \$follow,
-	'nofollow-link', sub { $follow = '' }
-) or pod2usage(2);
-($#ARGV >= 0) or pod2usage(-verbose => 2);
+my %DIR;
+my $count;
+my @topdirs;
 
-$force = 1 if($all);
+# Functions:
 
-# Compile regular expressions and make one array:
-my $dirsepre = qr/^(.*)$dirsep.*$/o;
-my $dirseptail = qr/$dirsep+$/o;
-for my $i (@exclude) {
-	if(ref($i) ne 'Regexp') {
-		$i = qr/$i/
-	}
-}
-for my $i (@iexclude) {
-	if(ref($i) ne 'Regexp') {
-		$i = qr/$i/i
-	}
-	Push(@exclude, $i)
-}
-@iexclude = ();
-
-# Main Loop
-my @DIR = ();
-my %DIR = ();
-my ($topdir, $topdirlen);
-foreach my $currdir (@ARGV) {
-	@DIR = ();
-	%DIR = ();
-	$topdir = $currdir;
-	$topdir =~ s/$dirseptail//o;
-	$topdirlen = length($topdir);
-	next if($topdirlen <= 0);
-	find({
-		bydepth => 1,
-		follows => $follow,
-		follow_skip => 2,
-		no_chdir => 1,
-		dangling_symlinks => '',
-		wanted => \&dotouch
-	}, $currdir);
-	@DIR = reverse(@DIR);
-	foreach my $dir (@DIR) {
-		my($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
-			$atime, $mtime, $ctime, $blksize, $blocks) = ($follow ? stat($dir) : lstat($dir));
-		my ($newatime, $newmtime) = @{$DIR{$dir}};
-		if($force || ($atime != $newatime) || ($mtime != $newmtime)) {
-			&touchit($newmtime, $newatime, $dir)
-		}
-	}
-}
-
-sub myctime ($) {
+sub myctime {
 	my ($time) = @_;
 	$time = localtime($time);
 	return sprintf('%04d%02d%02d%02d%02d%s%02d',
@@ -187,10 +125,10 @@ sub myctime ($) {
 		$time->hour(), $time->min(), '.', $time->sec());
 }
 
-sub touchit ($$$) {
+sub touchit {
 	my ($atime, $mtime, $file) = @_;
-	my $cmtime = &myctime($mtime);
 	return if($show && ($quiet >= 2));
+	my $cmtime = &myctime($mtime);
 	if((!$follow) && (-l $file)) {
 		if($atime == $mtime) {
 			&shprint('touch -h    -t ' . &shq($cmtime), $file) if($quiet < 2);
@@ -216,7 +154,7 @@ sub touchit ($$$) {
 	utime($atime, $mtime, $file) unless($show)
 }
 
-sub exclude ($) {
+sub exclude {
 	my ($path) = @_;
 	foreach my $regex (@exclude) {
 		if($path =~ $regex) {
@@ -226,38 +164,53 @@ sub exclude ($) {
 	return ''
 }
 
-sub printcomment ($$) {
+sub printcomment {
 	my ($text, $dir) = @_;
 	$dir =~  s/\n/\n\#\ /gom;
 	printf("%s%-29s%s\n", '# ', $text, $dir)
 }
 
+sub my_split {
+	my ($arr, $dir) = @_;
+	@$arr = File::Spec->splitdir($dir);
+}
 
-sub dotouch () {
+sub my_cat {
+	return File::Spec->catdir(@_)
+}
+
+sub dotouch {
 	if(-d $_) {
 		return if($follow || !(-l $_));
-	}
-	if(substr($_, 0, $topdirlen) ne $topdir) {
-		&printcomment("Prune:", $_);
-		$File::Find::prune = 1;
-		return
 	}
 	if(&exclude($_)) {
 		&printcomment("Ignored:", $_) unless($quiet);
 		return
 	}
-	my($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
-		$atime, $mtime, $ctime, $blksize, $blocks) = ($follow ? stat($_) : lstat($_));
+	my @dirs;
+	&my_split(\@dirs, $_);
+	for my $i (@topdirs) {
+		if((!@dirs) || ($i ne shift(@dirs))) {
+			&printcomment("Prune:", $_);
+			$File::Find::prune = 1;
+			return
+		}
+	}
+	my $filename = &my_cat(@topdirs, @dirs);
+	my $stat = ($follow ? stat($filename) : lstat($filename));
+	my $atime = $stat->atime;
+	my $mtime = $stat->mtime;
 	if($access && ($atime != $mtime)) {
 		$atime = $mtime;
-		&touchit($atime, $mtime, $_)
+		&touchit($atime, $mtime, $filename)
 	} elsif($all) {
-		&touchit($atime, $mtime, $_)
+		&touchit($atime, $mtime, $filename)
 	}
-	my $dirname = $File::Find::dir;
-	while(length($dirname) >= $topdirlen) {
-		if(exists($DIR{$dirname})) {
-			my $array = $DIR{$dirname};
+	while(@dirs) {
+		pop(@dirs);
+		my $dirname = &my_cat(@topdirs, @dirs);
+		my $array = $DIR{$dirname};
+		if(defined($array)) {
 			my ($oriatime, $orimtime) = @$array;
 			if($atime > $oriatime) {
 				$array->[0] = $atime
@@ -266,21 +219,19 @@ sub dotouch () {
 				$array->[1] = $mtime
 			}
 		} else {
-			push(@DIR, $dirname);
-			$DIR{$dirname} = [ $atime, $mtime ]
+			$DIR{$dirname} = [ $atime, $mtime, scalar(@dirs), $count++ ]
 		}
-		last unless($dirname =~ s/$dirsepre/$1/o)
 	}
 }
 
-sub shq ($) {
+sub shq {
 	my ($a) = (@_);
 	$a =~ s/\'/\'\\\'\'/go; $a = "'$a'";
 	$a =~ s/(^|[^\\])\'([\da-zA-Z\_\-\,\.\:\/]*)\'/$1$2/g;
 	return(($a ne '') ? $a : "''");
 }
 
-sub shqs ($) {
+sub shqs {
 	return(' ' . &shq($_[0]))
 }
 
@@ -296,3 +247,79 @@ sub shdash {
 sub shprint {
 	print(&shdash(@_), "\n")
 }
+
+# Parse Options:
+
+$Getopt::Long::bundling = 1;
+GetOptions(
+	'help|h', sub { pod2usage(1) },
+	'man|?', sub { pod2usage(-verbose => 2) },
+	'version|V', \&version,
+	'force|f', \$force,
+	'all|a', \$all,
+	'access|A', \$access,
+	'ignore|i=s', \@exclude,
+	'ignore-case|I=s', \@iexclude,
+	'dotdir|d', sub { push(@exclude, qr'/\..+/') },
+	'dotfile|D', sub { push(@exclude, qr'/\.[^/]+$') },
+	'dot', sub { push(@exclude, qr'/\.') },
+	'git|g', sub { push(@exclude, qr'/\.git/') },
+	'show|dry-run|s|n', \$show,
+	'quiet|q+', \$quiet,
+	'follow-link|F', \$follow,
+	'nofollow-link|no-follow-link', sub { $follow = '' }
+) or pod2usage(2);
+($#ARGV >= 0) or pod2usage(-verbose => 2);
+
+$force = 1 if($all);
+
+# Compile regular expressions and make one array:
+for my $i (@exclude) {
+	if(ref($i) ne 'Regexp') {
+		$i = qr/$i/
+	}
+}
+for my $i (@iexclude) {
+	if(ref($i) ne 'Regexp') {
+		$i = qr/$i/i
+	}
+	Push(@exclude, $i)
+}
+@iexclude = undef;
+
+# Main Loop
+foreach my $currdir (@ARGV) {
+	%DIR = ();
+	$count = 0;
+	&my_split(\@topdirs, File::Spec->canonpath($currdir));
+	my $topdir = &my_cat(@topdirs);
+	unless(-d $topdir) {
+		&printcomment("Ignoring non-directory:", $currdir);
+		next
+	}
+	find({
+		bydepth => 1,
+		follows => $follow,
+		follow_skip => 2,
+		no_chdir => 1,
+		dangling_symlinks => '',
+		wanted => \&dotouch
+	}, $topdir);
+	my @DIR = sort {
+		my $x = $DIR{$a};
+		my $y = $DIR{$b};
+		my $ret = -($x->[2] cmp $y->[2]);
+		return $ret if($ret);
+		return -($x->[3] cmp $y->[3])
+	} keys(%DIR);
+	foreach my $dir (@DIR) {
+		my $stat = ($follow ? stat($dir) : lstat($dir));
+		my $atime = $stat->atime;
+		my $mtime = $stat->mtime;
+		my ($newatime, $newmtime) = @{$DIR{$dir}};
+		if($force || ($atime != $newatime) || ($mtime != $newmtime)) {
+			&touchit($newmtime, $newatime, $dir)
+		}
+	}
+}
+1;
