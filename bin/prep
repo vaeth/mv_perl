@@ -1,19 +1,17 @@
 #!/usr/bin/perl
 
-# prep $Revision: 1.2 $ by Martin Väth
+# prep $Revision: 1.3 $ by Martin Väth
 # martin@mvath.de
 
 # If the Environment-Variable path contains a '/', we assume that we are
 # in a Unix-like environmnet. Otherwise, we assume we are in DOS.
 if($ENV{'PATH'} =~ /\// ) {
 	$unix = 1; $uvcommand = 'u -v'; $havefind = 1; $havegroff = 1; $supportzip = 1
-}
-else {
+} else {
 	$uvcommand = 'uv.btm'
 }
 
-sub help
-{
+sub help {
 	if($havefind) {
 	$fdopt = "\n\
   -r      do recurse by hand (not via find command)"
@@ -63,8 +61,7 @@ EOHELP
 	exit
 }
 
-sub ehelp
-{
+sub ehelp {
 	print <<'EOREG';
 .            Any character
 A*           None or more repeats of A
@@ -90,17 +87,16 @@ A$           A at end of line
 Examples: <f.?l+\.> matches <full.> <fill.> <fl.> but not <feel.> <file> <ff.>
 (.*) \(or not \1\)  matches  to be (or not to be) but not  a bee (or not a B)
 EOREG
-	exit
+	exit(0)
 }
 
 $truncate = 79;
 $zipmode = 'u' if($supportzip);
 $ugroff = 1 if($havegroff);
 
-&help if($ARGV[0] eq '');
+&help() if($ARGV[0] eq '');
 
-sub readarg
-{
+sub readarg {
 	$optarg = $optrest; $optrest = '';
 	if($optarg eq '') {
 		$optarg = shift(@ARGV)
@@ -108,40 +104,39 @@ sub readarg
 }
 
 optparse:while($ARGV[0] =~ /^-(.)(.*)$/) {
-	shift;
-	while($1 ne '')
-	{
+	shift(@ARGV);
+	while($1 ne '') {
 		$optlett = $1; $optrest = $2;
-		if   ($optlett eq 'A'){ &readarg; $after = scalar($optarg) }
-		elsif($optlett eq 'B'){ &readarg; $before = scalar($optarg) }
-		elsif($optlett eq 'C'){ $after = $before = 2 }
+		if   ($optlett eq 'A') { &readarg(); $after = scalar($optarg) }
+		elsif($optlett eq 'B') { &readarg(); $before = scalar($optarg) }
+		elsif($optlett eq 'C') { $after = $before = 2 }
 		elsif($optlett =~ /\d/){ $after = $before = scalar("$optlett$optrest"); last }
-		elsif($optlett eq 'b'){ $bytes = $tocount = 1 }
-		elsif($optlett eq 'c'){ $countonly = 1 }
-		elsif($optlett eq 'f'){ &readarg; $readpar = 1; $file = $optarg }
-		elsif($optlett eq 'F'){ $readpar = 1 }
+		elsif($optlett eq 'b') { $bytes = $tocount = 1 }
+		elsif($optlett eq 'c') { $countonly = 1 }
+		elsif($optlett eq 'f') { &readarg(); $readpar = 1; $file = $optarg }
+		elsif($optlett eq 'F') { $readpar = 1 }
 		elsif($optlett eq 'g' && $havegroff){ $ugroff = '' }
-		elsif($optlett eq 'h'){ $nofile = 1 }
-		elsif($optlett eq 'i'){ $ignore = $special = 1 }
-		elsif($optlett eq 'l'){ $listonly = 1 }
-		elsif($optlett eq 'n'){ $lnr = 1 }
-		elsif($optlett eq 'p'){ $plain = 1 }
-		elsif($optlett eq 's'){ $recurse = 1 }
-		elsif($optlett eq 'S'){ $recurse = 1; $suppress = 1 }
+		elsif($optlett eq 'h') { $nofile = 1 }
+		elsif($optlett eq 'i') { $ignore = $special = 1 }
+		elsif($optlett eq 'l') { $listonly = 1 }
+		elsif($optlett eq 'n') { $lnr = 1 }
+		elsif($optlett eq 'p') { $plain = 1 }
+		elsif($optlett eq 's') { $recurse = 1 }
+		elsif($optlett eq 'S') { $recurse = 1; $suppress = 1 }
 		elsif($optlett eq 'r' && $havefind){ $nofind = 1 }
-		elsif($optlett eq 't'){ &readarg; $truncate = scalar($optarg) }
-		elsif($optlett eq 'x'){ $exact = $special = 1 }
-		elsif($optlett eq 'V'){ $test = 1 }
-		elsif($optlett eq 'v'){ $invert = 1 }
-		elsif($optlett eq 'w'){ $word = $special = 1 }
-		elsif($optlett eq 'z'){ $zipmode = 'i' }
+		elsif($optlett eq 't') { &readarg(); $truncate = scalar($optarg) }
+		elsif($optlett eq 'x') { $exact = $special = 1 }
+		elsif($optlett eq 'V') { $test = 1 }
+		elsif($optlett eq 'v') { $invert = 1 }
+		elsif($optlett eq 'w') { $word = $special = 1 }
+		elsif($optlett eq 'z') { $zipmode = 'i' }
 		elsif($optlett eq 'Z' && $supportzip){ $zipmode = '' }
-		elsif($optlett eq 'e') { &ehelp } # -ex(pression)
-		elsif($optlett =~ /[hH?]/){ &help }
-		elsif($optlett eq '-'){
+		elsif($optlett eq 'e') { &ehelp() } # -ex(pression)
+		elsif($optlett =~ /[hH?]/) { &help() }
+		elsif($optlett eq '-') {
 			if   ($optrest eq ''){ last optparse }
-			elsif($optrest =~ /^path(.*)$/i){ $optrest = $1; &readarg; $path = $optarg }
-			elsif($optrest =~ /^h(elp)?$/i || $optrest eq '?'){ &help }
+			elsif($optrest =~ /^path(.*)$/i){ $optrest = $1; &readarg(); $path = $optarg }
+			elsif($optrest =~ /^h(elp)?$/i || $optrest eq '?'){ &help() }
 			else{ die "Illegal option: --$optrest\nStopped" }
 			last
 		}
@@ -153,16 +148,17 @@ $nofind = 1 unless ($recurse && $havefind);
 $truncate = '' if($truncate <= 0);
 if($readpar) {
 	if(open(PARA, '<', $file)) {
-		$search = <PARA>; chop($search);
-		close(PARA);
-	}
-	else {
+		$search = <PARA>;
+		chop($search);
+		close(PARA)
+	} else {
 		print 'Grep for : ';
-		$search = <STDIN>; chop($search);
+		$search = <STDIN>;
+		chop($search)
 	}
-}
-else {
-	$search = $ARGV[0]; shift;
+} else {
+	$search = $ARGV[0];
+	shift(@ARGV)
 }
 print "Passed regexp: $search\n" if $test;
 if($special) {
@@ -208,8 +204,7 @@ if($recurse && (!$smask) && (!$suppress)) {
 	die "Error: Probably forgotten quote (recurse without joker)\nStopped"
 }
 
-sub pline
-{
+sub pline {
 	local($string, $sep, $ret) = @_;
 	$ret = $fpath . $sep unless $nofile;
 	$ret .= ($offset+$where) . $sep if $bytes;
@@ -222,8 +217,7 @@ sub pline
 	}
 }
 
-sub ProcessText
-{
+sub ProcessText {
 	$offset = 0; $line = 1; $filematch = 0; $aftermatch = 0; @previous = ();
 	while(<FILE>) {
 		$llength = length if $tocount;
@@ -231,14 +225,12 @@ sub ProcessText
 		if($plain && (!$special)) {
 			$where = index($_, $search) - $[;
 			$m = ($where >= 0);
-		}
-		else {
+		} else {
 			$where = 0;
 			if($ignore) {
 				$m = /$search/io;
 				$where = length($`) if($m && $tocount);
-			}
-			else {
+			} else {
 				$m = /$search/o;
 				$where = length($`) if($m && $tocount);
 			}
@@ -258,14 +250,12 @@ sub ProcessText
 				$aftermatch = $after;
 				print &pline($_, ':');
 			}
-		}
-		else {
+		} else {
 			$where = 0;
 			if($aftermatch) {
 				print &pline($_, '-');
 				--$aftermatch;
-			}
-			elsif($before) {
+			} elsif($before) {
 				if(scalar(@previous) >= $before) {
 					shift(@previous)
 				}
@@ -273,17 +263,15 @@ sub ProcessText
 			}
 		}
 		++$line;
-		$offset += $llength;
+		$offset += $llength
 	}
 }
 
-sub ProcessFile
-{
+sub ProcessFile {
 	$fpath = $path . $file;
 	if($unix) {
 		$pipefile = "\"$file\""
-	}
-	else {
+	} else {
 		$pipefile = $file
 	}
 	$opennormal = 1;
@@ -295,14 +283,12 @@ sub ProcessFile
 				if(open(FILE, "$uvcommand $pipefile |")) {
 					&ProcessText;
 					close(FILE);
-					$opennormal = '';
+					$opennormal = ''
 				}
-			}
-			else {
+			} else {
 				$opennormal = ''
 			}
-		}
-		elsif($file =~ /\.(z|(gz))$/io) {
+		} elsif($file =~ /\.(z|(gz))$/io) {
 			if($zipmode ne 'i') {
 				if(open(FILE, "gzip -dc $pipefile |")) {
 					binmode(FILE);
@@ -322,18 +308,18 @@ sub ProcessFile
 				if($filetype eq 'troff') {
 					if(open(FILE, "groff -s -p -t -e -Tascii -mandoc $pipefile |")) {
 						binmode(FILE);
-						&ProcessText;
+						&ProcessText();
 						close(FILE);
-						$opennormal = '';
+						$opennormal = ''
 					}
 				}
 			}
 			elsif($file =~ /\.ms$/o) {
 				if(open(FILE, "groff -Tascii -ms $pipefile |")) {
 					binmode(FILE);
-					&ProcessText;
+					&ProcessText();
 					close(FILE);
-					$opennormal = '';
+					$opennormal = ''
 				}
 			}
 		}
@@ -341,31 +327,28 @@ sub ProcessFile
 	if($opennormal) {
 		if(open(FILE, '<', $file)) {
 			binmode(FILE);
-			&ProcessText;
-			close(FILE);
+			&ProcessText();
+			close(FILE)
 		}
 	}
 	if($filematch) {
 		print "$fpath\n" if $listonly;
-		print "$fpath:$filematch\n" if $countonly;
+		print "$fpath:$filematch\n" if $countonly
 	}
 }
 
-sub ProcessDir
-{
+sub ProcessDir {
 	local($act, @dir, $fname, $dorec) = @_;
 	if($nofind) {
 		if($act ne '') {
 			opendir(DIR, $act)
-		}
-		else {
+		} else {
 			opendir(DIR, '.')
 		}
 		@dir = readdir(DIR);
 		closedir(DIR);
 		$dorec = $recurse;
-	}
-	else {
+	} else {
 		$dorec = '';
 		@dir = `find .`;
 		foreach (@dir) {
@@ -380,8 +363,7 @@ sub ProcessDir
 			}
 			if($act) {
 				$file = $act . '/' . $fname
-			}
-			else {
+			} else {
 				$file = $fname
 			}
 			if($dorec) {
@@ -390,17 +372,19 @@ sub ProcessDir
 				}
 			}
 			if($fmmask) {
-				&ProcessFile
+				&ProcessFile()
 			}
 		}
 	}
 }
 
-if(scalar(@ARGV) == 0) {
-	$path = ''; $nofile = 1; $file = '-'; &ProcessFile
-}
-else {
+if(!@ARGV) {
+	$path = '';
+	$nofile = 1;
+	$file = '-';
+	&ProcessFile()
+} else {
 	&ProcessDir('')
 }
 $matches = 127 if ($matches > 127);
-exit $matches;
+exit($matches);

@@ -3,13 +3,16 @@ use integer;
 use Getopt::Long;
 use File::Find;
 
-sub version { '$Revision: 1.4 $ ' =~ /Revision:\s([^\s]*)/;
+sub version { '$Revision: 1.5 $ ' =~ /Revision:\s([^\s]*)/;
 	print "Patchdirs-ls v$1 by Martin Väth\n"
-	 .    "martin\@mvath.de\n" ; exit 0 }
+	 .    "martin\@mvath.de\n";
+	exit(0)
+}
 
-$0 =~ /([^\/]*)$/; $script=$1;
-sub usage
-{
+$0 =~ /([^\/]*)$/;
+$script=$1;
+
+sub usage {
 	my($exitstatus)=@_;
 	print STDERR <<"EOUSAGE";
 Usage: $script [options] DESTLIST
@@ -150,7 +153,7 @@ foreach my $name (keys %desthash) {
 # Test for double names
 
 if($twins <= 0) {
-	foreach my $name (keys %sourcehash) {
+	for my $name (keys %sourcehash) {
 		if(keys(%{$sourcehash{$name}}) > 1) {
 			print STDERR "error: $name occurs in several directories, namely in";
 			printdirs($name,1);
@@ -179,13 +182,11 @@ for(my $destnr = 0; $destnr <= $#dirnames; ++$destnr) {
 					if($twins <= 1) {
 						print STDERR "error: $name occurs in several directories, namely in";
 						printdirs($name, 1);
-					}
-					else {
+					} else {
 						print "warning: $name occurs in several directories, but on the right place in $dirnames[$destnr]\n";
 					}
 				}
-			}
-			else {
+			} else {
 				my $dests = $desthash{$name};
 				my $sourcenr = (keys %{$sourcehash{$name}})[0];
 				if($count > 1) {
@@ -195,30 +196,30 @@ for(my $destnr = 0; $destnr <= $#dirnames; ++$destnr) {
 						unless(defined($dests->{$dirtmp})) {
 							# $name occurs in some directory $dirtmp where it should not
 							if($preciselyone) {
-								$preciselyone = ''; last
-							}
-							else {
-								$preciselyone = 1; $movefrom = $dirtmp
+								$preciselyone = '';
+								last
+							} else {
+								$preciselyone = 1;
+								$movefrom = $dirtmp
 							}
 						}
 					}
 					if($preciselyone) {
 						if($twins <= 2) {
 							print STDERR "error: $name occurs in several directories and must be moved/copied\nThe directory names are";
-							printdirs($name, 1);
+							printdirs($name, 1)
 						}
 						if($verbose >= 0) {
-							 print "warning: $name occurs in several directories and must be moved precisely once from $dirnames[$movefrom] to $dirnames[$destnr]\n";
+							 print "warning: $name occurs in several directories and must be moved precisely once from $dirnames[$movefrom] to $dirnames[$destnr]\n"
 						}
-					}
-					else {
+					} else {
 						if($twins <= 3) {
 							print STDERR "error: $name occurs in several directories, and it is unclear which one to move/copy into $dirnames[$destnr]\nThe possible directory names are";
-							printdirs($name, 1);
+							printdirs($name, 1)
 						}
 						if($verbose >= 0) {
 							print "warning: $name occurs in several directories, and it is unclear which one to move/copy into $dirnames[$destnr];\nthe accidental choice is from $dirnames[$sourcenr]\n";
-							printdirs($name, 0);
+							printdirs($name, 0)
 						}
 					}
 				}
@@ -227,8 +228,7 @@ for(my $destnr = 0; $destnr <= $#dirnames; ++$destnr) {
 
 				if(defined($desthash{$name}->{$sourcenr})) {
 					push(@A, "cp -a -i $dirnames[$sourcenr]/$name $dirnames[$destnr]")
-				}
-				else {
+				} else {
 					push(@A, "mv -i $dirnames[$sourcenr]/$name $dirnames[$destnr]");
 					for(my $i = 0;$i <= $#{$sourceconts[$sourcenr]}; ++$i) {
 						if($sourceconts[$sourcenr]->[$i] eq $name) {
@@ -258,7 +258,7 @@ if($dodelete) {
 	}
 }
 
-foreach my $cmd (@A) {
+for my $cmd (@A) {
 	if(($verbose >= 1) || show) {
 		print "$cmd\n"
 	}

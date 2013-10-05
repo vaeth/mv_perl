@@ -4,9 +4,11 @@ use Getopt::Long;
 use File::Find;
 use strict;
 
-sub version { '$Revision: 1.2 $ ' =~ /Revision:\s([^\s]*)/;
+sub version { '$Revision: 1.3 $ ' =~ /Revision:\s([^\s]*)/;
 	print "Changecase v$1 by Martin Väth\n"
-	 .    "martin\@mvath.de\n" ; exit 0 }
+	 .    "martin\@mvath.de\n";
+	 exit(0)
+}
 
 our ($mdot, $ddot, $dirsep) = ('.', '..', '/');
 
@@ -46,7 +48,7 @@ GetOptions(
 
 # Read first (and only) argument:
 
-$mode = shift;
+$mode = shift(@ARGV);
 unless(defined($mode) && (($mode eq 'l') || ($mode eq 'u'))) {
 	&usage(1)
 }
@@ -65,8 +67,7 @@ sub dorename {
 	my $change;
 	if($mode eq 'u') {
 		$change = uc
-	}
-	else {
+	} else {
 		$change = lc
 	}
 	if($change eq $_) {
@@ -75,10 +76,10 @@ sub dorename {
 	my $source = "$File::Find::dir$dirsep$_";
 	my $dest = "$File::Find::dir$dirsep$change";
 	if(-e $dest) {
-		print STDERR "Warning: $dest exists; do not rename $source\n";
-		return;
+		print(STDERR "Warning: $dest exists; do not rename $source\n");
+		return
 	}
 	print "$source -> $dest\n" unless($quiet);
 	rename($_, $change) or
-		print STDERR "Warning: Cannot rename $source -> $dest\n";
+		print(STDERR "Warning: Cannot rename $source -> $dest\n");
 }

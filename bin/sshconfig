@@ -4,9 +4,11 @@ use integer;
 use Pod::Usage;
 use Getopt::Long;
 
-sub version { '$Revision: 1.3 $ ' =~ /Revision:\s([^\s]*)/;
+sub version { '$Revision: 1.4 $ ' =~ /Revision:\s([^\s]*)/;
 	print "sshconfig v$1 by Martin Väth\n"
-	 .    "martin\@mvath.de\n" ; exit 0 }
+	 .    "martin\@mvath.de\n";
+	 exit(0)
+}
 
 #$0 =~ /([^\/]*)$/; our $script=$1;
 
@@ -134,20 +136,17 @@ GetOptions(
 
 # Parse Main argument:
 
-if($#ARGV < 0) {
-	pod2usage('No hostname given')
-}
-if($#ARGV > 0) {
-	pod2usage('Only one hostname may be given')
-}
-our $hostname=$ARGV[0];
+pod2usage('No hostname given') unless (@ARGV);
+our $hostname=shift(@ARGV);
+pod2usage('Only one hostname may be given') if(@ARGV);
 
 # Set Variables according to all options:
 
 $TrueHost = $hostname unless defined($TrueHost);
 unless(defined($IPAddress)) {
 	print "Enter IP Address: " if(-t STDIN && -t STDOUT);
-	$IPAddress = <STDIN>; chomp $IPAddress;
+	$IPAddress = <STDIN>;
+	chomp $IPAddress
 }
 
 # Read ~/.ssh/config and find proper Host section:
@@ -168,18 +167,14 @@ if($data =~ /^(\s*Host\s+\Q$hostname\E\s*)$/mig) {
 	$startmatch = pos($data);
 	$hostmatch = $1;
 	$start = $startmatch - length($hostmatch);
-	if($data =~ /^(\s*Host\s)/mig) { $end = pos($data) - length($1) }
+	$end = pos($data) - length($1) if($data =~ /^(\s*Host\s)/mig)
 }
 
 sub indata {
 	my $a = shift;
 	pos($data) = $startmatch;
-	unless($data =~ /$a/mig) {
-		return ''
-	}
-	if(defined($end) && (pos($data)>$end)) {
-		return ''
-	}
+	return '' unless($data =~ /$a/mig);
+	return '' if(defined($end) && (pos($data)>$end));
 	return 1
 }
 
@@ -214,12 +209,9 @@ if($uninstall) {
 		pos($data) = $start;
 		if($data =~ s/\G\Q$hostmatch\E[\s\r\n]*(Host\s)/$1/si) {
 			$modified = 1
-		}
-		else {
+		} else {
 			pos($data) = $start;
-			if($data =~ s/\G\Q$hostmatch\E[\s\r\n]*$/$1/si) {
-				$modified = 1
-			}
+			$modified = 1 if($data =~ s/\G\Q$hostmatch\E[\s\r\n]*$/$1/si);
 		}
 
 		# If nothing is left, remove ~/.ssh/config and possibly also ~/.ssh:
@@ -227,54 +219,45 @@ if($uninstall) {
 		if($data =~ /^[\s\r\n]*$/s) {
 			if($show) {
 				print "rm -- $file; rmdir -- $dir"
-			}
-			else {
+			} else {
 				unlink($file); rmdir($dir)
 			}
-			exit 0
+			exit(0)
 		}
 	}
-	unless($modified) {
-		exit 0
-	}
-}
-else { # not $uninstall
+	exit(0) unless($modified)
+} else { # not $uninstall
 	if(defined($start)) {
 		if($NameIPFound) {
 			pos($data) = $startmatch;
 			$data =~ s/\G(.*?)^(\s*$NameIP\s+)[^\r\n]*/$1$2$IPAddress/msi
-		}
-		else {
+		} else {
 			substr($data, $startmatch, 0, "\n$NameIP $IPAddress")
 		}
 		if($NameAliasFound) {
 			pos($data) = $startmatch;
 			$data =~ s/\G(.*?)^(\s*$NameAlias\s+)[^\r\n]*/$1$2$TrueHost/msi
-		}
-		else {
+		} else {
 			substr($data, $startmatch, 0, "\n$NameAlias $TrueHost")
 		}
-	}
-	else {
+	} else {
 		$data .= "\nHost $hostname\n$NameIP $IPAddress\n$NameAlias $TrueHost\n"
 	}
 }
 
 # Write $data:
 
-umask 0077;
+umask(0077);
 unless(-d $dir) {
 	if($show) {
-		print "mkdir -m 700 $dir; "
-	}
-	else {
+		print("mkdir -m 700 $dir; ")
+	} else {
 		mkdir($dir, 0700)
 	}
 }
 if($show) {
-	print "echo >$file <<#EOF#\n", $data, "#EOF#\n"
-}
-else {
+	print("echo >$file <<#EOF#\n", $data, "#EOF#\n")
+} else {
 	local(*FILE, $/);
 	open(FILE, '>', $file) || die "Cannot open $file for writing\nStopped";
 	print FILE $data

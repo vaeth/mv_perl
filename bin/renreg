@@ -1,20 +1,18 @@
 #!/usr/bin/perl
 
-# renreg $Revision: 1.4 $ by Martin Väth
+# renreg $Revision: 1.5 $ by Martin Väth
 # martin@mvath.de
 
 # If the Environment-Variable path contains a '/', we assume that we are
 # in a Unix-like environmnet. Otherwise, we assume we are in DOS.
 if($ENV{'PATH'} =~ /\// ) {
 	$delim = $sdelim = "\'"; $scdefault = '%'
-}
-else {
+} else {
 	$sdelim = '"'; $scdefault = '+';
 	$dosinfo = "\n\nIf you use Perl 5, you have to quote the arguments by \"\""
 }
 
-sub help
-{
+sub help {
 	$0 =~ /([^\/]*)$/; print <<"EOHELP";
 Usage: $1 [Option] ... [Option]        FROM  TO  [FROM  TO ] ...  [\@ ...]
 or     $1 [Option] ... -n ... [Option]  TO  FROM [FROM  FROM ...] [\@ ...]
@@ -40,11 +38,10 @@ Examples:
   $1 $delim(\.\*)\\.doc$delim $delim\$1.txt$delim           (the same)
   $1 $sdelim.*\\.((wav)|(voc))$sdelim $delim${scdefault}3d.\$1$delim   (enumerate all \*.wav/voc)$dosinfo
 EOHELP
-	exit;
+	exit(0)
 }
 
-sub shelp
-{
+sub shelp {
 	print <<'EOREG';
 Regular expression for FROM (match must always be exact):
 .            Any character
@@ -68,11 +65,10 @@ A|B          A or B
 Examples: <f.?l+\.> matches <full.> <fill.> <fl.> but not <feel.> <file> <ff.>
 (.*) \(or not \1\)  matches  to be (or not to be) but not  a bee (or not a B)
 EOREG
-	exit;
+	exit(0)
 }
 
-sub rhelp
-{
+sub rhelp {
 	print <<"EOREP";
 Special characters for TO:
 
@@ -86,11 +82,10 @@ ${scdefault}?x  Use a hex (lowercase) counting number of ? digits
 ${scdefault}X   Use a hex (uppercase) counting number
 ${scdefault}?X  Use a hex (uppercase) counting number of ? digits
 EOREP
-	exit;
+	exit(0)
 }
 
-sub countprep
-{
+sub countprep {
 	local $rr;
 	$cmod = '';
 	$replace = $repmask;
@@ -101,8 +96,7 @@ sub countprep
 	}
 }
 
-sub prepsearch
-{
+sub prepsearch {
 	local($smod) = ('');
 	if(($ARGV[0] eq '') || ($ARGV[0] eq "$magic")) { exit 0 }
 	$search = $ARGV[0]; shift(@ARGV);
@@ -127,10 +121,9 @@ sub prepsearch
 	}
 }
 
-sub preprep
-{
+sub preprep {
 	local($repmod) = ('');
-	if($ARGV[0] eq '') { &help }
+	if($ARGV[0] eq '') { &help() }
 	$repmask = $ARGV[0]; shift(@ARGV);
 	$vverbose && print "TO (as passed from shell): $repmask\n";
 
@@ -156,27 +149,23 @@ sub preprep
 	while($repmask =~ s/([^\\])((\\\\)*)(\\[ac-eg-mo-qsu-zA-Z0-9])/$1$2/) {$repmod = 1}
 	if($repmask =~ s/^(\\\\)*\\$/$1/g) {$repmod = 1}
 	if($repmask =~ s/([^\\])(\\\\)*\\$/$1$2/g) {$repmod = 1}
-	if($vverbose || ($verbose && $repmod)) {
-		print "TO (Perl mask): $repmask\n"
-	}
-	&countprep;
+	print "TO (Perl mask): $repmask\n" if($vverbose || ($verbose && $repmod));
+	&countprep()
 }
 
-sub prepstrings
-{
+sub prepstrings {
 	unless($prepared) {
 		$prepared = 1;
 		if($nmode) {
-			&preprep
+			&preprep()
 		}
-		&help if($ARGV[0] eq '');
+		&help() if($ARGV[0] eq '');
 	}
-	&prepsearch;
-	unless($nmode) { &preprep }
+	&prepsearch();
+	&preprep() unless($nmode)
 }
 
-sub setsc
-{
+sub setsc {
 	local($scnew) = @_;
 	if($scnew =~ /[\d\\dxX\#\/\$\"\'\`]/o) {
 		die "Not allowed as special character: $scnew\n"
@@ -189,19 +178,21 @@ $magic = '@';
 $counter = $step = 1;
 &setsc($scdefault);
 
-sub readarg
-{
+sub readarg {
 	$optarg = $optrest; $optrest = '';
 	if($optarg eq '') {
 		$optarg = shift(@ARGV)
 	}
 }
 
-sub helping
-{
-	if	 ($optarg =~ /^\s*s/i){ &shelp }
-	elsif($optarg =~ /^\s*r/i){ &rhelp }
-	else{ &help }
+sub helping {
+	if($optarg =~ /^\s*s/i) {
+		&shelp()
+	} elsif($optarg =~ /^\s*r/i){
+		&rhelp()
+	} else {
+		&help()
+	}
 }
 
 optparse:while($ARGV[0] =~ /^-(.)(.*)$/) {
@@ -210,21 +201,21 @@ optparse:while($ARGV[0] =~ /^-(.)(.*)$/) {
 		$optlett = $1; $optrest = $2;
 		if   ($optlett eq 'n'){ $nmode = 1 }
 		elsif($optlett eq 's'){ $showonly = 1 }
-		elsif($optlett eq 'S'){ &readarg; $step = $optarg }
+		elsif($optlett eq 'S'){ &readarg(); $step = $optarg }
 		elsif($optlett eq 'f'){ $force = 1 }
 		elsif($optlett eq 'F'){ $force = 1; $nowarn = 1 }
-		elsif($optlett eq 'c'){ &readarg; $counter = $optarg }
-		elsif($optlett eq 'C'){ &readarg; &setsc(substr($optarg, 0, 1)) }
+		elsif($optlett eq 'c'){ &readarg(); $counter = $optarg }
+		elsif($optlett eq 'C'){ &readarg(); &setsc(substr($optarg, 0, 1)) }
 		elsif($optlett eq 'i'){ $ignore = 'i' }
 		elsif($optlett eq 'g'){ $global = 'g' }
 		elsif($optlett eq 'v'){ $verbose = 1 }
 		elsif($optlett eq 'V'){ $verbose = 1; $vverbose = 1 }
-		elsif($optlett eq '@'){ &readarg; $magic = $optarg }
-		elsif($optlett =~ /[hH?]/){ &readarg; &helping }
+		elsif($optlett eq '@'){ &readarg(); $magic = $optarg }
+		elsif($optlett =~ /[hH?]/){ &readarg(); &helping() }
 		elsif($optlett eq '-'){
 			if   ($optrest eq ''){ last optparse }
 			elsif($optrest =~ /^help(.*)$/i || $optrest =~ /^h(.*)$/i ||
-			      $optrest =~ /^\?(.*)$/) { $optrest = $1; &readarg; &helping }
+			      $optrest =~ /^\?(.*)$/) { $optrest = $1; &readarg(); &helping() }
 			else{ die "Illegal option: --$optrest\nStopped" }
 			last
 		}
@@ -233,26 +224,25 @@ optparse:while($ARGV[0] =~ /^-(.)(.*)$/) {
 	}
 }
 
-&help if($ARGV[0] eq '');
+&help() if($ARGV[0] eq '');
 
-&prepstrings;
+&prepstrings();
 # After we read the first string, we look for @ (more precisely for magic):
 $argstep = ($nmode ? 1 : 2);
-for($i = 0; $i <= $#ARGV; $i += $argstep) {
-	if($ARGV[$i] eq "$magic") {
-		last
-	}
+for($i = 0; $i < scalar(@ARGV); $i += $argstep) {
+	last if($ARGV[$i] eq "$magic");
 }
-if($i <= $#ARGV) {
+if($i < scalar(@ARGV)) {
 	for($i = $#ARGV - $i - 1, $j = $#ARGV; $i >=0 ; --$i, --$j) {
 		$dir[$i] = $ARGV[$j]
 	}
-}
-else {
-	opendir(DIR, '.'); @dir = readdir(DIR); closedir(DIR)
+} else {
+	opendir(DIR, '.');
+	@dir = readdir(DIR);
+	closedir(DIR)
 }
 while() {
-	foreach $fname (@dir) {
+	for my $fname (@dir) {
 		if(($fname ne '.') && ($fname ne '..')) {
 			$_ = $fname;
 			$vverbose && $cmod && print "TO (numbers substituted): $replace\n";
@@ -262,8 +252,7 @@ while() {
 				if($fname ne $_) {
 					if($showonly) {
 						print "ren $fname $_\n"
-					}
-					elsif($verbose) {
+					} elsif($verbose) {
 						print "$fname -> $_\n"
 					}
 					$avoid = '';
@@ -273,14 +262,10 @@ while() {
 							print STDERR "Warning: $_ already exists";
 							if($showonly) {
 								print "\n"
-							}
-							else {
-								if($force) {
-									print STDERR " (renamed anyway)\n"
-								}
-								else {
-									print STDERR " (not renamed)\n"
-								}
+							} elsif($force) {
+								print STDERR " (renamed anyway)\n"
+							} else {
+								print STDERR " (not renamed)\n"
 							}
 						}
 					}
@@ -289,10 +274,9 @@ while() {
 					}
 				}
 				$counter += $step;
-				&countprep;
+				&countprep()
 			}
 		}
 	}
-	&prepstrings;
+	&prepstrings()
 }
-

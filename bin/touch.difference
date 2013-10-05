@@ -2,14 +2,15 @@
 use strict;
 use integer;
 use Pod::Usage;
+use File::stat;
 use Getopt::Long;
 use Time::localtime;
 
-sub version { '$Revision: 1.3 $ '=~ /Revision:\s([^\s]*)/;
+sub version { '$Revision: 1.4 $ '=~ /Revision:\s([^\s]*)/;
 	print "touch.difference v$1 by Martin Väth\n"
-	 .    "martin\@mvath.de\n" ; exit 0 }
-
-$0 =~ /([^\/]*)$/; my $script = $1;
+	 .    "martin\@mvath.de\n";
+	 exit(0)
+}
 
 =head1 NAME
 
@@ -110,18 +111,19 @@ GetOptions(
 	'sub|s=i', sub { $seconds = -@_[1] }
 ) or pod2usage(2);
 
-($#ARGV >= 0) or pod2usage(2);
+pod2usage(2) unless(@ARGV);
 
 # Actual touch function:
 
 sub dotouch {
-	my $file = @_[0];
-	my($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
-		$atime, $mtime, $ctime, $blksize, $blocks) = stat($file);
-	$atime += $seconds if $addatime;
-	$mtime += $seconds if $addmtime;
-	printf "%s %s (%s)\n", $file, ctime($mtime), ctime($atime) if $verbose;
-	utime($atime, $mtime, $file) unless $dry;
+	my ($file) = @_;
+	my $stat = stat($file);
+	my $atime = $stat->atime;
+	my $mtime = $stat->mtime;
+	$atime += $seconds if($addatime);
+	$mtime += $seconds if($addmtime);
+	printf("%s %s (%s)\n", $file, ctime($mtime), ctime($atime)) if($verbose);
+	utime($atime, $mtime, $file) unless($dry)
 }
 
 # Main part

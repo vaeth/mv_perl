@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# double $Revision: 1.5 $ by Martin Väth
+# double $Revision: 1.6 $ by Martin Väth
 # martin@mvath.de
 
 # If the Environment-Variable path contains a '/', we assume that we are
@@ -12,8 +12,7 @@ if($ENV{'PATH'} =~ /\// ) {
 	$sep = "\\"
 }
 
-sub help
-{
+sub help {
 	$0 =~ /([^\/]*)$/; print <<"EOHELP";
 Usage: $1 [Option] ... [Option]  FILENAMES [@ SECONDLIST]
 Purpose: Print all files from FILENAMES which are double (ALL coincidences!).
@@ -44,10 +43,9 @@ EOHELP
 }
 
 $magic = '@';
-&help if($ARGV[0] eq '');
+&help() unless(@ARGV);
 
-sub readarg
-{
+sub readarg {
 	$optarg = $optrest; $optrest = '';
 	if($optarg eq '') {
 		$optarg = shift(@ARGV)
@@ -55,7 +53,7 @@ sub readarg
 }
 
 optparse:while($ARGV[0] =~ /^-(.)(.*)$/) {
-	shift;
+	shift(@ARGV);
 	while($1 ne '') {
 		$optlett = $1; $optrest = $2;
 		if   ($optlett eq 'N'){ $nametest = 1; $pathtest = '' }
@@ -67,16 +65,16 @@ optparse:while($ARGV[0] =~ /^-(.)(.*)$/) {
 		elsif($optlett eq 'f'){ $ignorebad = 1 }
 		elsif($optlett eq 'v'){ $verbose = $showdot = 1 }
 		elsif($optlett eq 'V'){ $verbose = 1; $showdot = '' }
-		elsif($optlett eq '@'){ &readarg; $magic = $optarg }
+		elsif($optlett eq '@'){ &readarg(); $magic = $optarg }
 		elsif($optlett eq 'a'){ $bubble = 1 }
 		elsif($optlett eq 's'){ $standardin = 1 }
 		elsif($optlett eq 'x'){ $bubble = $extern = 1 }
-		elsif($optlett =~ /[hH?]/){ &help }
+		elsif($optlett =~ /[hH?]/){ &help() }
 		elsif($optlett eq '-') {
 			if($optrest eq '') {
 				last optparse
 			} elsif(($optrest =~ /^h(elp)?$/i) || ($optrest eq '?')) {
-				&help
+				&help()
 			} else {
 				die "Illegal option: --$optrest\nStopped"
 			}
@@ -97,7 +95,7 @@ if($standardin) {
 # Look for the magic string.
 
 $lastfile = $#ARGV;
-for($i = 0; $i <= $#ARGV; ++$i) {
+for($i = 0; $i < scalar(@ARGV); ++$i) {
 	if($ARGV[$i] eq $magic) {
 		# The magic string is not a file we can read.
 		# By marking it in @double, the bubble-comparison will ignore it.
@@ -118,7 +116,7 @@ if($verbose) {
 	if($withmagic) {
 		$i = $#ARGV - $i;
 		print STDERR "Number of files to check against: $i\n";
-		print STDERR "Total number of files: $#ARGV\n";
+		print STDERR "Total number of files: $#ARGV\n"
 	}
 }
 
@@ -126,7 +124,7 @@ if($verbose) {
 # mark @badfile if file does not exist or is not readable
 
 if((!$nolength) || ($timetest) || ($ignorebad)) {
-	for($i = $#ARGV;$i >= 0; --$i) {
+	for($i = $#ARGV; $i >= 0; --$i) {
 		if($i != $lastfile + 1) { # ignore the magic index
 			if((!$nodisk) && (-f "$ARGV[$i]")) {
 				unless($nolength) {
@@ -151,8 +149,7 @@ if((!$nolength) || ($timetest) || ($ignorebad)) {
 	}
 }
 
-sub flushdot
-{
+sub flushdot {
 	if($wasdot) {
 		print STDERR "\n"; $wasdot = ''
 	}
@@ -165,8 +162,7 @@ sub flushdot
 # In perl 5, one should better use my() in place of local(), but I want
 # to run the program also with perl 4.
 
-sub namecomp
-{
+sub namecomp {
 	local($n1, $n2) = @_;
 	$n1 =~ s/^.*$sep//o;
 	$n2 =~ s/^.*$sep//o;
@@ -177,8 +173,7 @@ sub namecomp
 # to the two indices in $a and $b
 # (-1, 0, 1 is returned when time_1 <, =, > time_2)
 
-sub timecomp
-{
+sub timecomp {
 	local(@A, $time);
 	@A = stat($ARGV[$a]);
 	$time = $A[9];
@@ -194,8 +189,7 @@ sub timecomp
 # (for which @badfile is not set) and '' otherwise.
 # This function uses the external programs diff/comp to decide this.
 
-sub isequalextern
-{
+sub isequalextern {
 	if(($badfile[$a])||($badfile[$b])) {
 		return ''
 	}
@@ -216,20 +210,14 @@ sub isequalextern
 		}
 		unless($nodiff) {
 			if($unix) {
-				if(system("diff -q \"$ARGV[$a]\" \"$ARGV[$b]\" >/dev/null")) {
-					return ''
-				}
+				return '' if(system("diff -q \"$ARGV[$a]\" \"$ARGV[$b]\" >/dev/null"));
 			} else {
-				if(system("comp $ARGV[$a] $ARGV[$b] >nul")) {
-					return ''
-				}
+				return '' if(system("comp $ARGV[$a] $ARGV[$b] >nul"));
 			}
 		}
 	}
 	if($timetest) {
-		if((&timecomp) != 0) {
-			return ''
-		}
+		return '' if((&timecomp) != 0);
 	}
 	return 1
 }
@@ -262,10 +250,9 @@ sub isequalextern
 
 # For time reasons, the variable $rcomp is used but not declared as local.
 
-sub compare
-{
+sub compare {
 	if(($showdot) && ($sorting)) {
-		if(++$dotcount>100) {
+		if(++$dotcount > 100) {
 			$dotcount = 0;
 			print STDERR '.';
 			$wasdot = 1
@@ -371,10 +358,9 @@ sub compare
 # Then the function has the same functionality than &isequalextern except that
 # external programs are used only if $extern is set.
 
-sub isequal
-{
+sub isequal {
 	if($extern) {
-		return(&isequalextern)
+		return &isequalextern()
 	}
 	return(&compare == 0)
 }
@@ -385,8 +371,7 @@ sub isequal
 # Moreover, $a and $b must be global since they are implicit
 # parameters in &isequal (and its subfunctions)
 
-sub bubble
-{
+sub bubble {
 	for($a = 0; $a<= $lastfile; ++$a) {
 		unless($double[$a]) {
 			$foundpair = '';
@@ -439,8 +424,7 @@ sub bubble
 # Returns -1 if search was unsuccesfull,  otherwise it returns the LARGEST index
 # with equality.
 
-sub binsearch
-{
+sub binsearch {
 	local($l, $r, $m, $c, $ret);
 	$ret = -1;
 	for($l = 0, $r = $#index; $l <= $r; ) {
@@ -470,8 +454,7 @@ sub binsearch
 # Moreover, @index, $a and $b must be global since they are implicit
 # parameters in &binsearch and &compare.
 
-sub tricky
-{
+sub tricky {
 	# The idea of the algorithm is to sort FILENAMES.
 	# For time reasons we do not sort @ARGV, @badfile, ... but instead
 	# one indexlist and will later make all references via this indexlist:
@@ -548,7 +531,7 @@ sub tricky
 # We call either &bubble or &tricky, depending on the arguments.
 
 if($bubble) {
-	&bubble
+	&bubble()
 } else {
-	&tricky
+	&tricky()
 }

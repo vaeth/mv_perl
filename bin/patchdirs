@@ -9,7 +9,7 @@ use Time::localtime;
 #use Digest::MD5;
 
 our ($script) = ($0 =~ /([^\/]*)$/);
-sub version () { '$Revision: 1.12 $ ' =~ /Revision:\s([^\s]*)/;
+sub version () { '$Revision: 1.13 $ ' =~ /Revision:\s([^\s]*)/;
 	print "Patchdirs v$1 by Martin Väth\n"
 	 .    "martin\@mvath.de\n" ; exit(0) }
 
@@ -414,26 +414,30 @@ our @SUMCMDS = split(/;/, $sumcmds);
 # import()-initialization by hand.
 foreach my $i (@SUMCMDS) {
 	if($i eq '.') {
-		require Digest::MD5; Digest::MD5->import(); last
+		require Digest::MD5;
+		Digest::MD5->import();
+		last
 	}
 }
 
 our $umask = undef;
-our @A = (); our %Afullname = (); our @Adirs = ();
-our @B = (); our %Bfullname = (); our %Bcheck = ();
+our @A = ();
+our %Afullname = ();
+our @Adirs = ();
+our @B = ();
+our %Bfullname = ();
+our %Bcheck = ();
 if($mode eq "store") {
-	&standardlist;
+	&standardlist();
 	&printlist(\@A);
-}
-elsif($mode eq "restore") {
+} elsif($mode eq "restore") {
 	if($#FILES >= 0) {
 		{ # Dirty Perl trick: We fake arguments for while(<>) ...
 			local (@ARGV) = @FILES;
 			&readlist(\@B, \@Adirs, \%Bfullname);
 		}
 		&readlist(\@A, \@Adirs, \%Afullname);
-	}
-	else {
+	} else {
 		&readlist(\@A, \@Adirs, \%Afullname);
 		if($strip > 0) {
 			@Adirs = ('.'); $strip = 0
@@ -442,26 +446,24 @@ elsif($mode eq "restore") {
 	}
 	&MakeCheck(\@B, \%Bcheck);
 	&patchlist;
-}
-elsif($mode eq "double") {
-	&standardlist;
-	&printdoubles;
-}
-else {
+} elsif($mode eq "double") {
+	&standardlist();
+	&printdoubles();
+} else {
 	pod2usage("$script: No mode specified")
 }
 
-sub standardlist ()
-{
-	if($#ARGV < 0 && $#FILES < 0) { @ARGV = ($mdot) }
-	@A = (); %Afullname = ();
-	if($#FILES >= 0) {
+sub standardlist {
+	@ARGV = ($mdot) unless(@ARGV || @FILES);
+	@A = ();
+	%Afullname = ();
+	if(@FILES) {
 		{ # Dirty Perl trick: We fake arguments for while(<>) ...
 			local (@ARGV) = @FILES;
 			&readlist(\@A, \@Adirs, \%Afullname);
 		}
 	}
-	if($#ARGV >= 0) {
+	if(@ARGV) {
 		&makelist(\@A, \%Afullname, \@ARGV)
 	}
 }
@@ -477,11 +479,12 @@ sub makelist (\@\%\@)
 			push(@mydirs, $b)
 		}
 	}
-	if($#mydirs < 0) {
-		return
+	return unless(@mydirs);
+	@mydirs = sort(@mydirs);
+	local $justrecursing = '';
+	foreach (@mydirs) {
+		&makeentry
 	}
-	@mydirs = sort @mydirs;
-	local $justrecursing = ''; foreach (@mydirs) { &makeentry }
 	$justrecursing = 1;
 	find({
 		follow_fast => $follow,
@@ -495,32 +498,23 @@ sub makelist (\@\%\@)
 		wanted => \&makeentry
 	}, @mydirs);
 }
+
 sub makeentry () {
-	if(($_ eq $mdot) || ($_ eq $ddot)) {
-		return
-	}
-	unless($recurse) {
-		$File::Find::prune = 1
-	}
+	return if(($_ eq $mdot) || ($_ eq $ddot));
+	$File::Find::prune = 1 unless($recurse);
 	my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev,
 		$size, $atime, $mtime, $ctime, $blksize, $blocks) =
 			(($follow) ? stat($_) : lstat($_));
 	my $name = $_;
-	if($justrecursing) {
-		$name = &unifyname("$File::Find::dir$dirsep$_")
-	}
-	if(defined($fullhash->{$name})) {
-		return
-	}
+	$name = &unifyname("$File::Find::dir$dirsep$_") if($justrecursing);
+	return if(defined($fullhash->{$name}));
 	my $checksum;
 	if(S_ISLNK($mode)) {
 		my $linkname = readlink;
 		$checksum = "->$linkname";
-	}
-	elsif(S_ISDIR($mode)) {
+	} elsif(S_ISDIR($mode)) {
 		$checksum = 'dir'
-	}
-	elsif(S_ISREG($mode)) {
+	} elsif(S_ISREG($mode)) {
 		if($calccheck) {
 			unless($quiet) {
 				printf STDERR "checksumming $name\n"
@@ -845,9 +839,7 @@ sub patchlist ()
 		my $to = $a->[1];
 		my $from = &thename($B[$a->[0]]);
 		my $froma = $FromName{$from};
-		if($froma) {
-			$from = $froma
-		}
+		$from = $froma if($froma ne '');
 		push(@CopyCmds, &shdash('cp -p -i', $from, $to));
 	}
 
@@ -861,13 +853,11 @@ sub patchlist ()
 					unless(defined($NeededDir{$Bname})) {
 						if($follow) { push(@RmDirCmds, 'test -h' . &shqs($Bname) .
 							&shdash(' && rm', $Bname) . &shdash(' || rmdir', $Bname))
-						}
-						else {
+						} else {
 							push(@RmDirCmds, &shdash('rmdir', $Bname))
 						}
 					}
-				}
-				elsif($dodelete) {
+				} elsif($dodelete) {
 					push(@DelCmds, &shdash('rm', $Bname))
 				}
 			}
@@ -879,11 +869,11 @@ sub patchlist ()
 	# not excluded (e.g. if two filenames were swapped).
 	foreach my $p (keys(%FromName)) {
 		my $q = $FromName{$p};
-		delete $FromName{$p};
+		delete($FromName{$p});
 		if(defined($q)) { # We have not moved $p yet.
 			my @T = ($p, $q);
 			my $loop = '';
-			for(;;) {
+			while() {
 				my $qold = $q;
 				$q = $FromName{$q};
 				delete $FromName{$qold};
@@ -917,17 +907,14 @@ sub patchlist ()
 						push(@AfterRmDirCmds, &shdash('rmdir', $to));
 						push(@AfterRmDirCmds, &shdash('mv -i', $tempname, $to));
 						$to = $tempname;
-					}
-					elsif(&islinkcheck($checksum)) {
+					} elsif(&islinkcheck($checksum)) {
 						# We should move a file onto a symbolic link:
 						push(@MovCmds, 'test -h' . &shqs($to) . &shdash(' && rm', $to));
-					}
-					else {
+					} else {
 						# We should move a file onto a file/other which will not be moved:
 						if($dodelete) {
 							push(@MovCmds, &shdash('rm', $to))
-						}
-						elsif(!$force) {
+						} elsif(!$force) {
 							my $from = $T[$#T-1];
 							print STDERR "error: you have chosen to not delete any file, "
 							 .  "but I should move $from onto $to.\n"
@@ -939,11 +926,10 @@ sub patchlist ()
 							$willdie = 1;
 						}
 					}
-				}
-				else {
+				} else {
 					$Bfullname{$to} = ''
 				}
-				delete $Bfullname{$T[0]};
+				delete($Bfullname{$T[0]})
 			}
 			while(--$i >= 0) {
 				my $from = $T[$i];
@@ -954,7 +940,7 @@ sub patchlist ()
 					 .  "Stopped";
 				}
 				push(@MovCmds, &shdash('mv -i', $from, $to));
-				$to = $from;
+				$to = $from
 			}
 		}
 	}
@@ -963,9 +949,9 @@ sub patchlist ()
 	# Before we do so, we reverse the @ModCmds: In this way, the commands are
 	# sorted depth first (more or less), and so the modification times of the
 	# directories are preserved as far as possible.
-	@ModCmds = reverse @ModCmds;
+	@ModCmds = reverse(@ModCmds);
 	# The same holds for the @RmDirCmds:
-	@RmDirCmds = reverse(sort @RmDirCmds);
+	@RmDirCmds = reverse(sort(@RmDirCmds));
 	# There might be reasons to do nothing:
 	$willdie and die "Due to earlier errors, I do nothing at all.\nStopped";
 	doexec(\@MkDirCmds);
@@ -976,7 +962,7 @@ sub patchlist ()
 	doexec(\@RmDirCmds);
 	doexec(\@AfterRmDirCmds);
 	doexec(\@ModCmds);
-	if($#NotExist >= 0) {
+	if(@NotExist) {
 		print "\nThe following files could not be created by renaming:\n"
 			unless($quiet);
 		foreach my $f (@NotExist) {
@@ -996,29 +982,16 @@ sub changemods ($$$$$$$)
 	if((!$isnew) && defined($j) && ($j ne '')) {
 		my $g = $B[$j];
 		my ($Bname, $Bchecksum, $Bmode, $Bowner, $Btime) = @$g;
-		unless($modattrib && defined($mode) && ($mode ne '') &&
-			((!defined($Bmode)) || ($Bmode ne $mode))) {
-			undef $mode
-		}
-		unless($modowner && defined($owner) && ($owner ne '') &&
-			((!defined($Bowner)) || ($Bowner ne $owner))) {
-			undef $owner
-		}
-		unless($modtime && defined($time) && ($time ne '') &&
-			((!defined($Btime)) || ($Btime ne $time))){
-			undef $time
-		}
-	}
-	else {
-		unless($modattrib && defined($mode) && ($mode ne '')) {
-			undef $mode
-		}
-		unless($modowner && defined($owner) && ($owner ne '')) {
-			undef $owner
-		}
-		unless($modtime && defined($time) && ($time ne '')) {
-			undef $time
-		}
+		undef($mode) unless($modattrib && defined($mode) && ($mode ne '') &&
+			((!defined($Bmode)) || ($Bmode ne $mode)));
+		undef($owner) unless($modowner && defined($owner) && ($owner ne '') &&
+			((!defined($Bowner)) || ($Bowner ne $owner)));
+		undef($time) unless($modtime && defined($time) && ($time ne '') &&
+			((!defined($Btime)) || ($Btime ne $time)))
+	} else {
+		undef($mode) unless($modattrib && defined($mode) && ($mode ne ''));
+		undef($owner) unless($modowner && defined($owner) && ($owner ne ''));
+		undef($time) unless($modtime && defined($time) && ($time ne ''))
 	}
 	if($islink) {
 		# chmod and touch have no --no-derefence option and thus are useless
@@ -1026,8 +999,7 @@ sub changemods ($$$$$$$)
 		if(defined($owner)) {
 			push(@ModCmds, &shdash('chown -h', $owner, $name))
 		}
-	}
-	else {
+	} else {
 		if(defined($mode)) {
 			push(@ModCmds, &shdash('chmod', $mode, $name))
 		}
@@ -1150,45 +1122,37 @@ sub mktempname ($)
 	}
 }
 
-sub isdircheck ($)
-{
+sub isdircheck {
 	my($A) = @_;
-	if(defined($A)) {
-		return ($A =~ /^\s*dir\s*$/i)
-	}
+	return ($A =~ /^\s*dir\s*$/i) if(defined($A));
 	return ''
 }
 
-sub isother ($)
-{
+sub isother {
 	my($A) = @_;
-	if(defined($A)) {
-		return ($A=~/^\s*other\s*:?\s*(.*)$/i)
-	}
+	return ($A =~ /^\s*other\s*:?\s*(.*)$/i) if(defined($A));
 	return ''
 }
 
-sub basename ($)
-{
+sub basename {
 	my($a) = @_;
 	$a =~ /([^$Dirsep]*)$/;
 	return $1
 }
 
 # Must set $tolink as a side effect, if file is a link.
-sub islinkcheck ($)
-{
+sub islinkcheck {
 	my($A) = @_;
 	$tolink = '';
 	if($A =~ /^\s*\-\>\s*(.*)/) {
-		$tolink = $1; return 1
+		$tolink = $1;
+		return 1
 	}
-	return '';
+	return ''
 }
 
 # Must set $tolink as a side effect, if file is a link.
-sub isordinary ($)
-{
+sub isordinary {
 	my($A) = @_;
 	if((&isdircheck($A)) || (&isother($A))) {
 		return ''
@@ -1196,8 +1160,7 @@ sub isordinary ($)
 	return (!&islinkcheck($A))
 }
 
-sub doexec (\@)
-{
+sub doexec {
 	my($A) = @_;
 	foreach my $s (@$A) {
 		if((!$quiet) || $show) {
@@ -1209,8 +1172,7 @@ sub doexec (\@)
 	}
 }
 
-sub printdoubles ()
-{
+sub printdoubles {
 	@A = sort { $a->[1] cmp $b->[1] } @A;
 	my @finallist = ();
 	my @doubles = ();
@@ -1218,14 +1180,12 @@ sub printdoubles ()
 	for(my $i = 0; $i <= $#A; ++$i) {
 		my $c = ($A[$i]->[1]);
 		if(($c eq $prevc) && (&isordinary($c))) {
-			if($#doubles < 0) {
-				push(@doubles, &thename($A[$i-1]))
-			}
-			push(@doubles, &thename($A[$i]));
+			push(@doubles, &thename($A[$i-1])) unless(@doubles);
+			push(@doubles, &thename($A[$i]))
 		}
 		elsif($#doubles >= 0) {
 			&pushsorted(\@finallist, \@doubles);
-			@doubles = ();
+			@doubles = ()
 		}
 		$prevc = $c;
 	}
@@ -1233,36 +1193,33 @@ sub printdoubles ()
 		&pushsorted(\@finallist, \@doubles)
 	}
 	foreach my $doublist (sort { $a->[0] cmp $b->[0] } @finallist) {
-		print 'Same Checksum: ' unless($quiet);
+		print('Same Checksum: ') unless($quiet);
 		my $head = '';
 		foreach my $d (@$doublist) {
-			print "$head$d"; $head = ' '
+			print("$head$d");
+			$head = ' '
 		}
-		print "\n";
+		print "\n"
 	}
 }
 
-sub pushsorted (\@\@)
-{
+sub pushsorted {
 	my($dest, $source) = @_;
 	my @sorted = sort @$source;
 	push(@$dest, \@sorted);
 }
 
-sub thename (\@)
-{
+sub thename {
 	my($f) = @_;
 	return $f->[0]
 }
 
-sub thechecksum (\@)
-{
+sub thechecksum {
 	my($f) = @_;
 	return $f->[1]
 }
 
-sub printnice ($)
-{
+sub printnice {
 	my($f) = @_;
 	my ($name, $checksum, $mode, $owner, $time) = @$f;
 	print "$name";
@@ -1273,21 +1230,18 @@ sub printnice ($)
 	print "\n"
 }
 
-sub shq ($)
-{
+sub shq {
 	my($a) = (@_);
 	$a =~ s/\'/\'\\\'\'/go; $a = "'$a'";
 	$a =~ s/(^|[^\\])\'([\da-zA-Z\_\-\,\.\:\/]*)\'/$1$2/g;
 	return(($a ne '') ? $a : "''");
 }
 
-sub shqs ($)
-{
-	return ' ' . &shq($_[0])
+sub shqs {
+	return(' ' . &shq($_[0]))
 }
 
-sub shdash
-{
+sub shdash {
 	my($s, $r, $t) = (shift, '', '');
 	for my $i (@_) {
 		$t = 1 if($i =~ /^[-+]/);
@@ -1296,7 +1250,6 @@ sub shdash
 	return(($t) ? ($s . ' --' . $r) : ($s . $r))
 }
 
-sub shprint
-{
-	print &shdash(@_) . "\n"
+sub shprint {
+	print(&shdash(@_) . "\n")
 }

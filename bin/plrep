@@ -18,7 +18,7 @@ my @termlist = (
 
 my $BackSpacePattern = qr/[\b]|(\x1b\[3\~)/o;
 
-sub version { '$Revision: 2.7 $ ' =~ /Revision:\s([^\s]*)/;
+sub version { '$Revision: 2.8 $ ' =~ /Revision:\s([^\s]*)/;
 	print "plrep v$1 by Martin Väth\n"
 	 .    "martin\@mvath.de\n" ; exit 0 }
 
@@ -517,7 +517,7 @@ my $ShiftFromEnd;
 my $FileName;
 my $LastPrinted;
 my $FileMatches;
-my $Line
+my $Line;
 my $A;
 
 my @A = ();
@@ -525,6 +525,10 @@ my @Substrings = ();
 my @Replacements = ();
 my $AskForReplace = '';
 my $TotalMatches = 0;
+
+my $SearchPattern;
+my $Search;
+my $Replace;
 
 sub NormalExit
 {
@@ -741,7 +745,7 @@ sub PrintLine {
 # The main functions to change all occurences in one line.
 
 sub ReplaceAsk {
-	for(;;) {
+	while() {
 		print "y(es)/n(o)/r(est of file)/q(uit this file)/a(lways)/s(top all) ";
 		my $key = <STDIN>;
 		if($key =~ /$BackSpacePattern/o) {
@@ -767,8 +771,8 @@ sub ReplaceAsk {
 }
 
 sub ChangeString {
-	my($LineNumber) = @_;
-	my($Changed, $i, $j, $count, $subs, $DoReplace, $HavePrintedAfter, $r);
+	my ($LineNumber) = @_;
+	my ($Changed, $i, $j, $count, $subs, $DoReplace, $HavePrintedAfter, $r);
 	$Changed = '';
 	$DoReplace = 1;
 	if($PlainReplace) {
@@ -1171,12 +1175,11 @@ if($TruncOpt ne '') {
 
 # Read $Search and $Replace according to the options:
 
-my ($Search, $Replace);
 if($FromFile) {
 	if(($DataName ne '') && open(PARA, '<', $DataName)) {
 		$Search = <PARA>; chomp($Search);
 		unless($GrepOnly) {
-			$Replace = <PARA>
+			$Replace = <PARA>;
 			chomp($Replace)
 		}
 		close(PARA);
@@ -1184,8 +1187,8 @@ if($FromFile) {
 		print "Search : ";
 		$Search = <STDIN>; chomp($Search);
 		unless($GrepOnly) {
-			print "Replace: "
-			$Replace = <STDIN>
+			print "Replace: ";
+			$Replace = <STDIN>;
 			chomp($Replace)
 		}
 	}
@@ -1250,7 +1253,6 @@ if($Recurse) {
 
 # Parse the $Search and $Replace strings:
 
-my ($SearchPattern);
 $PlainSearch and ( $Search =~ s/(\W)/\\$1/g );
 if($Search eq '') { # Empty $Search is special in perl
 	$Search = '.?'

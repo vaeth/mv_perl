@@ -5,10 +5,10 @@ use Getopt::Long;
 use Pod::Usage;
 
 sub version {
-	'$Revision: 2.2 $ '=~ /Revision:\s([^\s]*)/;
+	'$Revision: 2.3 $ '=~ /Revision:\s([^\s]*)/;
 	print "comp v$1 by Martin Väth\n"
 	.    "martin\@mvath.de\n";
-	exit 0
+	exit(0)
 }
 
 =head1 NAME
@@ -124,31 +124,31 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 =cut
 
-our $blocksize = 512 * 1024;
-our $sepstring = '';
-our $sepstringdefault = ': ';
-our $home = $ENV{'HOME'};
+my $blocksize = 512 * 1024;
+my $sepstring = '';
+my $sepstringdefault = ': ';
+my $home = $ENV{'HOME'};
 
 # Default for the Options:
 
-our $nohighdir = '';
-our $norecurse = '';
-our $nocompare = '';
-our $ignorecase = '';
-our $sloppy = '';
-our $nowarn = '';
-our $noowner = '';
-our $notime = '';
-our $nodirtime = '';
-our $noattrib = '';
-our $noresolve = '';
-our $pedantic = '';
-our $toopedantic = '';
-our $notforlast = '';
-our $notforfirst = '';
-our $texmode = '';
-our $debug = '';
-our $verbose = '';
+my $nohighdir = '';
+my $norecurse = '';
+my $nocompare = '';
+my $ignorecase = '';
+my $sloppy = '';
+my $nowarn = '';
+my $noowner = '';
+my $notime = '';
+my $nodirtime = '';
+my $noattrib = '';
+my $noresolve = '';
+my $pedantic = '';
+my $toopedantic = '';
+my $notforlast = '';
+my $notforfirst = '';
+my $texmode = '';
+my $debug = '';
+my $verbose = '';
 
 # Parse Options:
 
@@ -176,39 +176,26 @@ GetOptions(
 	'debug|D', \$debug,
 	'verbose|v', \$verbose,
 ) or pod2usage(2);
+pod2usage(2) unless(@ARGV);
 
-if($notime) {
-	$nodirtime = 1;
-}
+$nodirtime = 1 if($notime);
+$pedantic = 1 if($toopedantic);
+$sepstring = $sepstringdefault if($verbose);
+$nowarn = $noowner = $notime = $nodirtime = $noattrib = 1 if($sloppy);
 
-if($toopedantic) {
-	$pedantic = 1;
-}
-
-if($verbose) {
-	$sepstring = $sepstringdefault;
-}
-
-if($sloppy) {
-	$nowarn = $noowner = $notime = $nodirtime = $noattrib = 1
-}
-
-($#ARGV >= 0 ) or pod2usage(2);
-
-our ($dorecurse, $prepend, $printprepend);
-our ($currpath, $isdir, $fullpath, $comparepath);
-our ($printpath, $nextpath, $domatch);
-our ($depth,$makelast,$name);
-our $mask = '';
-our $differ = 0;
-our (@A, @Adepth, @Afull, @Aprint, %Ahash);
-our (@B, @Bdepth, @Bfull, @Bprint, %Bhash);
+my ($dorecurse, $prepend, $printprepend);
+my ($currpath, $isdir, $fullpath, $comparepath);
+my ($printpath, $nextpath, $domatch);
+my ($depth,$makelast,$name);
+my $mask = '';
+my $differ = 0;
+my (@A, @Adepth, @Afull, @Aprint, %Ahash);
+my (@B, @Bdepth, @Bfull, @Bprint, %Bhash);
 
 # Translate pathnames into regular expressions.
 # FIXME: Currently, it is impossible to quote the magic characters * ? [ ] -
 # E.g. the sequence "\*" is considered as the "mask" for files starting with \
-sub ProcessMask
-{
+sub ProcessMask {
 	($mask) = @_;
 
 	# Replace multiple occurences of / by single ones, and chop / at the end:
@@ -227,45 +214,41 @@ sub ProcessMask
 			$prepend = $1;
 			$mask = $2;
 			$printprepend = "$prepend$sepstring";
-		}
-		else {
+		} else {
 			$prepend = './';
 			$printprepend = '';
 		}
 		# Quote mask except alphanumerics and the symbols * ? [ ] -
 		$mask =~ s/([^\w\*\?\[\]\-])/\\$1/g;
 		# Now replace * and ? by [^\/]* and [^\/] respectively.
-		$mask =~ s/\*/[^\/]*/go; $mask =~ s/\?/[^\/]/g;
-	}
-	else { # Otherwise (i.e. mask is actually a dir/filename):
+		$mask =~ s/\*/[^\/]*/go;
+		$mask =~ s/\?/[^\/]/g
+	} else { # Otherwise (i.e. mask is actually a dir/filename):
 		if($mask eq '') {
 			$prepend = './';
-			$printprepend = '';
-		}
-		else {
+			$printprepend = ''
+		} else {
 			if(-d $mask) { # If we consider directories:
 				$prepend = $mask;
 				if($prepend ne "/") {
 					$prepend = "$prepend/"
 				}
 				$printprepend = "$prepend$sepstring";
-				$mask = '';
-			}
-			else { # For a single file, we isolate the path before, if it exists
+				$mask = ''
+			} else { # For a single file, we isolate the path before, if it exists
 				$dorecurse = '';
 				if($mask =~ /^(.*\/)([^\/]*)$/) {
 					$prepend = $1;
 					$printprepend = "$prepend$sepstring";
-					$mask = $2;
-				}
-				else {
+					$mask = $2
+				} else {
 					$prepend = './';
-					$printprepend = '';
+					$printprepend = ''
 				}
 			}
 		}
 		# Quote mask:
-		$mask =~ s/(\W)/\\$1/g;
+		$mask =~ s/(\W)/\\$1/g
 	}
 	$depth = 0;
 	&ProcessDir('')
@@ -276,19 +259,21 @@ sub ProcessMask
 # and this path ends with '/'.
 # $mask is a regular expression which should match the path following
 # $prepend.
-sub ProcessDir
-{
+sub ProcessDir {
 	my($act, @dir, $fname) = @_;
 	$currpath = $act; &AddIfMatch(''); $act = $nextpath;
 	if(!$isdir) {
 		return
 	}
 	opendir(DIR, $fullpath); @dir = readdir(DIR); closedir(DIR);
-	foreach $fname (@dir) {
+	for my $fname (@dir) {
 		if(($fname ne '.') && ($fname ne '..')) {
-			$currpath = "$act$fname"; &AddIfMatch(1);
+			$currpath = "$act$fname";
+			&AddIfMatch(1);
 			if($isdir && $dorecurse) {
-				++$depth; &ProcessDir($currpath); $depth--
+				++$depth;
+				&ProcessDir($currpath);
+				$depth--
 			}
 		}
 	}
@@ -417,8 +402,8 @@ sub AddIfMatch
 	}
 }
 
-our $i;
-our $j;
+my $i;
+my $j;
 
 if($[ < $#ARGV) {
 	for($i = $[; $i < $#ARGV; ++$i) {
@@ -509,19 +494,18 @@ if($differ > 127) {
 }
 exit($differ);
 
-our ($describe, $serious);
-our ($diffcont, $toread, $readnow, $ablock, $bblock);
-our ($Alink, $Blink);
-our @Stat;
-our ($dev, $ino, $blksize, $blocks);
-our ($Amode, $Ahlink, $Auid, $Agid, $Ardev, $Asize, $Aatime, $Amtime, $Actime);
-our ($Bmode, $Bhlink, $Buid, $Bgid, $Brdev, $Bsize, $Batime, $Bmtime, $Bctime);
+my ($describe, $serious);
+my ($diffcont, $toread, $readnow, $ablock, $bblock);
+my ($Alink, $Blink);
+my @Stat;
+my ($dev, $ino, $blksize, $blocks);
+my ($Amode, $Ahlink, $Auid, $Agid, $Ardev, $Asize, $Aatime, $Amtime, $Actime);
+my ($Bmode, $Bhlink, $Buid, $Bgid, $Brdev, $Bsize, $Batime, $Bmtime, $Bctime);
 
 
 # $i and $j must contain the indices of the files to compare.
 # Moreover, $isdir must be set depending whether we have files or dirs.
-sub comparepair
-{
+sub comparepair {
 	$describe = ''; $serious = '';
 	$Alink = (-l $Afull[$i]);
 	$Blink = (-l $Bfull[$j]);
@@ -545,8 +529,7 @@ sub comparepair
 	}
 	if(($Alink) && ($noresolve)) {
 		@Stat = lstat($Afull[$i])
-	}
-	else {
+	} else {
 		@Stat = stat($Afull[$i])
 	}
 	if($#Stat <= 8) {
@@ -556,8 +539,7 @@ sub comparepair
 	($dev, $ino, $Amode, $Ahlink, $Auid, $Agid, $Ardev, $Asize, $Aatime, $Amtime, $Actime, $blksize, $blocks) = @Stat;
 	if(($Blink) && ($noresolve)) {
 		@Stat = lstat($Bfull[$j])
-	}
-	else {
+	} else {
 		@Stat = stat($Bfull[$j])
 	}
 	if($#Stat <= 8) {
@@ -572,14 +554,12 @@ sub comparepair
 				unless($nowarn) {
 					&warn("$Aprint[$i] and $Bprint[$j] have unusual attributes")
 				}
-			}
-			else {
+			} else {
 				$diffother = 1;
 				unless($nowarn) {
 					if($Ardev) {
 						&warn("$Aprint[$i] has unusual attributes")
-					}
-					else {
+					} else {
 						&warn("$Bprint[$j] has unusual attributes")
 					}
 				}
@@ -605,8 +585,7 @@ sub comparepair
 		unless($nodirtime) {
 			&comparetime
 		}
-	}
-	else {
+	} else {
 		unless($notime) {
 			&comparetime
 		}
@@ -614,12 +593,10 @@ sub comparepair
 			if(($Asize <= 0) || ($Bsize <= 0)) {
 				if(($Asize <= 0) && ($Bsize <= 0)) {
 					&warn("$Aprint[$i] and $Bprint[$j] have Filesize <=0")
-				}
-				else {
+				} else {
 					if($Asize <= 0) {
 						&warn("$Aprint[$i] has Filesize <=0")
-					}
-					else {
+					} else {
 						&warn("$Bprint[$j] has Filesize <=0")
 					}
 				}
@@ -637,8 +614,7 @@ sub comparepair
 		if($serious) {
 			++$differ;
 			print "$Aprint[$i] and $Bprint[$j] have different $describe\n";
-		}
-		else {
+		} else {
 			unless($sloppy) {
 				&warn("$Aprint[$i] and $Bprint[$j] have different $describe");
 			}
@@ -646,8 +622,7 @@ sub comparepair
 	}
 }
 
-sub comparetime
-{
+sub comparetime {
 	if($Amtime != $Bmtime) {
 		&adderror('time')
 	}
@@ -661,65 +636,51 @@ sub comparetime
 	}
 }
 
-sub adderror
-{
+sub adderror {
 	my($addstring) = @_;
 	if($describe ne '') {
 		$describe = "$describe, $addstring"
-	}
-	else {
+	} else {
 		$describe = $addstring
 	}
 }
 
-sub comparefile
-{
+sub comparefile {
 	$diffcont = '';
-	if($Asize<$Bsize) {
+	if($Asize < $Bsize) {
 		$toread = $Asize
-	}
-	else {
+	} else {
 		$toread = $Bsize
 	}
-	if($toread <= 0) {
-		return
-	}
-	if($nocompare) {
-		return
-	}
+	return if($toread <= 0);
+	return if($nocompare);
 	open(AFILE, '<', $Afull[$i]) || &error("cannot open $Afull[$i]");
 	binmode AFILE;
 	open(BFILE, '<', $Bfull[$j]) || &error("cannot open $Bfull[$j]");
 	binmode BFILE;
 	while($toread > 0) {
-		if($toread < $blocksize) {
-			$readnow = $toread
-		}
-		else {
-			$readnow = $blocksize
-		}
-		if((read AFILE, $ablock, $readnow) != $readnow) {
+		$readnow = (($toread < $blocksize) ? $toread : $blocksize);
+		if((read(AFILE, $ablock, $readnow)) != $readnow) {
 			&error("read error for file $Afull[$i]")
 		}
-		if((read BFILE, $bblock, $readnow) != $readnow) {
+		if((read(BFILE, $bblock, $readnow)) != $readnow) {
 			&error("read error for file $Bfull[$j]")
 		}
 		if($ablock ne $bblock) {
-			$diffcont = 1; $toread = 0
-		}
-		else {
+			$diffcont = 1;
+			$toread = 0
+		} else {
 			$toread -= $readnow
 		}
 	}
-	close(BFILE); close(AFILE);
+	close(BFILE);
+	close(AFILE)
 }
 
-sub error
-{
-	print STDERR 'comp: ', $_[0], "\n"
+sub error {
+	print(STDERR 'comp: ', $_[0], "\n")
 }
 
-sub warn
-{
-	print 'warning: ', $_[0], "\n"
+sub warn {
+	print('warning: ', $_[0], "\n")
 }

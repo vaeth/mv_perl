@@ -1,10 +1,9 @@
 #!/usr/bin/perl
 
-# rrep $Revision: 1.3 $ by Martin Väth
+# rrep $Revision: 1.4 $ by Martin Väth
 # martin@mvath.de
 
-sub help
-{
+sub help {
 	$0 =~ /([^\/]*)$/; print <<"EOHELP";
 Usage: $1 [Option] ... [Option] [Search [Replace]] Filemask1 [Filemask2 ...]
 
@@ -35,37 +34,42 @@ EOHELP
 }
 
 &help if($ARGV[0] eq '');
-sub readarg
-{
+
+sub readarg {
 	$optarg = $optrest; $optrest = '';
 	if($optarg eq '') {
 		$optarg = shift(@ARGV)
 	}
 }
 optparse:while($ARGV[0] =~ /^-(.)(.*)$/) {
-	shift;
+	shift(@ARGV);
 	while($1 ne '') {
-		$optlett = $1; $optrest = $2;
-		if   ($optlett eq 'i'){ $ignore = 'i' }
-		elsif($optlett eq 'g'){ $grep = 1 }
-		elsif($optlett eq 'a'){ $global = 'g' }
-		elsif($optlett eq 'o'){ $global = '' }
-		elsif($optlett eq 'y'){ $global = 'g'; $yes = 1 }
-		elsif($optlett eq 'Y'){ $global = 'g'; $yes = 1; $forcewrite = 1; $quiet = 1 }
-		elsif($optlett eq 'Z'){ $global = 'g'; $yes = 1; $forcewrite = 1 }
-		elsif($optlett eq 'F'){ $readpar = 1 }
-		elsif($optlett eq 's'){ $recurse = 1 }
-		elsif($optlett eq 'S'){ $recurse = 1; $suppress = 1 }
-		elsif($optlett eq 'f'){ &readarg; $readpar = 1; $file = $optarg }
-		elsif($optlett eq 'p'){ $plainsearch = 1 }
-		elsif($optlett eq 'P'){ $plainreplace = 1 }
-		elsif($optlett eq 'w'){ $warning = 1 }
-		elsif($optlett eq 'V'){ $warning = 1; $verbose = 1 }
-		elsif($optlett =~ /[hH?]/){ &help }
-		elsif($optlett eq '-'){
-			if   ($optrest eq ''){ last optparse }
-			elsif($optrest =~ /^h(elp)?$/i || $optrest eq '?'){ &help }
-			else{ die "illegal option: --$optrest\nStopped" }
+		$optlett = $1;
+		$optrest = $2;
+		if   ($optlett eq 'i') { $ignore = 'i' }
+		elsif($optlett eq 'g') { $grep = 1 }
+		elsif($optlett eq 'a') { $global = 'g' }
+		elsif($optlett eq 'o') { $global = '' }
+		elsif($optlett eq 'y') { $global = 'g'; $yes = 1 }
+		elsif($optlett eq 'Y') { $global = 'g'; $yes = 1; $forcewrite = 1; $quiet = 1 }
+		elsif($optlett eq 'Z') { $global = 'g'; $yes = 1; $forcewrite = 1 }
+		elsif($optlett eq 'F') { $readpar = 1 }
+		elsif($optlett eq 's') { $recurse = 1 }
+		elsif($optlett eq 'S') { $recurse = 1; $suppress = 1 }
+		elsif($optlett eq 'f') { &readarg(); $readpar = 1; $file = $optarg }
+		elsif($optlett eq 'p') { $plainsearch = 1 }
+		elsif($optlett eq 'P') { $plainreplace = 1 }
+		elsif($optlett eq 'w') { $warning = 1 }
+		elsif($optlett eq 'V') { $warning = 1; $verbose = 1 }
+		elsif($optlett =~ /[hH?]/){ &help() }
+		elsif($optlett eq '-') {
+			if   ($optrest eq '') {
+				last optparse
+			} elsif($optrest =~ /^h(elp)?$/i || $optrest eq '?') {
+				&help()
+			} else {
+				die "illegal option: --$optrest\nStopped"
+			}
 			last
 		}
 		else{ die "illegal option: $optlett\nStopped" }
@@ -76,28 +80,31 @@ if($readpar) {
 	if(open(PARA, '<', $file)) {
 		$search = <PARA>; chop($search);
 		unless($grep) { $replace = <PARA>; chop($replace) }
-		close(PARA);
-	}
-	else {
+		close(PARA)
+	} else {
 		print "Search : ";
-		$search = <STDIN>; chop($search);
-		unless($grep) { print "Replace: "; $replace = <STDIN>; chop($replace) }
+		$search = <STDIN>;
+		chomp($search);
+		unless($grep) {
+			print "Replace: ";
+			$replace = <STDIN>;
+			chomp($replace)
+		}
 	}
 }
 else {
-	$search = $ARGV[0]; shift;
-	unless($grep) { $replace = $ARGV[0]; shift }
+	$search = shift(@ARGV);
+	$replace = shift(@ARGV) unless($grep);
 }
-if($verbose) {
-	print "The passed search and replacement strings are:\n$search\n$replace\n"
-}
-unless($ARGV[0]) {
-	$print = "Filemask missing\n\n"; &help
+print "The passed search and replacement strings are:\n$search\n$replace\n"
+	if($verbose);
+unless(@ARGV) {
+	$print = "Filemask missing\n\n";
+	&help()
 }
 if($plainsearch) {
 	$search =~ s/(\W)/\\$1/g
-}
-else {
+} else {
 	# Quote all unquoted / ` " ' # @ or $ characters;
 	# for $ make an exception if $ is last character or ) follows.
 	# For security reasons, eliminate \x where x is unknown search letter.
@@ -116,8 +123,7 @@ else {
 }
 if($plainreplace) {
 	$replace =~ s/(\W)/\\$1/g
-}
-else {
+} else {
 	# Quote all unquoted / ` " ' # or @ characters
 	# Unquoted $: If 1-9... or {1-9...}  follows, replace by {1-9...};
 	#             Otherwise: Quote $
@@ -145,8 +151,7 @@ else {
 	}
 }
 
-sub processA
-{
+sub processA {
 	local($lyes, $changed, $first, $found) = ($yes, 0, 1);
 bigloop: for(@A) {
 		$orig = $_;
@@ -196,8 +201,7 @@ bigloop: for(@A) {
 	return $changed
 }
 
-sub ProcessFile
-{
+sub ProcessFile {
 	local($filename) = @_;
 	open(FILE, '<', $filename) || return;
 	@A = ();
@@ -232,13 +236,11 @@ if($recurse && (!$smask) && (!$suppress)) {
 	die "probably forgotten quote (recurse without joker)\nStopped"
 }
 
-sub ProcessDir
-{
+sub ProcessDir {
 	local($act, @dir, $fname) = @_;
 	if($act ne '') {
 		opendir(DIR, $act)
-	}
-	else {
+	} else {
 		opendir(DIR, '.')
 	}
 	@dir = readdir(DIR);
@@ -249,21 +251,14 @@ sub ProcessDir
 			foreach $maske (@ARGV) {
 				$fmmask = 1 if($fname =~ /^$maske$/i)
 			}
-			if($act ne '') {
-				$thefile = $act . '/' . $fname
-			}
-			else {
-				$thefile = $fname
-			}
+			$thefile = (($act ne '') ? ($act . '/' . $fname) : $fname);
 			if($recurse) {
 				if(-d $thefile) {
 					&ProcessDir($thefile);
 					next
 				}
 			}
-			if($fmmask) {
-				&ProcessFile($thefile)
-			}
+			&ProcessFile($thefile) if($fmmask);
 		}
 	}
 }

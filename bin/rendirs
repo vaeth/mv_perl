@@ -5,11 +5,14 @@ use integer;
 use Getopt::Long;
 use Pod::Usage;
 
-sub version { '$Revision: 5.5 $ ' =~ /Revision:\s([^\s]*)/;
+sub version { '$Revision: 5.6 $ ' =~ /Revision:\s([^\s]*)/;
 	print "RenDirs v$1 by Martin Väth\n"
-	 .    "martin\@mvath.de\n" ; exit 0 }
+	 .    "martin\@mvath.de\n";
+	exit(0)
+}
 
-$0 =~ /([^\/]*)$/; our $script = $1;
+$0 =~ /([^\/]*)$/;
+our $script = $1;
 
 =head1 NAME
 
@@ -407,22 +410,16 @@ GetOptions(
 	'q', \$quiet,
 	'version|V', \&version
 ) or pod2usage(2);
-if($#ARGV < 0) {
-	pod2usage(2)
-}
+pod2usage(2) unless(@ARGV);
 
-if($dryrun) {
-	$showonly = 1
-}
+$showonly = 1 if($dryrun);
 
 our $mode = 0;
 if($original) {
 	$mode = -1
-}
-elsif($short) {
+} elsif($short) {
 	$mode = 1
-}
-elsif($lowercase || $uppercase) {
+} elsif($lowercase || $uppercase) {
 	die "the options --uppercase or --lowercase must not be specified\n"
 	.   "unless also one of the options --short or --long is used.\nStopped"
 }
@@ -431,8 +428,7 @@ our @REVERSEACTION = ();
 our $currdir = '';
 our $followdir = [''];
 
-sub analyzedir
-{
+sub analyzedir {
 	my($n) = @_;
 	my $parnum = $#{$followdir};	# Default parent Nr.
 	my $p = ${$followdir}[$parnum];	# Default parent
@@ -460,23 +456,22 @@ sub analyzedir
 	}
 	$n =~ s/([^\s][^\/]*)\/+\s*$/$1/; # ignore / at directory end
 
-	if($n =~ /^\s*\//) { $p = '' }
-	elsif($n =~ s/^\s*([\*\?][\s\*\?]*)//) { # special symbols at the beginning:
+	if($n =~ /^\s*\//) {
+		$p = ''
+	} elsif($n =~ s/^\s*([\*\?][\s\*\?]*)//) {
+		# special symbols at the beginning:
 		my $s = $1;
 		while() {
 			if(($s =~ s/^\?\*\s*//) || ($s =~ s/^\*\?\s*//)) {
 				$parnum = 0; $p = ${$followdir}[0]
-			}
-			elsif($s =~ s/^\?\s*//) {
+			} elsif($s =~ s/^\?\s*//) {
 				if($parnum > 0) {
 					--$parnum
 				}
 				$p = ${$followdir}[$parnum]
-			}
-			elsif($s =~ s/^\*\s*//) {
+			} elsif($s =~ s/^\*\s*//) {
 				$p = $currdir
-			}
-			else {
+			} else {
 				last
 			}
 		}
@@ -485,14 +480,12 @@ sub analyzedir
 	return($n, $p, [$follow, $willpush])
 }
 
-sub setdirs
-{
+sub setdirs {
 	my($p, $f) = @_;
 	($followdir, $f) = @$f;
 	if($p eq '') {
 		$currdir = ''
-	}
-	else {
+	} else {
 		$currdir = "$p/"
 	}
 	if($f) {
@@ -500,8 +493,7 @@ sub setdirs
 	}
 }
 
-sub analyzelink
-{
+sub analyzelink {
 	my($n) = @_;
 	if($n =~ /^(.*)\-\>(.*)$/) {
 		my($n, $l) = ($1, $2);
@@ -513,8 +505,7 @@ sub analyzelink
 	return($n, undef)
 }
 
-sub casetest
-{
+sub casetest {
 	my($p, $n, $s) = @_;
 	my $c = "$p$n";
 	if((-e $c)||(-d $c)||(-l $c)) {
@@ -535,19 +526,17 @@ sub casetest
 	return($c, 0, $s)
 }
 
-sub myunlink
-{
+sub myunlink {
 	my($n) = @_;
 	unless($quiet) {
 		&shprint('rm', $n)
 	}
 	unless($showonly) {
-		unlink $n
+		unlink($n)
 	}
 }
 
-sub myrmdir
-{
+sub myrmdir {
 	my($n) = @_;
 	unless($quiet) {
 		&shprint('rmdir -p', $n)
@@ -557,19 +546,18 @@ sub myrmdir
 	}
 }
 
-sub mytouch
-{
+sub mytouch {
 	my($n) = @_;
 	unless($quiet) {
 		&shprint('touch', $n)
 	}
 	unless($showonly) {
-		open(FH, '>', $n); close(FH)
+		open(FH, '>', $n);
+		close(FH)
 	}
 }
 
-sub mymkdir
-{
+sub mymkdir {
 	my($n) = @_;
 	unless($quiet) {
 		&printfdash('mkdir -p', $n)
@@ -579,8 +567,7 @@ sub mymkdir
 	}
 }
 
-sub mylink
-{
+sub mylink {
 	my($a, $b) = @_;
 	unless($quiet) {
 		&shprint('ln -s', $a, $b)
@@ -590,8 +577,7 @@ sub mylink
 	}
 }
 
-sub myrename
-{
+sub myrename {
 	my($a, $b) = @_;
 	unless($quiet) {
 		&shprint('mv', $a, $b)
@@ -601,8 +587,7 @@ sub myrename
 	}
 }
 
-sub action
-{
+sub action {
 	my($o, $s) = @_;
 	# Besides some flags there are four types of variable names:
 	# First, concerning the short ("s") or original ("o") file/dirnames.
@@ -716,19 +701,16 @@ sub action
 					&myunlink($dest);
 					if($samelink) {
 						&myrename($source, $dest)
-					}
-					else {
+					} else {
 						&mylink($destl, $dest)
 					}
-				}
-				else {
+				} else {
 					unless($continue) {
 						die "file/directory $dest already exists\nStopped"
 					}
 					print STDERR "warning: file/directory $dest already exists; not renaming\n";
 				}
-			}
-			elsif($deste < 0) { # Destination is magic (then Source is nonmagic)
+			} elsif($deste < 0) { # Destination is magic (then Source is nonmagic)
 				if($isdir) {
 					if($link && (-l $source)) {
 						push(@REVERSEACTION, [\&myunlink, $source])
@@ -752,31 +734,25 @@ sub action
 						print STDERR "warning: nonempty file $source is not deleted\n";
 					}
 				}
-			}
-			else { # Destination does not exist
+			} else { # Destination does not exist
 				if($sourcee > 0) { # Source is nonmagic
 					if((!$link) || $samelink) {
 						&myrename($source, $dest)
-					}
-					else {
+					} else {
 						if(-l $source) {
 							&myunlink($source);
 							&mylink($destl, $dest);
-						}
-						else {
-							unless($continue) {
-								die "$script: File $source cannot be renamed into link $dest->$destl\nStopped"
-							}
+						} else {
+							die "$script: File $source cannot be renamed into link $dest->$destl\nStopped"
+								unless($continue);
 							if($dest eq $source) {
 								print STDERR "warning: file $source is not turned into a link to $destl\n"
-							}
-							else {
+							} else {
 								print STDERR "warning: file $source cannot be renamed into link $dest->$destl"
 							}
 						}
 					}
-				}
-				else { # Source is magic
+				} else { # Source is magic
 					unless($link) {
 						if($isdir) {
 							&mymkdir($dest)
@@ -791,8 +767,7 @@ sub action
 				}
 			}
 		}
-	}
-	else { # Source does not exist (and is nonmagic):
+	} else { # Source does not exist (and is nonmagic):
 		my $msg;
 		if($mode) {
 			$msg = "File/Directory $source does not exist"
@@ -807,8 +782,7 @@ sub action
 	}
 }
 
-sub errorunlessmode
-{
+sub errorunlessmode {
 	my($a) = @_;
 	if($mode) {
 		return
@@ -883,43 +857,38 @@ while(<>) {
 		else {
 			&action($A[0], $A[0])
 		}
-	}
-	elsif($#A == 1) {
+	} elsif($#A == 1) {
 		if($shortfirst) {
 			&action($A[1], $A[0])
 		}
 		else {
 			&action($A[0], $A[1])
 		}
-	}
-	elsif($#A > 0) {
+	} elsif($#A > 0) {
 		die "error in line $.: "
 		 . "more than two words are not allowed\n$currline\nStopped"
 	}
 }
-while($#REVERSEACTION >= 0) {
-	my($func, $arg) = @{pop @REVERSEACTION};
+while(@REVERSEACTION) {
+	my($func, $arg) = @{pop(@REVERSEACTION)};
 	&$func($arg);
 }
 if($commentdepth) {
 	print STDERR "warning: file ends with unclosed comment\n"
 }
 
-sub shq ($)
-{
+sub shq {
 	my($a) = (@_);
 	$a =~ s/\'/\'\\\'\'/go; $a = "'$a'";
 	$a =~ s/(^|[^\\])\'([\da-zA-Z\_\-\,\.\:\/]*)\'/$1$2/g;
 	return(($a ne '') ? $a : "''");
 }
 
-sub shqs ($)
-{
-	return ' ' . &shq($_[0])
+sub shqs {
+	return(' ' . &shq($_[0]))
 }
 
-sub shdash
-{
+sub shdash {
 	my($s, $r, $t) = (shift, '', '');
 	for my $i (@_) {
 		$t = 1 if($i =~ /^[-+]/);
@@ -928,7 +897,6 @@ sub shdash
 	return(($t) ? ($s . ' --' . $r) : ($s . $r))
 }
 
-sub shprint
-{
-	print &shdash(@_) . "\n"
+sub shprint {
+	print(&shdash(@_) . "\n")
 }
