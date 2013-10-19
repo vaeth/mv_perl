@@ -6,14 +6,14 @@ use Getopt::Long;
 use Pod::Usage;
 use File::Find;
 use File::Spec;
-use File::stat;
 use Fcntl ':mode';
 use Time::localtime;
+#use Time::HiRes; # needed unless -R is used
 
-sub version () {
-	print("Touchdirs v2.4 by Martin Väth\n",
+sub version {
+	print("Touchdirs v2.6 by Martin Väth\n",
 		"martin\@mvath.de\n");
-	exit 0
+	exit(0)
 }
 
 =head1 NAME
@@ -35,10 +35,24 @@ properties of the filesystem.
 
 =over 8
 
+=item B<--round> or B<-r>
+
+On filestamps with non-integer seconds, drop to integers and
+modify recursed filestamps correspondingly.
+
+=item B<--rounding>
+
+On filestamps with non-integer seconds, drop to integers,
+but do not touch non-directories only for this modification.
+
+=item B<--roundread> or B<-R>
+
+As B<--rounding> but do not even touch directories for the modification.
+
 =item B<--force> or B<-f>
 
-Touch dirs even if time did not change: This sets the filestamps to a
-full second and has other effects e.g. on copy-on-write filesystems.
+Touch dirs even if time did not change.
+This has effects e.g. on copy-on-write filesystems or with B<--rounding>.
 
 =item B<--all> or B<-a>
 
@@ -103,6 +117,9 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 my $access = '';
 my $force = '';
 my $all = '';
+my $round = '';
+my $rounding = '';
+my $roundread = '';
 my $show = '';
 my $follow = '';
 my $quiet = 0;
@@ -111,44 +128,86 @@ my @iexclude = ();
 
 # Global Variables:
 
+my $hires_write;
 my %DIR;
 my $count;
 my @topdirs;
 
 # Functions:
 
+sub not_equal {
+	my ($a, $b) = @_;
+	no integer;
+	return ($a != $b)
+}
+
+sub is_equal {
+	my ($a, $b) = @_;
+	no integer;
+	return ($a == $b)
+}
+
 sub myctime {
-	my ($time) = @_;
-	$time = localtime($time);
-	return sprintf('%04d%02d%02d%02d%02d%s%02d',
-		(1900 + $time->year()), 1 + $time->mon(), $time->mday(),
-		$time->hour(), $time->min(), '.', $time->sec());
+	my ($rtime) = @_;
+	my ($time, $itime);
+	my $hires_writing = '';
+	my $arg = '-t';
+	my $format = '%04d%02d%02d%02d%02d%s%02d%s';
+	my $dot = '.';
+	my $rest = '';
+	if($hires_write) {
+		$itime = int($rtime);
+		$time = localtime($itime);
+		if(&not_equal($itime, $rtime)) {
+			no integer;
+			$hires_writing = 1;
+			$rest = $rtime - $itime;
+			$rest =~ s/^([^\.]*)\./\./ or
+				die('strange number conversion');
+			$arg = '-d';
+			$format = '%04d-%02d-%02d %02d:%02d:%s%02d%s';
+			$dot = ''
+		}
+	} else {
+		$time = localtime($rtime)
+	}
+	return ($hires_writing, $arg, sprintf($format,
+			(1900 + $time->year()), 1 + $time->mon(), $time->mday(),
+			$time->hour(), $time->min(), $dot, $time->sec(), $rest))
 }
 
 sub touchit {
 	my ($atime, $mtime, $file) = @_;
 	return if($show && ($quiet >= 2));
-	my $cmtime = &myctime($mtime);
+	my ($cm, $cmarg, $cmtime) = &myctime($mtime);
 	if((!$follow) && (-l $file)) {
-		if($atime == $mtime) {
-			&shprint('touch -h    -t ' . &shq($cmtime), $file) if($quiet < 2);
-			system('touch', '-h', '-t', $cmtime, '--', $file) unless $show;
+		if(&is_equal($atime, $mtime)) {
+			&shprint("touch -h    $cmarg " . &shq($cmtime), $file) if($quiet < 2);
+			system('touch', '-h', $cmarg, $cmtime, '--', $file) unless($show);
 		} else {
-			my $catime = &myctime($atime);
-			&shprint('touch -h -m -t ' . &shq($cmtime), $file) if($quiet < 2);
-			system('touch', '-h', '-m', '-t', $cmtime, '--', $file) unless $show;
-			&shprint('touch -h -a -t ' . &shq($catime), $file) if($quiet < 2);
-			system('touch', '-h', '-a', '-t', $catime, '--', $file) unless $show;
+			&shprint("touch -h -m $cmarg " . &shq($cmtime), $file) if($quiet < 2);
+			system('touch', '-h', '-m', $cmarg, $cmtime, '--', $file) unless($show);
+			my ($ca, $caarg, $catime) = &myctime($atime);
+			&shprint("touch -h -a $caarg " . &shq($catime), $file) if($quiet < 2);
+			system('touch', '-h', '-a', $caarg, $catime, '--', $file) unless($show);
 		}
 		return
 	}
-	if($quiet < 2) {
-		if($atime == $mtime) {
-			&shprint('touch       -t ' . &shq($cmtime), $file)
-		} else {
-			my $catime = &myctime($atime);
-			&shprint('touch    -m -t ' . &shq($cmtime), $file);
-			&shprint('touch    -a -t ' . &shq($catime), $file);
+	if(&is_equal($atime, $mtime)) {
+		&shprint("touch       $cmarg " . &shq($cmtime), $file) if($quiet < 2);
+		if($cm && !$show) {
+			system('touch', $cmarg, $cmtime, '--', $file);
+			return
+		}
+	} else {
+		my ($ca, $caarg, $catime) = &myctime($atime);
+		&shprint("touch    -m $cmarg " . &shq($cmtime), $file) if($quiet < 2);
+		my $system = ((!$show) && ($cm || $ca));
+		system('touch', '-m', $cmarg, $cmtime, '--', $file) if($system);
+		&shprint("touch    -a $caarg " . &shq($catime), $file) if($quiet < 2);
+		if($system) {
+			system('touch', '-a', $caarg, $catime, '--', $file);
+			return
 		}
 	}
 	utime($atime, $mtime, $file) unless($show)
@@ -179,6 +238,12 @@ sub my_cat {
 	return File::Spec->catdir(@_)
 }
 
+sub my_amtime {
+	my ($file) = @_;
+	return (($follow && (-l $file)) ? lstat($file) :
+		($roundread ? stat($file) : Time::HiRes::stat($file)))[8, 9]
+}
+
 sub dotouch {
 	if(-d $_) {
 		return if($follow || !(-l $_));
@@ -197,13 +262,19 @@ sub dotouch {
 		}
 	}
 	my $filename = &my_cat(@topdirs, @dirs);
-	my $stat = ($follow ? stat($filename) : lstat($filename));
-	my $atime = $stat->atime;
-	my $mtime = $stat->mtime;
-	if($access && ($atime != $mtime)) {
+	my ($atime, $mtime) = &my_amtime($filename);
+	my $write = $all;
+	if($rounding) {
+		my ($oldatime, $oldmtime) = ($atime, $mtime);
+		($atime, $mtime) = (int($atime), int($mtime));
+		if($round) {
+			$write = 1 if(&not_equal($oldatime, $atime) || &not_equal($oldmtime, $mtime))
+		}
+	}
+	if($access && &not_equal($atime, $mtime)) {
 		$atime = $mtime;
 		&touchit($atime, $mtime, $filename)
-	} elsif($all) {
+	} elsif($write) {
 		&touchit($atime, $mtime, $filename)
 	}
 	while(@dirs) {
@@ -255,6 +326,9 @@ GetOptions(
 	'help|h', sub { pod2usage(1) },
 	'man|?', sub { pod2usage(-verbose => 2) },
 	'version|V', \&version,
+	'round|r', \$round,
+	'rounding', \$rounding,
+	'roundread|R', \$roundread,
 	'force|f', \$force,
 	'all|a', \$all,
 	'access|A', \$access,
@@ -269,20 +343,28 @@ GetOptions(
 	'follow-link|F', \$follow,
 	'nofollow-link|no-follow-link', sub { $follow = '' }
 ) or pod2usage(2);
-($#ARGV >= 0) or pod2usage(-verbose => 2);
+pod2usage(-verbose => 2) unless(@ARGV);
 
-$force = 1 if($all);
+# Set dependent options
+$rounding = 1 if($round || $roundread);
+if($all) {
+	$force = 1;
+	$round = ''
+}
+
+# Set globals depending on options
+$hires_write = !$rounding;
+unless($roundread) {
+	require Time::HiRes;
+	Time::HiRes->import();
+}
 
 # Compile regular expressions and make one array:
 for my $i (@exclude) {
-	if(ref($i) ne 'Regexp') {
-		$i = qr/$i/
-	}
+	$i = qr/$i/ if(ref($i) ne 'Regexp')
 }
 for my $i (@iexclude) {
-	if(ref($i) ne 'Regexp') {
-		$i = qr/$i/i
-	}
+	$i = qr/$i/i if(ref($i) ne 'Regexp');
 	Push(@exclude, $i)
 }
 @iexclude = undef;
@@ -313,11 +395,9 @@ foreach my $currdir (@ARGV) {
 		return -($x->[3] cmp $y->[3])
 	} keys(%DIR);
 	foreach my $dir (@DIR) {
-		my $stat = ($follow ? stat($dir) : lstat($dir));
-		my $atime = $stat->atime;
-		my $mtime = $stat->mtime;
+		my ($atime, $mtime) = &my_amtime($dir);
 		my ($newatime, $newmtime) = @{$DIR{$dir}};
-		if($force || ($atime != $newatime) || ($mtime != $newmtime)) {
+		if($force || &not_equal($atime, $newatime) || &not_equal($mtime, $newmtime)) {
 			&touchit($newmtime, $newatime, $dir)
 		}
 	}

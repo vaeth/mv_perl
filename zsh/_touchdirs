@@ -7,12 +7,15 @@ _arguments -s -S : \
 {'--ignore-case=','-I+'}'[ignore regexp path, ignoring case]:regexp:(/ "/[^/]*\$")' \
 '*-q[quiet for ignored files/and commands]' \
 {'(-A)--access','(--access)-A'}'[let access time equal mtime]' \
-{'(-f -a --all)--force','(--force -a --all)-f'}'[force touching dirs]' \
-{'(-a -f --force)--all','(--all -f --force)-a'}'[force touching all files]' \
+'(-a --all '{'-f)--force','--force)-f'}'[force touching dirs]' \
+'(-r --round -R --roundread)--rounding[round dir timestamps to seconds]' \
+'(--rounding -r --round '{'-R)--roundread','--roundread)-R'}'[round timestamps when reading]' \
+'(--rounding -R --roundread '{'-r)--round','--round)-r'}'[round all timestamps to seconds]' \
+'(-f --force '{'-a)--all','--all)-a'}'[force touching all files]' \
 {'(-d --dot -g --git)--dotdir','(--dotdir --dot -g --git)-d'}'[ignore .* dirs]' \
 {'(-D --dot)--dotfile','(--dotfile --dot)-D'}'[ignore .* files]' \
 '(-d --dotdir -D --dotfile -g --git)--dot[ignore .* dirs]' \
 {'(-g)--git','(--git)-g'}'[ignore .git dirs]' \
 {'(--dry-run -n '{'--show)-s','-s)--show'},'(--show -s '{'--dry-run)-n','-n)--dry-run'}}'[only show what would be done]' \
-{'(--follow-links)-f','(-f)--follow-link'}'[follow links for recursion and getting times]' \
+{'(--follow-links)-F','(-F)--follow-link'}'[follow links for recursion and getting times]' \
 '*:dirs:_files -/'

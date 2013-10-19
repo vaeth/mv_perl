@@ -12,17 +12,20 @@ use Term::ANSIColor;# needed only for colored(...) in function optcolored(...)
 # Format is an array of the form [grep, "old" content, "new" content]
 
 my @termlist = (
-	['bold yellow','bold red','bold green'],
-	['bold magenta','bold red','bold blue'],
-	['reverse','underline reverse','bold underline reverse']);
+	['bold yellow', 'bold red', 'bold green'],
+	['bold magenta', 'bold red', 'bold blue'],
+	['reverse', 'underline reverse', 'bold underline reverse']);
 
 my $BackSpacePattern = qr/[\b]|(\x1b\[3\~)/o;
 
-sub version { '$Revision: 2.8 $ ' =~ /Revision:\s([^\s]*)/;
+sub version { '$Revision: 2.9 $ ' =~ /Revision:\s([^\s]*)/;
 	print "plrep v$1 by Martin Väth\n"
-	 .    "martin\@mvath.de\n" ; exit 0 }
+	 .    "martin\@mvath.de\n";
+	 exit 0
+}
 
-$0 =~ /([^\/]*)$/; my $script = $1;
+$0 =~ /([^\/]*)$/;
+my $script = $1;
 
 =head1 NAME
 

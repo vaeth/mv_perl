@@ -75,7 +75,7 @@ Here is a brief overview of the scripts:
   files corresponding to such a list.
   Perl 5 (with elementary modules) is required.
 
-- commlist v1.2. Print lines common to two list of file resp. contained in
+- commlist. Print lines common to two list of file resp. contained in
   only one of these lists. This is similar to the standard unix comm utility,
   but deals with unsorted input/output.
   Perl 5 (with elementary modules) is required.
