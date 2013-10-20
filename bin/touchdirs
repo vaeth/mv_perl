@@ -11,7 +11,7 @@ use Time::localtime;
 #use Time::HiRes; # needed unless -R is used
 
 sub version {
-	print("Touchdirs v2.6 by Martin Väth\n",
+	print("Touchdirs v2.7 by Martin Väth\n",
 		"martin\@mvath.de\n");
 	exit(0)
 }
@@ -240,7 +240,7 @@ sub my_cat {
 
 sub my_amtime {
 	my ($file) = @_;
-	return (($follow && (-l $file)) ? lstat($file) :
+	return (((!$follow) && (-l $file)) ? lstat($file) :
 		($roundread ? stat($file) : Time::HiRes::stat($file)))[8, 9]
 }
 
