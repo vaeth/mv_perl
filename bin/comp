@@ -5,9 +5,9 @@ use Getopt::Long;
 use Pod::Usage;
 
 sub version {
-	'$Revision: 2.4 $ '=~ /Revision:\s([^\s]*)/;
-	print "comp v$1 by Martin Väth\n"
-	.    "martin\@mvath.de\n";
+	'$Revision: 2.5 $ '=~ /Revision:\s([^\s]*)/;
+	print("comp v$1 by Martin Väth\n"
+	.    "martin\@mvath.de\n");
 	exit(0)
 }
 
@@ -281,8 +281,7 @@ sub ProcessDir {
 	}
 }
 
-sub AddIfMatch
-{
+sub AddIfMatch {
 	my($sureadd) = @_;
 	if($currpath eq '') {
 		$isdir = 1;
@@ -396,7 +395,7 @@ if(($#A == $i) && ($#B == $j)) {
 	# We have this special treatment only if $A and $B are both directories
 	# or both files:
 	if($isdir == ($B[$j] =~ /\/$/)) {
-		&comparepair;
+		&comparepair();
 		exit($differ);
 	}
 }
@@ -406,7 +405,7 @@ for($i = $[; $i <= $#A; ++$i) {
 	$isdir = ($name =~ /\/$/);
 	$j = $Bhash{$name};
 	if($j ne '') {
-		&comparepair
+		&comparepair()
 	} else {
 		if($isdir) {# If we deal with a directory and have no match:
 			unless($notforfirst) {
@@ -481,7 +480,7 @@ sub comparepair {
 	if(($Alink) || ($Blink)) {
 		if(($Alink) && ($Blink)) {
 			unless($nowarn) {
-				&warn($Aprint[$i] . ' and ' . $Bprint[$j] . ' are symbolic links')
+				&warn($Aprint[$i], ' and ', $Bprint[$j], ' are symbolic links')
 			}
 		}
 		else {
@@ -489,10 +488,10 @@ sub comparepair {
 			&adderror('link-status');
 			unless($nowarn) {
 				if($Alink) {
-					&warn($Aprint[$i] . ' is a symbolic link')
+					&warn($Aprint[$i], ' is a symbolic link')
 				}
 				else {
-					&warn($Bprint[$j] . ' is a symbolic link')
+					&warn($Bprint[$j], ' is a symbolic link')
 				}
 			}
 		}
@@ -504,7 +503,7 @@ sub comparepair {
 	}
 	if($#Stat <= 8) {
 		$serious = 1;
-		&error('cannot get stat of ' . $Afull[$i]);
+		&error('cannot get stat of ', $Afull[$i]);
 	}
 	($dev, $ino, $Amode, $Ahlink, $Auid, $Agid, $Ardev, $Asize, $Aatime, $Amtime, $Actime, $blksize, $blocks) = @Stat;
 	if(($Blink) && ($noresolve)) {
@@ -514,7 +513,7 @@ sub comparepair {
 	}
 	if($#Stat <= 8) {
 		$serious = 1;
-		&error('cannot get stat of ' . $Bfull[$j]);
+		&error('cannot get stat of ', $Bfull[$j]);
 	}
 	($dev, $ino, $Bmode, $Bhlink, $Buid, $Bgid, $Brdev, $Bsize, $Batime, $Bmtime, $Bctime, $blksize, $blocks) = @Stat;
 	my $diffother = '';
@@ -522,15 +521,15 @@ sub comparepair {
 		if(($Ardev) || ($Brdev)) {
 			if(($Ardev) && ($Brdev)) {
 				unless($nowarn) {
-					&warn($Aprint[$i] . ' and ' . $Bprint[$j] . ' have unusual attributes')
+					&warn($Aprint[$i], ' and ', $Bprint[$j], ' have unusual attributes')
 				}
 			} else {
 				$diffother = 1;
 				unless($nowarn) {
 					if($Ardev) {
-						&warn($Aprint[$i] . ' has unusual attributes')
+						&warn($Aprint[$i], ' has unusual attributes')
 					} else {
-						&warn($Bprint[$j] . ' has unusual attributes')
+						&warn($Bprint[$j], ' has unusual attributes')
 					}
 				}
 			}
@@ -552,27 +551,21 @@ sub comparepair {
 		}
 	}
 	if($isdir) {
-		unless($nodirtime) {
-			&comparetime
-		}
+		&comparetime() unless($nodirtime);
 	} else {
-		unless($notime) {
-			&comparetime
-		}
-		unless($nowarn) {
-			if(($Asize <= 0) || ($Bsize <= 0)) {
-				if(($Asize <= 0) && ($Bsize <= 0)) {
-					&warn($Aprint[$i] . ' and ' . $Bprint[$j] . ' have Filesize <=0')
-				} else {
-					&warn((($Asize <= 0) ? $Aprint[$i] : $Bprint[$j] ) . ' has Filesize <=0')
-				}
+		&comparetime() unless($notime);
+		unless($nowarn || (($Asize > 0) && ($Bsize > 0))) {
+			if(($Asize <= 0) && ($Bsize <= 0)) {
+				&warn($Aprint[$i], ' and ', $Bprint[$j], ' have size 0')
+			} else {
+				&warn((($Asize <= 0) ? $Aprint[$i] : $Bprint[$j] ), ' has size 0')
 			}
 		}
 		if($Asize != $Bsize) {
 			$serious = 1;
 			&adderror('length')
 		}
-		&comparefile;
+		&comparefile();
 		if($diffcont) {
 			$serious = 1;
 			&adderror('content')
@@ -581,10 +574,10 @@ sub comparepair {
 	if($describe ne '') {
 		if($serious) {
 			++$differ;
-			print($Aprint[$i] . ' and ' . $Bprint[$j] . " have different $describe\n")
+			print($Aprint[$i], ' and ', $Bprint[$j], " have different $describe\n")
 		} else {
 			unless($sloppy) {
-				&warn($Aprint[$i] . ' and ' . $Bprint[$j] . ' have different $describe')
+				&warn($Aprint[$i], ' and ', $Bprint[$j], " have different $describe")
 			}
 		}
 	}
@@ -622,17 +615,17 @@ sub comparefile {
 	}
 	return if($toread <= 0);
 	return if($nocompare);
-	open(AFILE, '<', $Afull[$i]) || &error('cannot open ' . $Afull[$i]);
+	open(AFILE, '<', $Afull[$i]) || &error('cannot open ', $Afull[$i]);
 	binmode(AFILE);
-	open(BFILE, '<', $Bfull[$j]) || &error('cannot open ' . $Bfull[$j]);
+	open(BFILE, '<', $Bfull[$j]) || &error('cannot open ', $Bfull[$j]);
 	binmode(BFILE);
 	while($toread > 0) {
 		$readnow = (($toread < $blocksize) ? $toread : $blocksize);
 		if((read(AFILE, $ablock, $readnow)) != $readnow) {
-			&error('read error for file ' . $Afull[$i])
+			&error('read error for file ', $Afull[$i])
 		}
 		if((read(BFILE, $bblock, $readnow)) != $readnow) {
-			&error('read error for file ' . $Bfull[$j])
+			&error('read error for file ', $Bfull[$j])
 		}
 		if($ablock ne $bblock) {
 			$diffcont = 1;
@@ -646,9 +639,9 @@ sub comparefile {
 }
 
 sub error {
-	print(STDERR 'comp: ', $_[0], "\n")
+	print(STDERR 'comp: ', @_, "\n")
 }
 
 sub warn {
-	print('warning: ', $_[0], "\n")
+	print('warning: ', @_, "\n")
 }
