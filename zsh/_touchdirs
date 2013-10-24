@@ -16,6 +16,7 @@ _arguments -s -S : \
 {'(-D --dot)--dotfile','(--dotfile --dot)-D'}'[ignore .* files]' \
 '(-d --dotdir -D --dotfile -g --git)--dot[ignore .* dirs]' \
 {'(-g)--git','(--git)-g'}'[ignore .git dirs]' \
+{'(-c)--cehck','(--check)-c'}'[check whether Time::HiRes works]' \
 {'(--dry-run -n '{'--show)-s','-s)--show'},'(--show -s '{'--dry-run)-n','-n)--dry-run'}}'[only show what would be done]' \
 {'(--follow-links)-F','(-F)--follow-link'}'[follow links for recursion and getting times]' \
 '*:dirs:_files -/'

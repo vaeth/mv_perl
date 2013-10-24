@@ -96,6 +96,11 @@ Also use time of the file the link points to instead of time of the link.
 Do not print ignored directories.
 If specified twice, do not print executed commands, either.
 
+=item B<--check> or B<-c>
+
+Check only whether Time::Hires seems to work correctly and then exit.
+If combined with B<--quiet> do not output anything.
+
 =item B<--dry-run> or B<--show> or B<-n> or B<-s>
 
 Only show what would be done, do not alter anything.
@@ -114,6 +119,7 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 # Options and their default:
 
+my $check = '';
 my $access = '';
 my $force = '';
 my $all = '';
@@ -163,7 +169,7 @@ sub myctime {
 			$hires_writing = 1;
 			$rest = $rtime - $itime;
 			$rest =~ s/^([^\.]*)\./\./ or
-				die('strange number conversion');
+				&fatal('strange number conversion');
 			$arg = '-d';
 			$format = '%04d-%02d-%02d %02d:%02d:%s%02d%s';
 			$dot = ''
@@ -241,7 +247,7 @@ sub my_cat {
 sub my_amtime {
 	my ($file) = @_;
 	return (((!$follow) && (-l $file)) ? lstat($file) :
-		($roundread ? stat($file) : Time::HiRes::stat($file)))[8, 9]
+		($roundread ? CORE::stat($file) : Time::HiRes::stat($file)))[8, 9]
 }
 
 sub dotouch {
@@ -319,6 +325,15 @@ sub shprint {
 	print(&shdash(@_), "\n")
 }
 
+sub warning {
+	print(STDERR 'touchdirs: warning: ', @_, "\n")
+}
+
+sub fatal {
+	print(STDERR 'touchdirs: fatal: ', @_, "\n");
+	exit(1)
+}
+
 # Parse Options:
 
 $Getopt::Long::bundling = 1;
@@ -340,10 +355,11 @@ GetOptions(
 	'git|g', sub { push(@exclude, qr'/\.git/') },
 	'show|dry-run|s|n', \$show,
 	'quiet|q+', \$quiet,
+	'check|c', \$check,
 	'follow-link|F', \$follow,
 	'nofollow-link|no-follow-link', sub { $follow = '' }
 ) or pod2usage(2);
-pod2usage(-verbose => 2) unless(@ARGV);
+pod2usage(-verbose => 2) unless($check || @ARGV);
 
 # Set dependent options
 $rounding = 1 if($round || $roundread);
@@ -354,9 +370,36 @@ if($all) {
 
 # Set globals depending on options
 $hires_write = !$rounding;
-unless($roundread) {
-	require Time::HiRes;
-	Time::HiRes->import();
+if($check || !$roundread) {
+	eval {
+		require Time::HiRes;
+		Time::HiRes->import()
+	};
+	if($@) {
+		if($check) {
+			print("module Time::HiRes not found\n") unless($quiet);
+			exit(1)
+		}
+		&warning('module Time::HiRes not found. Forcing option -R');
+		$roundread = ''
+	} else {
+		my ($atime, $mtime) = &my_amtime(File::Spec->curdir());
+		if((int($atime) < 1000000) || (int($mtime) < 1000000)) {
+			if($check) {
+				print("module Time::Hires appears broken\n") unless($quiet);
+				exit(1)
+			}
+			($atime, $mtime) = &my_amtime(File::Spec->curdir());
+			&fatal("loading Time::Hires has probably corrupted stat()\nYou might want to retry with option -R")
+				if(($atime < 1000000) || (int($mtime) < 1000000));
+			&warning('Time::Hires::stat() appears broken. Forcing option -R');
+			$roundread = ''
+		} elsif($check) {
+			print("module Time::Hires appears to work\n") unless($quiet);
+			exit(0)
+		}
+	}
+	$round = $rounding = '' unless($roundread)
 }
 
 # Compile regular expressions and make one array:
