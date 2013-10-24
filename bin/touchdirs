@@ -11,7 +11,7 @@ use Time::localtime;
 #use Time::HiRes; # needed unless -R is used
 
 sub version {
-	print("Touchdirs v2.7 by Martin Väth\n",
+	print("Touchdirs v2.8 by Martin Väth\n",
 		"martin\@mvath.de\n");
 	exit(0)
 }
@@ -367,10 +367,11 @@ if($all) {
 	$force = 1;
 	$round = ''
 }
+$roundread = $follow = 1 if($check);
 
 # Set globals depending on options
 $hires_write = !$rounding;
-if($check || !$roundread) {
+unless($roundread) {
 	eval {
 		require Time::HiRes;
 		Time::HiRes->import()
