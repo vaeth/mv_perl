@@ -11,7 +11,7 @@ use Time::localtime;
 #use Time::HiRes; # needed unless -R is used
 
 sub version {
-	print("Touchdirs v2.8 by Martin Väth\n",
+	print("Touchdirs v2.9 by Martin Väth\n",
 		"martin\@mvath.de\n");
 	exit(0)
 }
@@ -367,7 +367,10 @@ if($all) {
 	$force = 1;
 	$round = ''
 }
-$roundread = $follow = 1 if($check);
+if($check) {
+	$roundread = '';
+	$follow = 1
+}
 
 # Set globals depending on options
 $hires_write = !$rounding;
@@ -390,11 +393,11 @@ unless($roundread) {
 				print("module Time::Hires appears broken\n") unless($quiet);
 				exit(1)
 			}
+			$roundread = '';
 			($atime, $mtime) = &my_amtime(File::Spec->curdir());
 			&fatal("loading Time::Hires has probably corrupted stat()\nYou might want to retry with option -R")
 				if(($atime < 1000000) || (int($mtime) < 1000000));
 			&warning('Time::Hires::stat() appears broken. Forcing option -R');
-			$roundread = ''
 		} elsif($check) {
 			print("module Time::Hires appears to work\n") unless($quiet);
 			exit(0)
