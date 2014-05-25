@@ -4,7 +4,7 @@ use Getopt::Long;
 use File::Find;
 use strict;
 
-sub version { '$Revision: 1.3 $ ' =~ /Revision:\s([^\s]*)/;
+sub version { '$Revision: 1.4 $ ' =~ /Revision:\s([^\s]*)/;
 	print "Changecase v$1 by Martin Väth\n"
 	 .    "martin\@mvath.de\n";
 	 exit(0)
@@ -21,6 +21,10 @@ Change all filenames in current directory and subdirectory to upper/lower case.
 --dir=DIR     -d DIR Change content of DIR instead of $mdot
 --recurse     -r     Recurse (default)
 --norecurse   -R     Do not recurse, i.e. use only the explicitly given dirs
+--skip-links  -L     Do not rename symbolic links
+--skip-dirs   -D     Do not rename directories or links to directories
+--skip-files  -F     Do not rename files or links to files
+--skip-nonfiles -f   Only rename files or links to files
 --quiet       -q     Be quiet
 --version     -V     Print version number
 EOUSAGE
@@ -29,10 +33,12 @@ EOUSAGE
 
 # Default for the Options:
 
-our ($dir, $recurse, $quiet, $mode);
+our ($dir, $recurse, $quiet, $dry_run, $mode,
+	$skip_links, $skip_dirs, $skip_files, $skip_nonfiles);
 $dir = $mdot;
 $recurse = 1;
-$quiet = '';
+$quiet = $dry_run = '';
+$skip_links = $skip_dirs = $skip_files = $skip_nonfiles = '';
 
 # Parse Options:
 
@@ -41,45 +47,50 @@ GetOptions(
 	'help|h|?', sub { &usage(0) },
 	'version|V', \&version,
 	'recurse|r', \$recurse,
-	'norecurse|R', sub { $recurse = '' },
-	'dir|d=s', sub { (undef, $dir) = @_ },
+	'no-recurse|norecurse|R', sub { $recurse = '' },
+	'skip-links|L', \$skip_links,
+	'skip-links|D', \$skip_dirs,
+	'skip-links|F', \$skip_files,
+	'skip-links|f', \$skip_nonfiles,
+	'dry-run|n', \$dry_run,
+	'dir|d=s', sub { $dir = @_[1] },
 	'quiet|q', \$quiet
 ) or &usage(-1);
 
 # Read first (and only) argument:
 
 $mode = shift(@ARGV);
-unless(defined($mode) && (($mode eq 'l') || ($mode eq 'u'))) {
-	&usage(1)
-}
+&usage(1) unless((defined($mode) && (($mode eq 'l') || ($mode eq 'u')))
+	|| @ARGV);
 
 # Now we start:
 
 find({ bydepth => $recurse, follows => 1, wanted => \&dorename }, $dir);
 
 sub dorename {
-	if(($_ eq $mdot) || ($_ eq $ddot)) {
-		return
+	return if(($_ eq $mdot) || ($_ eq $ddot));
+	my $ftest = ($skip_dirs || $skip_files || $skip_nonfiles);
+	if($skip_links) {
+		return if(-l $_)
+	} elsif($ftest) {
+		$ftest = '' if(-l $_)
 	}
-	unless($recurse) {
-		$File::Find::prune = 1
+	if($ftest) {
+		return if(($skip_dirs && (-d _)) ||
+			($skip_files && (-f _)) ||
+			($skip_nonfiles && (!(-f _))))
 	}
-	my $change;
-	if($mode eq 'u') {
-		$change = uc
-	} else {
-		$change = lc
-	}
-	if($change eq $_) {
-		return
-	}
-	my $source = "$File::Find::dir$dirsep$_";
-	my $dest = "$File::Find::dir$dirsep$change";
+	$File::Find::prune = 1 unless($recurse);
+	my $change = (($mode eq 'u') ? uc() : lc());
+	return if($change eq $_);
+	my $source = $File::Find::dir . $dirsep . $_;
+	my $dest = $File::Find::dir . $dirsep . $change;
 	if(-e $dest) {
-		print(STDERR "Warning: $dest exists; do not rename $source\n");
+		print(STDERR "warning: $dest exists; do not rename $source\n");
 		return
 	}
-	print "$source -> $dest\n" unless($quiet);
+	print("$source -> $dest\n") unless($quiet);
+	return if($dry_run);
 	rename($_, $change) or
-		print(STDERR "Warning: Cannot rename $source -> $dest\n");
+		print(STDERR "warning: Cannot rename $source -> $dest\n");
 }

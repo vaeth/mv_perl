@@ -6,6 +6,11 @@ _arguments -C -s -S -A '-*' : \
 {'(--dir)-d+','(-d)--dir='}'[change content of DIR instead of .]:dir:_files -/' \
 {'(--recurse)-r','(-r)--recurse'}'[recurse (default)]' \
 {'(--norecurse)-R','(-R)--norecurse'}'[do not recurse]' \
+{'(--skip-links)-L','(-L)--skip-links'}'[do not rename symbolic links]' \
+{'(--skip-dirs)-D','(-D)--skip-dirs'}'[do not rename (links to) dirs]' \
+{'(--skip-files)-F','(-F)--skip-files'}'[do not rename (links to) files]' \
+{'(--skip-nonfiles)-f','(-f)--skip-nonfiles'}'[only rename (links to) files]' \
+{'(--dry-run)-n','(-n)--dry-run'}'[dry run, do not rename anything]' \
 {'(--quiet)-q','(-q)--quiet'}'[quiet]' \
 '1:mode:->mode'
 local ret=$?
