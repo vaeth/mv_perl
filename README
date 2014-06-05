@@ -117,6 +117,8 @@ Here is a brief overview of the scripts:
   (e.g. by a daylight saving offset). The script can also be used to "round"
   the timestamps to a full second in order to simplify comparison of
   timestamps on filesystems of different resolution.
+  However, for the latter you can also use touchdirs.
 
 - touchdirs. Touch directories according to their newest file.
-
+  This script can also be used to "round" file/directiry timestamps
+  to a full second.
