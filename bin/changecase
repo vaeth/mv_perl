@@ -4,7 +4,7 @@ use Getopt::Long;
 use File::Find;
 use strict;
 
-sub version { '$Revision: 1.4 $ ' =~ /Revision:\s([^\s]*)/;
+sub version { '$Revision: 2.0 $ ' =~ /Revision:\s([^\s]*)/;
 	print "Changecase v$1 by Martin Väth\n"
 	 .    "martin\@mvath.de\n";
 	 exit(0)
@@ -49,9 +49,9 @@ GetOptions(
 	'recurse|r', \$recurse,
 	'no-recurse|norecurse|R', sub { $recurse = '' },
 	'skip-links|L', \$skip_links,
-	'skip-links|D', \$skip_dirs,
+	'skip-dirs|D', \$skip_dirs,
 	'skip-links|F', \$skip_files,
-	'skip-links|f', \$skip_nonfiles,
+	'skip-nonfiles|f', \$skip_nonfiles,
 	'dry-run|n', \$dry_run,
 	'dir|d=s', sub { $dir = @_[1] },
 	'quiet|q', \$quiet
