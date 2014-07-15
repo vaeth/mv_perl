@@ -18,7 +18,7 @@ my @termlist = (
 
 my $BackSpacePattern = qr/[\b]|(\x1b\[3\~)/o;
 
-sub version { '$Revision: 2.9 $ ' =~ /Revision:\s([^\s]*)/;
+sub version { '$Revision: 2.10 $ ' =~ /Revision:\s([^\s]*)/;
 	print "plrep v$1 by Martin Väth\n"
 	 .    "martin\@mvath.de\n";
 	 exit 0
@@ -1114,7 +1114,7 @@ GetOptions(
 	'Y', \$AlwaysWrite,
 	'verbose!', \$Verbose,
 	'v', \$Verbose,
-	'context|C=i', sub { $Before = $After = @_[1] },
+	'context|C=i', sub { $Before = $After = $_[1] },
 	'before|B=i', \$Before,
 	'after|A=i', \$After,
 	'grep!', \$GrepOnly,
@@ -1137,12 +1137,12 @@ GetOptions(
 	'p', \$PlainSearch,
 	'replace-plain|plain-replace!', \$PlainReplace,
 	'P', \$PlainReplace,
-	'file|f:s', sub { $DataName = @_[1]; $FromFile = 1 },
+	'file|f:s', sub { $DataName = $_[1]; $FromFile = 1 },
 	'nofile', sub { $FromFile = '' },
-	'recurse|r:s', sub { $RecurseDir = @_[1]; $Recurse = 1; $Suppress = '' },
+	'recurse|r:s', sub { $RecurseDir = $_[1]; $Recurse = 1; $Suppress = '' },
 	'norecurse', sub { $Recurse = '' },
 	'Recurse|recurse-suppress|R:s',
-		sub { $RecurseDir = @_[1]; $Recurse = $Suppress = 1 },
+		sub { $RecurseDir = $_[1]; $Recurse = $Suppress = 1 },
 	'noRecurse|norecurse-suppress', sub { $Recurse = $Suppress = '' },
 	'truncate|t=i', \$TruncOpt,
 	'notruncate|no-truncate', sub { $TruncOpt = '' },

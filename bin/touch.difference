@@ -108,7 +108,7 @@ GetOptions(
 	'atime!', \$addatime,
 	'mtime!', \$addmtime,
 	'add|a=i', \$seconds,
-	'sub|s=i', sub { $seconds = -@_[1] }
+	'sub|s=i', sub { $seconds = -$_[1] }
 ) or pod2usage(2);
 
 pod2usage(2) unless(@ARGV);

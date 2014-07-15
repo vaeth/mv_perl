@@ -4,7 +4,7 @@ use integer;
 use Pod::Usage;
 use Getopt::Long;
 
-sub version { '$Revision: 1.4 $ ' =~ /Revision:\s([^\s]*)/;
+sub version { '$Revision: 1.5 $ ' =~ /Revision:\s([^\s]*)/;
 	print "sshconfig v$1 by Martin Väth\n"
 	 .    "martin\@mvath.de\n";
 	 exit(0)
@@ -128,8 +128,8 @@ GetOptions(
 	'help', sub { pod2usage(1) },
 	'man|?', sub { pod2usage(-verbose => 2) },
 	'version|V|v', \&version,
-	'ip|i=s', sub { $IPAddress = @_[1] },
-	'host|h=s', sub { $TrueHost = @_[1] },
+	'ip|i=s', sub { $IPAddress = $_[1] },
+	'host|h=s', sub { $TrueHost = $_[1] },
 	'delete|uninstall|d|u', \$uninstall,
 	'show|debug|n|s', \$show
 ) or pod2usage(2);
