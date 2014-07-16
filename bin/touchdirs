@@ -11,7 +11,7 @@ use Time::localtime;
 #use Time::HiRes; # needed unless -R is used
 
 sub version {
-	print("Touchdirs v2.10 by Martin Väth\n",
+	print("Touchdirs v2.11 by Martin Väth\n",
 		"martin\@mvath.de\n");
 	exit(0)
 }
@@ -168,7 +168,7 @@ sub myctime {
 			no integer;
 			$hires_writing = 1;
 			$rest = $rtime - $itime;
-			$rest =~ s/^([^\.]*)\./\./ or
+			$rest =~ s/^(?:[^\.]*)\./\./ or
 				&fatal('strange number conversion');
 			$arg = '-d';
 			$format = '%04d-%02d-%02d %02d:%02d:%s%02d%s';
@@ -231,7 +231,7 @@ sub exclude {
 
 sub printcomment {
 	my ($text, $dir) = @_;
-	$dir =~  s/\n/\n\#\ /gom;
+	$dir =~ s/\n/\n\#\ /gm;
 	printf("%s%-29s%s\n", '# ', $text, $dir)
 }
 
@@ -303,8 +303,8 @@ sub dotouch {
 
 sub shq {
 	my ($a) = (@_);
-	$a =~ s/\'/\'\\\'\'/go; $a = "'$a'";
-	$a =~ s/(^|[^\\])\'([\da-zA-Z\_\-\,\.\:\/]*)\'/$1$2/g;
+	$a =~ s/\'/\'\\\'\'/g; $a = "'$a'";
+	$a =~ s/(\A|[^\\])\'([\da-zA-Z\_\-\,\.\:\/]*)\'/$1$2/gm;
 	return(($a ne '') ? $a : "''");
 }
 
@@ -408,10 +408,10 @@ unless($roundread) {
 
 # Compile regular expressions and make one array:
 for my $i (@exclude) {
-	$i = qr/$i/ if(ref($i) ne 'Regexp')
+	$i = qr/$i/m if(ref($i) ne 'Regexp')
 }
 for my $i (@iexclude) {
-	$i = qr/$i/i if(ref($i) ne 'Regexp');
+	$i = qr/$i/im if(ref($i) ne 'Regexp');
 	Push(@exclude, $i)
 }
 @iexclude = undef;

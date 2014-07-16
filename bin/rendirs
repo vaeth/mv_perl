@@ -5,7 +5,7 @@ use integer;
 use Getopt::Long;
 use Pod::Usage;
 
-sub version { '$Revision: 5.6 $ ' =~ /Revision:\s([^\s]*)/;
+sub version { '$Revision: 5.7 $ ' =~ /Revision:\s([^\s]*)/;
 	print "RenDirs v$1 by Martin Väth\n"
 	 .    "martin\@mvath.de\n";
 	exit(0)
@@ -879,8 +879,8 @@ if($commentdepth) {
 
 sub shq {
 	my($a) = (@_);
-	$a =~ s/\'/\'\\\'\'/go; $a = "'$a'";
-	$a =~ s/(^|[^\\])\'([\da-zA-Z\_\-\,\.\:\/]*)\'/$1$2/g;
+	$a =~ s/\'/\'\\\'\'/g; $a = "'$a'";
+	$a =~ s/(\A|[^\\])\'([\da-zA-Z\_\-\,\.\:\/]*)\'/$1$2/gm;
 	return(($a ne '') ? $a : "''");
 }
 
