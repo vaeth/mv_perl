@@ -735,7 +735,7 @@ sub PrintLine {
 # The main functions to change all occurences in one line.
 
 sub ReplaceAsk {
-	while(1) {
+	while() {
 		print("y(es)/n(o)/r(est of file)/q(uit this file)/a(lways)/s(top all) ");
 		my $key = <STDIN>;
 		if($key =~ $BackSpacePattern) {
