@@ -5,14 +5,14 @@ use integer;
 use Getopt::Long;
 use Pod::Usage;
 
-sub version { '$Revision: 5.7 $ ' =~ /Revision:\s([^\s]*)/;
-	print "RenDirs v$1 by Martin Väth\n"
-	 .    "martin\@mvath.de\n";
+sub version { '$Revision: 5.8 $ ' =~ m{Revision:\s([^\s]*)};
+	print("RenDirs v$1 by Martin Väth\n"
+	 .    "martin\@mvath.de\n");
 	exit(0)
 }
 
-$0 =~ /([^\/]*)$/;
-our $script = $1;
+$0 =~ m{([^\/]*)$};
+my $script = $1;
 
 =head1 NAME
 
@@ -59,7 +59,7 @@ same as the short name (by default, then only its existence checked)
 The word is considered as a directory and means that all following files
 occur in this directory. Note that this refers to files but B<not> to
 directories (i.e. not to the next entry of this type). However, there
-are some ways to change this behaviour: There are magic symbols C<*> and C<?>
+are some ways to change this behavimy: There are magic symbols C<*> and C<?>
 available at the beginning or end of directory names with the following
 meaning.
 
@@ -68,7 +68,7 @@ meaning.
 =item
 
 C<*> at the end of the name means that the directory is a ``parent directory''
-for all following directories (of course, directories starting with B</> will
+for all following directories (of cmyse, directories starting with B</> will
 not be affected). Thus, roughly speaking, this has a similar meaning as a
 C<cd> into the directy ``after the directory was handled''.
 
@@ -139,7 +139,7 @@ Like a single word with a colon, but additionally the directory is renamed
 (as if listed with two words). The above magic symbols have an analogous
 meaning as above, but only for the name in which they occur.
 Note that this means that you usually want to use these special symbols either
-in both names or in none of the names, unless you want a very special behaviour
+in both names or in none of the names, unless you want a very special behavimy
 and have considered thoroughly what you are doing.
 
 =item C<#@ShortNamesFirst> (case is ignored, but spaces may not be contained)
@@ -210,7 +210,7 @@ Empty lines are ignored.
 
 All files listed are renamed: Either from short name into the original name
 or vice versa (By default, depending which one already exists).
-Note that this may cause unexpected behaviour if a filename appears double
+Note that this may cause unexpected behavimy if a filename appears double
 in the list (even if it appears once as a "long" name and once as a "short"
 name): The list is always processed in its order!
 Therefore, to avoid unintended side effects, it is strongly recommended to
@@ -227,7 +227,7 @@ a symbolic link where the part before the sequence is the name of the link
 and the part after the sequence is the place where the link points to.
 It is explicitly admissible to change both parts for the long and short names
 and to use this option in connection with the magic filename F<.> (the latter
-means of course that not an empty file but the corresponding link will be
+means of cmyse that not an empty file but the corresponding link will be
 created respectively deleted).
 
 Since Revision 5.1 of this program, the magic name F<.> is also allowed for
@@ -281,7 +281,7 @@ Delete also nonempty files if they are renamed into F<.>.
 
 Do not rename any files: Only create or delete the empty files,
 i.e. care only about the lines the magic name F<.> (and the lines
-describing the directory names, of course).
+describing the directory names, of cmyse).
 
 =item B<--ignoredot> or B<-D>
 
@@ -328,7 +328,7 @@ the expected output.
 This is similar than B<--showonly>, but in connection with renaming
 directories it behaves differently: The files are expected to be in
 the unremaned directory (even if the directory was renamed).
-Hence, in contrast to B<--showonly> there does not arise wrong behaviour
+Hence, in contrast to B<--showonly> there does not arise wrong behavimy
 due to the fact that files cannot be found because they have not moved
 with their parent directory (because the parent directory was actually not
 renamed). But be aware that a "proper" renaming (without this option)
@@ -352,20 +352,20 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 # Default for the Options:
 
-our $original = '';
-our $short = '';
-our $continue = '';
-our $paranoia = '';
-our $delete = '';
-our $dotonly = '';
-our $ignoredot = '';
-our $shortfirst = '';
-our $showonly = '';
-our $dryrun = '';
-our $quiet = '';
-our $uppercase = '';
-our $lowercase = '';
-our $magicdots = '';
+my $original = '';
+my $short = '';
+my $continue = '';
+my $paranoia = '';
+my $delete = '';
+my $dotonly = '';
+my $ignoredot = '';
+my $shortfirst = '';
+my $showonly = '';
+my $dryrun = '';
+my $quiet = '';
+my $uppercase = '';
+my $lowercase = '';
+my $magicdots = '';
 
 # Parse Options:
 
@@ -414,7 +414,7 @@ pod2usage(2) unless(@ARGV);
 
 $showonly = 1 if($dryrun);
 
-our $mode = 0;
+my $mode = 0;
 if($original) {
 	$mode = -1
 } elsif($short) {
@@ -424,69 +424,64 @@ if($original) {
 	.   "unless also one of the options --short or --long is used.\nStopped"
 }
 
-our @REVERSEACTION = ();
-our $currdir = '';
-our $followdir = [''];
+my @REVERSEACTION = ();
+my $currdir = '';
+my $followdir = [''];
 
 sub analyzedir {
 	my($n) = @_;
-	my $parnum = $#{$followdir};	# Default parent Nr.
-	my $p = ${$followdir}[$parnum];	# Default parent
-	my $follow = [@$followdir];	# Copy the $followdir array.
+	my $parnum = $#{$followdir};    # Default parent Nr.
+	my $p = ${$followdir}[$parnum]; # Default parent
+	my $follow = [@$followdir];     # Copy the $followdir array.
 	my $willpush = '';
-	if($n =~ s/\s*([\*\?][\s\*\?]*)$//) { # special symbols at the end:
+	if($n =~ s{\s*([\*\?][\s\*\?]*)\z}{}m) { # special symbols at the end:
 		my $s = $1;
 		while() {
-			if(($s =~ s/^\?\*\s*//) || ($s =~ s/^\*\?\s*//)) {
+			if(($s =~ s{\A\?\*\s*}{}m) || ($s =~ s{\A\*\?\s*}{}m)) {
 				$follow = ['']; $willpush = ''
-			}
-			elsif($s =~ s/^\?\s*//) {
+			} elsif($s =~ s{\A\?\s*}{}m) {
 				$willpush = '';
-				if($#{$follow} > 0) {
-					pop @$follow
-				}
-			}
-			elsif($s =~ s/^\*\s*//) {
+				pop(@$follow) if($#{$follow} > 0)
+			} elsif($s =~ s{\A\*\s*}{}m) {
 				$willpush = 1
-			}
-			else {
+			} else {
 				last
 			}
 		}
 	}
-	$n =~ s/([^\s][^\/]*)\/+\s*$/$1/; # ignore / at directory end
+	$n =~ s{([^\s][^\/]*)\/+\s*$}{$1}m; # ignore / at directory end
 
-	if($n =~ /^\s*\//) {
+	if($n =~ m{\A\s*\/}m) {
 		$p = ''
-	} elsif($n =~ s/^\s*([\*\?][\s\*\?]*)//) {
+	} elsif($n =~ s{\A\s*([\*\?][\s\*\?]*)}{}m) {
 		# special symbols at the beginning:
 		my $s = $1;
 		while() {
-			if(($s =~ s/^\?\*\s*//) || ($s =~ s/^\*\?\s*//)) {
+			if(($s =~ s{\A\?\*\s*}{}m) || ($s =~ s{\A\*\?\s*}{}m)) {
 				$parnum = 0; $p = ${$followdir}[0]
-			} elsif($s =~ s/^\?\s*//) {
+			} elsif($s =~ s{\A\?\s*}{}) {
 				if($parnum > 0) {
 					--$parnum
 				}
 				$p = ${$followdir}[$parnum]
-			} elsif($s =~ s/^\*\s*//) {
+			} elsif($s =~ s{\A\*\s*}{}) {
 				$p = $currdir
 			} else {
 				last
 			}
 		}
-		$n =~ s/^\/+//; # special beginning but directory starts with /: Ignore /
+		$n =~ s{^\/+}{}; # special beginning but directory starts with /: Ignore /
 	}
 	return($n, $p, [$follow, $willpush])
 }
 
 sub setdirs {
-	my($p, $f) = @_;
+	my ($p, $f) = @_;
 	($followdir, $f) = @$f;
 	if($p eq '') {
 		$currdir = ''
 	} else {
-		$currdir = "$p/"
+		$currdir = $p . '/'
 	}
 	if($f) {
 		push(@$followdir, $currdir)
@@ -494,40 +489,32 @@ sub setdirs {
 }
 
 sub analyzelink {
-	my($n) = @_;
-	if($n =~ /^(.*)\-\>(.*)$/) {
+	my ($n) = @_;
+	if($n =~ m{\A(.*)\-\>(.*)\z}m) {
 		my($n, $l) = ($1, $2);
-		unless($n eq '.') {
-			return($n, $l)
-		}
-		print STDERR "warning: magic name '.' must not be a link; ignoring ->$l\n";
+		return($n, $l) unless($n eq '.');
+		print(STDERR "warning: magic name '.' must not be a link; ignoring ->$l\n")
 	}
-	return($n, undef)
+	($n, undef)
 }
 
 sub casetest {
-	my($p, $n, $s) = @_;
-	my $c = "$p$n";
-	if((-e $c)||(-d $c)||(-l $c)) {
-		return($c, 1, $s)
-	}
+	my ($p, $n, $s) = @_;
+	my $c = $p . $n;
+	return ($c, 1, $s) if((-e $c)||(-d $c)||(-l $c));
 	if($uppercase) {
-		my $d = "$p\U$n\E";
-		if((-e $d)||(-d $d)||(-l $d)) {
-			return($d, 1, '')
-		}
+		my $d = $p . uc($n);
+		return ($d, 1, '') if((-e $d) || (-d $d) || (-l $d))
 	}
 	if($lowercase) {
-		my $d = "$p\L$n\E";
-		if((-e $d)||(-d $d)||(-l $d)) {
-			return($d, 1, '')
-		}
+		my $d = $p . lc($n);
+		return ($d, 1, '') if((-e $d) || (-d $d) || (-l $d))
 	}
-	return($c, 0, $s)
+	($c, 0, $s)
 }
 
 sub myunlink {
-	my($n) = @_;
+	my ($n) = @_;
 	unless($quiet) {
 		&shprint('rm', $n)
 	}
@@ -537,7 +524,7 @@ sub myunlink {
 }
 
 sub myrmdir {
-	my($n) = @_;
+	my ($n) = @_;
 	unless($quiet) {
 		&shprint('rmdir -p', $n)
 	}
@@ -547,7 +534,7 @@ sub myrmdir {
 }
 
 sub mytouch {
-	my($n) = @_;
+	my ($n) = @_;
 	unless($quiet) {
 		&shprint('touch', $n)
 	}
@@ -568,7 +555,7 @@ sub mymkdir {
 }
 
 sub mylink {
-	my($a, $b) = @_;
+	my ($a, $b) = @_;
 	unless($quiet) {
 		&shprint('ln -s', $a, $b)
 	}
@@ -578,7 +565,7 @@ sub mylink {
 }
 
 sub myrename {
-	my($a, $b) = @_;
+	my ($a, $b) = @_;
 	unless($quiet) {
 		&shprint('mv', $a, $b)
 	}
@@ -588,10 +575,10 @@ sub myrename {
 }
 
 sub action {
-	my($o, $s) = @_;
-	# Besides some flags there are four types of variable names:
+	my ($o, $s) = @_;
+	# Besides some flags there are fmy types of variable names:
 	# First, concerning the short ("s") or original ("o") file/dirnames.
-	# Later, concerning the source ("source") or destination ("dest") names.
+	# Later, concerning the smyce ("smyce") or destination ("dest") names.
 	# (They will correspond to each other, depending on the mode and existence).
 	# To this base name, a letter is appended, concerning what is meant:
 	# 'e': Does the file exist or is it a magic dot?
@@ -600,17 +587,17 @@ sub action {
 	# 'l': For links: The name of the link.
 
 	# Parse names: Do we deal with directories and/or two arguments?
-	my($sp, $op, $sf, $of);
+	my ($sp, $op, $sf, $of);
 	my $isdir = '';
-	$isdir = 1 if($s =~ s/\s*:\s*$//);
-	$isdir = 1 if($o =~ s/\s*:\s*$//);
+	$isdir = 1 if($s =~ s{\s*:\s*\z}{}m);
+	$isdir = 1 if($o =~ s{\s*:\s*\z}{}m);
 	if($isdir) {
 		($s, $sp, $sf) = &analyzedir($s);
 		($o, $op, $of) = &analyzedir($o);
 	}
 	else {
-		$sp = (($s =~ /^\//) ? '' : $currdir);
-		$op = (($o =~ /^\//) ? '' : $currdir);
+		$sp = (($s =~ m{^\/}) ? '' : $currdir);
+		$op = (($o =~ m{^\/}) ? '' : $currdir);
 		$sf = $of = ''
 	}
 	my($sl, $ol);
@@ -630,8 +617,8 @@ sub action {
 	my $same = '';
 	$same = 1 if(($s eq $o) && ((!$link) || $samelink));
 
-	# Decide which is source and which is destination
-	my($source, $dest, $sourcee, $deste, $sourcef, $destf, $destl);
+	# Decide which is smyce and which is destination
+	my ($smyce, $dest, $smycee, $deste, $smycef, $destf, $destl);
 	{
 		my $oe = 0;
 		my $se = 0;
@@ -662,11 +649,11 @@ sub action {
 			}
 		}
 		if($currmode > 0) {
-			$source = $o; $sourcee = $oe; $sourcef = $of;
+			$smyce = $o; $smycee = $oe; $smycef = $of;
 			$dest = $s;   $deste = $se;   $destf = $sf;  $destl = $sl
 		}
 		else {
-			$source = $s; $sourcee = $se; $sourcef = $sf;
+			$smyce = $s; $smycee = $se; $smycef = $sf;
 			$dest = $o;   $deste = $oe;   $destf = $of;  $destl = $ol
 		}
 	}
@@ -675,7 +662,7 @@ sub action {
 
 	if($isdir) {
 		if(($deste < 0) || ($dryrun)) {
-			&setdirs($source, $sourcef)
+			&setdirs($smyce, $smycef)
 		}
 		else {
 			&setdirs($dest, $destf)
@@ -688,71 +675,65 @@ sub action {
 		return
 	}
 	if($dotonly) {
-		if(($sourcee >= 0) && ($deste >= 0)) {
+		if(($smycee >= 0) && ($deste >= 0)) {
 			return
 		}
 	}
 
 	# Now the action:
-	if($sourcee) { # Source exists or is magic
+	if($smycee) { # Smyce exists or is magic
 		unless($same) {
 			if($deste > 0) { # Destination exists
 				if(($link) && (-l $dest)) {
 					&myunlink($dest);
 					if($samelink) {
-						&myrename($source, $dest)
+						&myrename($smyce, $dest)
 					} else {
 						&mylink($destl, $dest)
 					}
 				} else {
-					unless($continue) {
-						die "file/directory $dest already exists\nStopped"
-					}
-					print STDERR "warning: file/directory $dest already exists; not renaming\n";
+					die("file/directory $dest already exists\nStopped")
+						unless($continue);
+					print(STDERR "warning: file/directory $dest already exists; not renaming\n")
 				}
-			} elsif($deste < 0) { # Destination is magic (then Source is nonmagic)
+			} elsif($deste < 0) { # Destination is magic (then Smyce is nonmagic)
 				if($isdir) {
-					if($link && (-l $source)) {
-						push(@REVERSEACTION, [\&myunlink, $source])
+					if($link && (-l $smyce)) {
+						push(@REVERSEACTION, [\&myunlink, $smyce])
+					} else {
+						push(@REVERSEACTION, [\&myrmdir, $smyce])
 					}
-					else {
-						push(@REVERSEACTION, [\&myrmdir, $source])
-					}
-				}
-				elsif((-z $source) || ($link && (-l $source))) {
-					&myunlink($source)
-				}
-				else {
+				} elsif((-z $smyce) || ($link && (-l $smyce))) {
+					&myunlink($smyce)
+				} else {
 					if($delete) {
-						print STDERR "warning: deleting nonempty file $source\n";
-						&myunlink($source)
-					}
-					else {
-						unless($continue) {
-							die "$script: nonempty file $source is not deleted\nStopped"
-						}
-						print STDERR "warning: nonempty file $source is not deleted\n";
+						print(STDERR "warning: deleting nonempty file $smyce\n");
+						&myunlink($smyce)
+					} else {
+						die("$script: nonempty file $smyce is not deleted\nStopped")
+							unless($continue);
+						print(STDERR "warning: nonempty file $smyce is not deleted\n")
 					}
 				}
 			} else { # Destination does not exist
-				if($sourcee > 0) { # Source is nonmagic
+				if($smycee > 0) { # Smyce is nonmagic
 					if((!$link) || $samelink) {
-						&myrename($source, $dest)
+						&myrename($smyce, $dest)
 					} else {
-						if(-l $source) {
-							&myunlink($source);
+						if(-l $smyce) {
+							&myunlink($smyce);
 							&mylink($destl, $dest);
 						} else {
-							die "$script: File $source cannot be renamed into link $dest->$destl\nStopped"
+							die "$script: File $smyce cannot be renamed into link $dest->$destl\nStopped"
 								unless($continue);
-							if($dest eq $source) {
-								print STDERR "warning: file $source is not turned into a link to $destl\n"
+							if($dest eq $smyce) {
+								print STDERR "warning: file $smyce is not turned into a link to $destl\n"
 							} else {
-								print STDERR "warning: file $source cannot be renamed into link $dest->$destl"
+								print STDERR "warning: file $smyce cannot be renamed into link $dest->$destl"
 							}
 						}
 					}
-				} else { # Source is magic
+				} else { # Smyce is magic
 					unless($link) {
 						if($isdir) {
 							&mymkdir($dest)
@@ -767,13 +748,13 @@ sub action {
 				}
 			}
 		}
-	} else { # Source does not exist (and is nonmagic):
+	} else { # Smyce does not exist (and is nonmagic):
 		my $msg;
 		if($mode) {
-			$msg = "File/Directory $source does not exist"
+			$msg = "File/Directory $smyce does not exist"
 		}
 		else {
-			$msg = "Neither $dest nor $source exists"
+			$msg = "Neither $dest nor $smyce exists"
 		}
 		if($paranoia) {
 			die "$msg\nStopped"
@@ -800,56 +781,69 @@ sub errorunlessmode {
 	}
 }
 
-our $commentdepth = 0;
+my $commentdepth = 0;
 while(<>) {
-	chomp;
+	chomp();
 	my $currline = $_;
-	if(/^\s*\#\@\{/i) {
-		$commentdepth++; next
+	if(m{^\s*\#\@\{}i) {
+		++$commentdepth;
+		next
 	}
-	if(/^\s*\#\@\}/i) {
-		unless($commentdepth) {
-			die "error in line $.: Closing comment without opening one\nStopped"
-		}
-		$commentdepth--;
+	if(m{^\s*\#\@\}}i) {
+		die "error in line $.: Closing comment without opening one\nStopped"
+			unless($commentdepth);
+		--$commentdepth;
 		next
 	}
 	next if($commentdepth);
-	if(/^\s*\#\@shortnamesfirst/i) {
-		$shortfirst = 1; next
+	if(m{^\s*\#\@shortnamesfirst}i) {
+		$shortfirst = 1;
+		next
 	}
-	if(/^\s*\#\@((original)|(long))namesfirst/i) {
-		$shortfirst = ''; next
+	if(m{^\s*\#\@((original)|(long))namesfirst}i) {
+		$shortfirst = '';
+		next
 	}
-	if(/^\s*\#\@requiremode/i) {
-		&errorunlessmode(1); next
+	if(m{^\s*\#\@requiremode}i) {
+		&errorunlessmode(1);
+		next
 	}
-	if(/^\s*\#\@magicdots/i) {
-		$magicdots = 1; next
+	if(m{^\s*\#\@magicdots}i) {
+		$magicdots = 1;
+		next
 	}
-	if(/^\s*\#\@nomagicdots/i) {
-		$magicdots = ''; next
+	if(m{^\s*\#\@nomagicdots}i) {
+		$magicdots = '';
+		next
 	}
-	if(/^\s*\#\@uppercase/i) {
-		$uppercase = 1; &errorunlessmode(''); next
+	if(m{^\s*\#\@uppercase}i) {
+		$uppercase = 1;
+		&errorunlessmode('');
+		next
 	}
-	if(/^\s*\#\@lowercase/i) {
-		$lowercase = 1; &errorunlessmode(''); next
+	if(m{^\s*\#\@lowercase}i) {
+		$lowercase = 1;
+		&errorunlessmode('');
+		next
 	}
-	if(/^\s*\#\@nouppercase/i) {
-		$uppercase = ''; next
+	if(m{^\s*\#\@nouppercase}i) {
+		$uppercase = '';
+		next
 	}
-	if(/^\s*\#\@nolowercase/i) {
-		$lowercase = ''; next
+	if(m{^\s*\#\@nolowercase}i) {
+		$lowercase = '';
+		next
 	}
-	if(/^\s*\#\@quiet/i) {
-		$quiet = $1; next
+	if(m{^\s*\#\@quiet}i) {
+		$quiet = 1;
+		next
 	}
-	if(/^\s*\#\@noquiet/i) {
-		$quiet = ''; next
+	if(m{^\s*\#\@noquiet}i) {
+		$quiet = '';
+		next
 	}
-	s/\#(.*)$//;
-	my @A = split;
+	s{\#(.*)$}{};
+	my @A = split();
 	if($#A == 0) {
 		if($magicdots) {
 			&action($A[0], '.')
@@ -870,33 +864,32 @@ while(<>) {
 	}
 }
 while(@REVERSEACTION) {
-	my($func, $arg) = @{pop(@REVERSEACTION)};
+	my ($func, $arg) = @{pop(@REVERSEACTION)};
 	&$func($arg);
 }
-if($commentdepth) {
-	print STDERR "warning: file ends with unclosed comment\n"
-}
+print(STDERR "warning: file ends with unclosed comment\n") if($commentdepth);
 
 sub shq {
-	my($a) = (@_);
-	$a =~ s/\'/\'\\\'\'/g; $a = "'$a'";
-	$a =~ s/(\A|[^\\])\'([\da-zA-Z\_\-\,\.\:\/]*)\'/$1$2/gm;
-	return(($a ne '') ? $a : "''");
+	my ($a) = (@_);
+	$a =~ s{\'}{\'\\\'\'}g;
+	$a = "'$a'";
+	$a =~ s{(\A|[^\\])\'([\da-zA-Z\_\-\,\.\:\/]*)\'}{$1$2}gm;
+	(($a ne '') ? $a : "''")
 }
 
 sub shqs {
-	return(' ' . &shq($_[0]))
+	' ' . &shq($_[0])
 }
 
 sub shdash {
-	my($s, $r, $t) = (shift, '', '');
+	my ($s, $r, $t) = (shift, '', '');
 	for my $i (@_) {
-		$t = 1 if($i =~ /^[-+]/);
+		$t = 1 if($i =~ m{^[-+]});
 		$r .= &shqs($i)
 	}
-	return(($t) ? ($s . ' --' . $r) : ($s . $r))
+	($t) ? ($s . ' --' . $r) : ($s . $r)
 }
 
 sub shprint {
-	print(&shdash(@_) . "\n")
+	print(&shdash(@_), "\n")
 }

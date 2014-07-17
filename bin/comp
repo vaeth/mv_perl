@@ -5,7 +5,7 @@ use Getopt::Long;
 use Pod::Usage;
 
 sub version {
-	'$Revision: 2.5 $ '=~ /Revision:\s([^\s]*)/;
+	'$Revision: 2.6 $ '=~ m{Revision:\s([^\s]*)};
 	print("comp v$1 by Martin Väth\n"
 	.    "martin\@mvath.de\n");
 	exit(0)
@@ -199,30 +199,26 @@ sub ProcessMask {
 	($mask) = @_;
 
 	# Replace multiple occurences of / by single ones, and chop / at the end:
-	while($mask =~ s!//+!/!go) {}
-	if($home ne '') {
-		$mask =~ s!^\~/!$home/!
-	}
-	if($mask ne '/') {
-		$mask =~ s!/$!!
-	}
+	while($mask =~ s{//+}{/}go) {}
+	$mask =~ s{^\~/}{$home/} if(defined($home) && ($home ne ''));
+	$mask =~ s{/$}{} if($mask ne '/');
 	$dorecurse = 1;
-	if($mask =~ /[\*\?\[]/) { # If the mask contains wildcard:
-		if($mask =~ /^(.*\/)([^\/]*[\*\?\[].*)$/) {
+	if($mask =~ m{[\*\?\[]}) { # If the mask contains wildcard:
+		if($mask =~ m{\A(.*\/)([^\/]*[\*\?\[].*)\z}m) {
 			# If $mask consists of leading directory(ies) $1 and remaining mask with
 			# wildcards, then we recurse, starting from $1.
 			$prepend = $1;
 			$mask = $2;
-			$printprepend = "$prepend$sepstring";
+			$printprepend = $prepend . $sepstring;
 		} else {
 			$prepend = './';
 			$printprepend = '';
 		}
 		# Quote mask except alphanumerics and the symbols * ? [ ] -
-		$mask =~ s/([^\w\*\?\[\]\-])/\\$1/g;
+		$mask =~ s{([^\w\*\?\[\]\-])}{\\$1}gm;
 		# Now replace * and ? by [^\/]* and [^\/] respectively.
-		$mask =~ s/\*/[^\/]*/go;
-		$mask =~ s/\?/[^\/]/g
+		$mask =~ s{\*}{[^\/]*}go;
+		$mask =~ s{\?}{[^\/]}g
 	} else { # Otherwise (i.e. mask is actually a dir/filename):
 		if($mask eq '') {
 			$prepend = './';
@@ -237,7 +233,7 @@ sub ProcessMask {
 				$mask = ''
 			} else { # For a single file, we isolate the path before, if it exists
 				$dorecurse = '';
-				if($mask =~ /^(.*\/)([^\/]*)$/) {
+				if($mask =~ m{\A(.*\/)([^\/]*)\z}m) {
 					$prepend = $1;
 					$printprepend = $prepend . $sepstring;
 					$mask = $2
@@ -248,7 +244,7 @@ sub ProcessMask {
 			}
 		}
 		# Quote mask:
-		$mask =~ s/(\W)/\\$1/g
+		$mask =~ s{(\W)}{\\$1}g
 	}
 	$depth = 0;
 	&ProcessDir('')
@@ -261,13 +257,13 @@ sub ProcessMask {
 # $prepend.
 sub ProcessDir {
 	my($act, @dir, $fname) = @_;
-	$currpath = $act; &AddIfMatch(''); $act = $nextpath;
-	if(!$isdir) {
-		return
-	}
-	opendir(DIR, $fullpath);
-	@dir = readdir(DIR);
-	closedir(DIR);
+	$currpath = $act;
+	&AddIfMatch('');
+	$act = $nextpath;
+	return unless($isdir);
+	opendir(my $dirfh, $fullpath);
+	@dir = readdir($dirfh);
+	closedir($dirfh);
 	for my $fname (@dir) {
 		if(($fname ne '.') && ($fname ne '..')) {
 			$currpath = $act . $fname;
@@ -275,7 +271,7 @@ sub ProcessDir {
 			if($isdir && $dorecurse) {
 				++$depth;
 				&ProcessDir($currpath);
-				$depth--
+				--$depth
 			}
 		}
 	}
@@ -288,7 +284,7 @@ sub AddIfMatch {
 		$fullpath = $prepend . '.';
 		$comparepath = './';
 		$printpath = $prepend;
-		$nextpath = '';
+		$nextpath = ''
 	} else {
 		$fullpath = $prepend . $currpath;
 		if(-d $fullpath) {
@@ -299,7 +295,7 @@ sub AddIfMatch {
 			$comparepath = $currpath
 		}
 		$printpath = $printprepend . $comparepath;
-		$nextpath = $comparepath;
+		$nextpath = $comparepath
 	}
 	# We match if we either have a perfect match (from start 'til end)
 	# or if /... follows.
@@ -308,25 +304,19 @@ sub AddIfMatch {
 	# Moreover, we have to make an exception for the empty $mask.
 	$domatch = '';
 	if($mask eq '') {
-		unless(($norecurse) && ($currpath =~ /\/.*\//)) {
-			$domatch = 1
-		}
+		$domatch = 1 unless(($norecurse) && ($currpath =~ m{\/.*\/}m))
 	} else {
 		if($ignorecase) {
-			if($currpath =~ /^$mask$/i) {
+			if($currpath =~ m{\A$mask\z}im) {
 				$domatch = 1
-			} elsif($currpath =~ /^$mask\/(.*)$/i) {
-				unless(($norecurse) && ($currpath =~ /\//)) {
-					$domatch = 1
-				}
+			} elsif($currpath =~ m{\A$mask\/\z}im) {
+				$domatch = 1 unless(($norecurse) && ($currpath =~ m{\/}))
 			}
 		} else {
-			if($currpath =~ /^$mask$/) {
+			if($currpath =~ m{\A$mask\z}m) {
 				$domatch = 1
-			} elsif($currpath =~ /^$mask\/(.*)$/) {
-				unless(($norecurse) && ($currpath =~ /\//)) {
-					$domatch = 1
-				}
+			} elsif($currpath =~ m{\A$mask\/}m) {
+				$domatch = 1 unless(($norecurse) && ($currpath =~ m{\/}))
 			}
 		}
 	}
@@ -335,17 +325,15 @@ sub AddIfMatch {
 	# We also do not match *.dvi ... files in TeX mode
 	if($isdir) {
 		unless($sureadd) {
-			if(($depth != 0) || ($nohighdir)) {
-				$domatch = ''
-			}
+			$domatch = '' if(($depth != 0) || ($nohighdir))
 		}
 	} elsif($texmode) {
 		if($ignorecase) {
 			$domatch = ''
-				if($currpath =~ /\.(dvi|aux|toc|lo[ft]|idx|ind|glo|log|[bdi]lg)$/i)
+				if($currpath =~ m{\.(dvi|aux|toc|lo[ft]|idx|ind|glo|log|[bdi]lg)$}i)
 		} else {
 			$domatch = ''
-				if($currpath =~ /\.(dvi|aux|toc|lo[ft]|idx|ind|glo|log|[bdi]lg)$/)
+				if($currpath =~ m{\.(dvi|aux|toc|lo[ft]|idx|ind|glo|log|[bdi]lg)$})
 		}
 	}
 	if($domatch) {
@@ -391,10 +379,10 @@ if($[ < $#ARGV) {
 $i = $j = $[;
 if(($#A == $i) && ($#B == $j)) {
 	$name = $A[$i];
-	$isdir = ($name =~ /\/$/);
+	$isdir = ($name =~ m{\/$});
 	# We have this special treatment only if $A and $B are both directories
 	# or both files:
-	if($isdir == ($B[$j] =~ /\/$/)) {
+	if($isdir == ($B[$j] =~ m{\/$})) {
 		&comparepair();
 		exit($differ);
 	}
@@ -402,7 +390,7 @@ if(($#A == $i) && ($#B == $j)) {
 
 for($i = $[; $i <= $#A; ++$i) {
 	$name = $A[$i];
-	$isdir = ($name =~ /\/$/);
+	$isdir = ($name =~ m{\/$});
 	$j = $Bhash{$name};
 	if($j ne '') {
 		&comparepair()
@@ -431,7 +419,7 @@ for($i = $[; $i <= $#A; ++$i) {
 
 for($j = $[; $j <= $#B; ++$j) {
 	$name = $B[$j];
-	$isdir = ($name =~ /\/$/);
+	$isdir = ($name =~ m{\/$});
 	$i = $Ahash{$name};
 	if($i eq '') {
 		if($isdir) { # If we deal with a directory and have no match:
@@ -536,19 +524,13 @@ sub comparepair {
 		}
 	}
 	unless($noattrib) {
-		if(($Amode != $Bmode) || ($diffother)) {
-			&adderror('attributes')
-		}
+		&adderror('attributes') if(($Amode != $Bmode) || ($diffother))
 	}
 	if($pedantic) {
-		if($Ahlink != $Bhlink) {
-			&adderror('hardlink-nr')
-		}
+		&adderror('hardlink-nr') if($Ahlink != $Bhlink)
 	}
 	unless($noowner) {
-		if(($Auid != $Buid) || ($Agid != $Bgid )) {
-			&adderror('uid/gid')
-		}
+		&adderror('uid/gid') if(($Auid != $Buid) || ($Agid != $Bgid ))
 	}
 	if($isdir) {
 		&comparetime() unless($nodirtime);

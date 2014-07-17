@@ -16,15 +16,15 @@ my @termlist = (
 	['bold magenta', 'bold red', 'bold blue'],
 	['reverse', 'underline reverse', 'bold underline reverse']);
 
-my $BackSpacePattern = qr/[\b]|(\x1b\[3\~)/o;
+my $BackSpacePattern = qr{[\b]|\x1b\[3\~};
 
-sub version { '$Revision: 2.10 $ ' =~ /Revision:\s([^\s]*)/;
-	print "plrep v$1 by Martin Väth\n"
-	 .    "martin\@mvath.de\n";
+sub version { '$Revision: 2.11 $ ' =~ m{Revision:\s([^\s]*)};
+	print("plrep v$1 by Martin Väth\n"
+	 .    "martin\@mvath.de\n");
 	 exit 0
 }
 
-$0 =~ /([^\/]*)$/;
+$0 =~ m{([^\/]*)$};
 my $script = $1;
 
 =head1 NAME
@@ -533,24 +533,16 @@ my $SearchPattern;
 my $Search;
 my $Replace;
 
-sub NormalExit
-{
-	unless($GrepOnly) {
-		exit(0)
-	}
-	if($TotalMatches > 127) {
-		exit(127)
-	}
+sub NormalExit {
+	exit(0) unless($GrepOnly);
+	exit(127) if($TotalMatches > 127);
 	exit($TotalMatches)
 }
 
-sub optcolored
-{
-	my $string = shift; my $opt = shift;
-	unless($opt) {
-		return $string
-	}
-	return colored($string, $_[0])
+sub optcolored {
+	my $string = shift;
+	my $opt = shift;
+	$opt ? colored($string, $_[0]) : $string
 }
 
 #Output line StringList formatted, colorized, and truncated.
@@ -580,7 +572,7 @@ sub PrintLine {
 	if($Mode == 0) {
 		$String = shift;
 		if($nonprintable ne '') {
-			$String =~ s/[^\n[:print:]]/$nonprintable/go
+			$String =~ s{[^\n[:print:]]}{$nonprintable}go
 		}
 	}
 	my($ModeString, $Color);
@@ -688,11 +680,10 @@ sub PrintLine {
 	if($Mode) {
 		my $IsAMatch = '';
 		$Len = 0;
-		foreach (@Substrings) {
+		for (@Substrings) {
 			my $i = $_;
-			if($nonprintable ne '') {
-				$i =~ s/[^\n[:print:]]/$nonprintable/go
-			}
+			$i =~ s{[^\n[:print:]]}{$nonprintable}go
+				if($nonprintable ne '');
 			if($i ne '') {
 				if($Beg || $CutEnd) { # We calculate only if we must care
 					my($l, $From, $To);
@@ -712,60 +703,56 @@ sub PrintLine {
 					$Len = $Len + $l;
 					if($From < $To) {
 						if($From || ($To < $l)) {
-							print &optcolored(substr($i,  $From, $To - $From),
-								$IsAMatch && $Mode, $Color)
+							print(&optcolored(substr($i,  $From, $To - $From),
+								$IsAMatch && $Mode, $Color))
 						} else {
-							print &optcolored($i, $IsAMatch && $Mode, $Color)
+							print(&optcolored($i, $IsAMatch && $Mode, $Color))
 						}
 					}
 					if($CutEnd && ($End <= $Len)) {
-						print $TailEllipsis;
+						print($TailEllipsis);
 						return
 					}
 				} elsif($IsAMatch) {
-					print &optcolored($i, $Mode, $Color)
+					print(&optcolored($i, $Mode, $Color))
 				} else {
-					print $i
+					print($i)
 				}
 			}
 			unless($NotHighlight) {
-				if($IsAMatch) {
-					$Color = $Terminal->[0]
-				}
-				$IsAMatch = (!$IsAMatch)
+				$Color = $Terminal->[0] if($IsAMatch);
+				$IsAMatch = !$IsAMatch
 			}
 		}
 	} elsif($CutEnd) {
-		if($End>0) {
-			print substr($String, 0, $End)
-		}
-		print $TailEllipsis
+		print(substr($String, 0, $End)) if($End > 0);
+		print($TailEllipsis)
 	} else {
-		print $String
+		print($String)
 	}
 }}
 
 # The main functions to change all occurences in one line.
 
 sub ReplaceAsk {
-	while() {
-		print "y(es)/n(o)/r(est of file)/q(uit this file)/a(lways)/s(top all) ";
+	while(1) {
+		print("y(es)/n(o)/r(est of file)/q(uit this file)/a(lways)/s(top all) ");
 		my $key = <STDIN>;
-		if($key =~ /$BackSpacePattern/o) {
+		if($key =~ $BackSpacePattern) {
 			next
-		} elsif($key =~ /^[yj]/i){
+		} elsif($key =~ m{^[yj]}i){
 			return 1
-		} elsif($key =~ /^n/i) {
+		} elsif($key =~ m{^n}i) {
 			return 0
-		} elsif($key =~ /^q/i) {
+		} elsif($key =~ m{^q}i) {
 			$AskForReplace = -1;
 			return 0
-		} elsif($key =~ /^r/i) {
+		} elsif($key =~ m{^r}i) {
 			$AskForReplace = 0;
 			return 1
-		} elsif($key =~ /^s/i) {
+		} elsif($key =~ m{^s}i) {
 			&NormalExit
-		} elsif($key =~ /^a/i) {
+		} elsif($key =~ m{^a}i) {
 			$AlwaysReplace = 1;
 			$AskForReplace = 0;
 			return 1
@@ -857,7 +844,7 @@ sub ProcessSingleline {
 		} else {
 			$Line = $A[$i]
 		}
-		if($Line =~ /$SearchPattern/og) {
+		if($Line =~ m{$SearchPattern}og) {
 			if($ListOnly) {
 				print "$FileName\n"; $TotalMatches = 1; last
 			}
@@ -877,9 +864,7 @@ sub ProcessSingleline {
 						}
 					}
 				}
-				if($i>$LastPrinted) {
-					$LastPrinted = $i
-				}
+				$LastPrinted = $i if($i > $LastPrinted)
 			}
 			@Substrings = (); @Replacements = (); $LastPos = 0;
 			do {
@@ -895,10 +880,10 @@ sub ProcessSingleline {
 						push(@Substrings, substr($Line, $LastPos, $_))
 					}
 					$LastPos = pos($Line);
-					push(@Substrings, $&);
+					push(@Substrings, $&)
 				}
 			}
-			while($Line =~ /$SearchPattern/og);
+			while($Line =~ m{$SearchPattern}og);
 			unless($CountOnly) {
 				push(@Substrings, substr($Line, $LastPos))
 			}
@@ -916,9 +901,7 @@ sub ProcessSingleline {
 				}
 			}
 		} elsif($WillPrint > 0) {
-			if($i > $LastPrinted) {
-				$LastPrinted = $i
-			}
+			$LastPrinted = $i if($i > $LastPrinted);
 			--$WillPrint;
 			&PrintLine(0, $i, $Line)
 		} elsif(($Before>0) && $GrepOnly) {
@@ -926,10 +909,10 @@ sub ProcessSingleline {
 		}
 	}
 	if($CountOnly && $FileMatches) {
-		print "$FileName: $FileMatches\n"
+		print("$FileName: $FileMatches\n")
 	}
 	$TotalMatches += $FileMatches;
-	return $Changed
+	$Changed
 }
 
 # The function to process a single file (in multiline mode)
@@ -944,9 +927,11 @@ sub ProcessMultiline {
 	# Scan all occurences and build corresponding @A/@Replacements
 
 	@A = (); @Replacements = (); $LastPos = 0;
-	while($A =~ /$SearchPattern/og) {
+	while($A =~ m{$SearchPattern}og) {
 		if($ListOnly) {
-			print "$FileName\n"; $TotalMatches = 1; return ''
+			print("$FileName\n");
+			$TotalMatches = 1;
+			return ''
 		}
 		++$FileMatches;
 		unless($CountOnly) {
@@ -960,11 +945,11 @@ sub ProcessMultiline {
 				push(@A, substr($A, $LastPos, $_))
 			}
 			$LastPos = pos($A);
-			push(@A, $&);
+			push(@A, $&)
 		}
 	}
 	if($CountOnly && $FileMatches) {
-		print "$FileName: $FileMatches\n"
+		print("$FileName: $FileMatches\n")
 	}
 	$TotalMatches += $FileMatches;
 	if($ListOnly || $CountOnly || ($#A <= 0)) {
@@ -1168,8 +1153,8 @@ if($TruncOpt ne '') {
 	}
 	$ShiftFromEnd = '';
 	if($ShiftOpt ne '') {
-		($ShiftOpt =~ s/e//i) and ($ShiftFromEnd = 1);
-		$ShiftOpt =~ s/s//i;
+		($ShiftOpt =~ s{e}{}i) and ($ShiftFromEnd = 1);
+		$ShiftOpt =~ s{s}{}i;
 		$Shift = scalar($ShiftOpt);
 	} else {
 		$Shift = 3
@@ -1213,14 +1198,14 @@ if($Recurse) {
 		my $changed = 1;
 		for(my $i = 0; $i < scalar(@ARGV); ++$i) {
 			$_ = $ARGV[$i];
-			s!([./^\$()])!\\$1!g;
-			if(!s/([?*])/.$1/g) { # If we have no ? or * joker, test for [..]:
+			s{([./^\$()])}{\\$1}g;
+			if(!s{([?*])}{.$1}g) { # If we have no ? or * joker, test for [..]:
 				$ARGV[$i] = "^$_\$";
 				if($changed && (!$Suppress)) { # No * or ? joker, but perhaps [...]?
-					s/\\\\//g; # First, eliminate quoted \ characters
-					s/\\\[//g; # Then,  eliminate quoted [ and ] charaters
-					s/\\\]//g;
-					/\[(.+)\]/ or ($changed = '')
+					s{\\\\}{}g; # First, eliminate quoted \ characters
+					s{\\\[}{}g; # Then,  eliminate quoted [ and ] charaters
+					s{\\\]}{}g;
+					m{\[(.+)\]} or ($changed = '')
 				}
 			} else {
 				$ARGV[$i] = "^$_\$"
@@ -1236,8 +1221,8 @@ if($Recurse) {
 			push(@Files, $File::Find::name);
 			return
 		} else {
-			foreach my $i (@ARGV) {
-				if($File::Find::name =~ /$i/) {
+			for my $i (@ARGV) {
+				if($File::Find::name =~ m{$i}) {
 					push(@Files, $File::Find::name);
 					last
 				}
@@ -1245,10 +1230,10 @@ if($Recurse) {
 		}
 	}}, $RecurseDir);
 } else {
-	if(($#ARGV<0) && ($GrepOnly)) {
+	if(($#ARGV < 0) && ($GrepOnly)) {
 		push(@Files, '')
 	} else {
-		foreach my $i (@ARGV) {
+		for my $i (@ARGV) {
 			push(@Files, glob($i))
 		}
 	}
@@ -1256,49 +1241,48 @@ if($Recurse) {
 
 # Parse the $Search and $Replace strings:
 
-$PlainSearch and ( $Search =~ s/(\W)/\\$1/g );
+$PlainSearch and ( $Search =~ s{(\W)}{\\$1}g );
 if($Search eq '') { # Empty $Search is special in perl
 	$Search = '.?'
 }
 if($Ignore) {
 	if($Multiline) {
-		$SearchPattern = qr/$Search/oims
+		$SearchPattern = qr{$Search}oims
 	} else {
-		$SearchPattern = qr/$Search/oi
+		$SearchPattern = qr{$Search}oi
 	}
 } else {
 	if($Multiline) {
-		$SearchPattern = qr/$Search/oms
+		$SearchPattern = qr{$Search}oms
 	} else {
-		$SearchPattern = qr/$Search/o
+		$SearchPattern = qr{$Search}o
 	}
 }
 
 unless($GrepOnly || $PlainReplace) {
-	if($Replace =~ /\W/) {
-		$_ = $Replace; $Replace = '';
-		while(/^(\w*)(\W)(.*)$/) {
-			$Replace .= $1; $_ = $3;
+	if($Replace =~ m{\W}) {
+		$_ = $Replace;
+		$Replace = '';
+		while(m{\A(\w*)(\W)(.*)\z}m) {
+			$Replace .= $1;
+			$_ = $3;
 			if($2 eq "\\") {
-				if(/^(\W)(.*)$/) {
-					$Replace .= "\\$1"; $_ = $2
-				}
-				elsif(/^[xXabefnrtluLUE]/) {
+				if(m{\A(\W)(.*)\z}m) {
+					$Replace .= "\\$1";
+					$_ = $2
+				} elsif(m{^[xXabefnrtluLUE]}) {
 					$Replace .= "\\"
-				}
-				else {
+				} else {
 					$Replace .= "\\\\"
 				}
-			}
-			elsif(($2 eq "\$") || ($2 eq "\%")) {
-				if(/^\d/) {
+			} elsif(($2 eq '$') || ($2 eq '%')) {
+				if(m{^\d}) {
 					$Replace .= "\$"
+				} elsif(m{\A(\{\d+\})(.*)}m) {
+					$Replace .= "\$$1";
+					$_ = $2
 				}
-				elsif (/^(\{\d+\})(.*)$/) {
-					$Replace .= "\$$1"; $_ = $2
-				}
-			}
-			else {
+			} else {
 				$Replace .= $2
 			}
 		}
@@ -1308,11 +1292,9 @@ unless($GrepOnly || $PlainReplace) {
 
 # Now process every file:
 
-foreach $FileName (@Files) {
+for $FileName (@Files) {
 	if($GrepOnly && ($FileName eq '' || (($FileName eq '-') && (!(-f '-'))))) {
-		if($Binary) {
-			binmode(STDIN)
-		}
+		binmode(STDIN) if($Binary);
 		*FH = *STDIN;
 		&ProcessFile;
 		next
@@ -1331,28 +1313,23 @@ foreach $FileName (@Files) {
 	unless($AlwaysWrite) {
 		my $key = '';
 		while($key eq '') {
-			print "Write changes to $FileName? y(es)/n(o)/w(rite always)/s(top all) ";
+			print("Write changes to $FileName? y(es)/n(o)/w(rite always)/s(top all) ");
 			$key = <STDIN>;
-			if($key =~ /$BackSpacePattern/o) {
+			if($key =~ $BackSpacePattern) {
 				next
-			}
-			elsif($key =~ /^[yj]/i){
+			} elsif($key =~ m{^[yj]}i){
 				$key = 1
-			}
-			elsif($key =~ /^n/i) {
+			} elsif($key =~ m{^n}i) {
 				$key = 0
-			}
-			elsif($key =~ /^w/i) {
+			} elsif($key =~ m{^w}i) {
 				$key = $AlwaysWrite = 1
-			}
-			elsif($key =~ /^s/i) {
+			} elsif($key =~ m{^s}i) {
 				&NormalExit
-			}
-			else {
+			} else {
 				$key = ''
 			}
 		}
-		next unless($key);
+		next unless($key)
 	}
 	# We start a new block to define local variables
 	{
@@ -1363,14 +1340,14 @@ foreach $FileName (@Files) {
 			$atime = $stat->atime;
 			$mtime = $stat->mtime
 		}
-		open(FH, '>', $FileName) or
+		open(my $fh, '>', $FileName) or
 			die("could not open $FileName for writing.\nStopped");
-		binmode(FH) if($Binary);
-		foreach my $i (@A) {
-			print(FH $i) or ($WrittenOK = '')
+		binmode($fh) if($Binary);
+		for my $i (@A) {
+			$WrittenOK = '' unless(print($fh $i))
 		}
-		close(FH) or ($WrittenOK = '');
-		$WrittenOK or die("error writing to $FileName.\nStopped");
+		$WrittenOK = '' unless(close($fh));
+		die("error writing to $FileName.\nStopped") unless($WrittenOK);
 		utime($atime, $mtime, $FileName) if($KeepTimestamp)
 	}
 }

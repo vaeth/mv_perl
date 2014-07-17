@@ -11,7 +11,7 @@ use Time::localtime;
 #use Time::HiRes; # needed unless -R is used
 
 sub version {
-	print("Touchdirs v2.11 by Martin Väth\n",
+	print("Touchdirs v2.12 by Martin Väth\n",
 		"martin\@mvath.de\n");
 	exit(0)
 }
@@ -64,11 +64,12 @@ Let access time be the same as modification time.
 
 =item B<--ignore=>I<regexp> or B<-i> I<regexp>
 
-Ignore files whose (relative) path matches I<regexp>.
+Ignore files whose (relative) path matches I<regexp> (perl multiline regexp).
 
 =item B<--ignore-case=>I<regexp> or B<-I> I<regexp>
 
-Ignore files whose (relative) path matches I<regexp>, ignoring case.
+Ignore files whose (relative) path matches I<regexp> (perl multiline regexp),
+ignoring case.
 
 =item B<--dotdirs> or B<-d>
 
@@ -76,7 +77,7 @@ Ignore .* dirs. Equivalent to B<--ignore=/\..+/>
 
 =item B<--dotfiles> or B<-D>
 
-Ignore .* files. Equivalent to B<--ignore=/\.[^/]+$>
+Ignore .* files. Equivalent to B<--ignore=/\.[^/]+\z>
 
 =item B<--dot>
 
@@ -144,13 +145,13 @@ my @topdirs;
 sub not_equal {
 	my ($a, $b) = @_;
 	no integer;
-	return ($a != $b)
+	$a != $b
 }
 
 sub is_equal {
 	my ($a, $b) = @_;
 	no integer;
-	return ($a == $b)
+	$a == $b
 }
 
 sub myctime {
@@ -168,7 +169,7 @@ sub myctime {
 			no integer;
 			$hires_writing = 1;
 			$rest = $rtime - $itime;
-			$rest =~ s/^(?:[^\.]*)\./\./ or
+			$rest =~ s{^(?:[^\.]*)\.}{\.} or
 				&fatal('strange number conversion');
 			$arg = '-d';
 			$format = '%04d-%02d-%02d %02d:%02d:%s%02d%s';
@@ -177,7 +178,7 @@ sub myctime {
 	} else {
 		$time = localtime($rtime)
 	}
-	return ($hires_writing, $arg, sprintf($format,
+	($hires_writing, $arg, sprintf($format,
 			(1900 + $time->year()), 1 + $time->mon(), $time->mday(),
 			$time->hour(), $time->min(), $dot, $time->sec(), $rest))
 }
@@ -221,17 +222,17 @@ sub touchit {
 
 sub exclude {
 	my ($path) = @_;
-	foreach my $regex (@exclude) {
+	for my $regex (@exclude) {
 		if($path =~ $regex) {
 			return 1
 		}
 	}
-	return ''
+	''
 }
 
 sub printcomment {
 	my ($text, $dir) = @_;
-	$dir =~ s/\n/\n\#\ /gm;
+	$dir =~ s{\n}{\n\#\ }gm;
 	printf("%s%-29s%s\n", '# ', $text, $dir)
 }
 
@@ -241,12 +242,12 @@ sub my_split {
 }
 
 sub my_cat {
-	return File::Spec->catdir(@_)
+	File::Spec->catdir(@_)
 }
 
 sub my_amtime {
 	my ($file) = @_;
-	return (((!$follow) && (-l $file)) ? lstat($file) :
+	(((!$follow) && (-l $file)) ? lstat($file) :
 		($roundread ? CORE::stat($file) : Time::HiRes::stat($file)))[8, 9]
 }
 
@@ -303,22 +304,23 @@ sub dotouch {
 
 sub shq {
 	my ($a) = (@_);
-	$a =~ s/\'/\'\\\'\'/g; $a = "'$a'";
-	$a =~ s/(\A|[^\\])\'([\da-zA-Z\_\-\,\.\:\/]*)\'/$1$2/gm;
-	return(($a ne '') ? $a : "''");
+	$a =~ s{\'}{\'\\\'\'}g;
+	$a = "'$a'";
+	$a =~ s{(\A|[^\\])\'([\da-zA-Z\_\-\,\.\:\/]*)\'}{$1$2}gm;
+	(($a ne '') ? $a : "''")
 }
 
 sub shqs {
-	return(' ' . &shq($_[0]))
+	' ' . &shq($_[0])
 }
 
 sub shdash {
-	my($s, $r, $t) = (shift, '', '');
+	my ($s, $r, $t) = (shift, '', '');
 	for my $i (@_) {
-		$t = 1 if($i =~ /^[-+]/);
+		$t = 1 if($i =~ m{^[-+]});
 		$r .= &shqs($i)
 	}
-	return (($t) ? ($s . ' --' . $r) : ($s . $r))
+	($t) ? ($s . ' --' . $r) : ($s . $r)
 }
 
 sub shprint {
@@ -349,10 +351,10 @@ GetOptions(
 	'access|A', \$access,
 	'ignore|i=s', \@exclude,
 	'ignore-case|I=s', \@iexclude,
-	'dotdir|d', sub { push(@exclude, qr'/\..+/') },
-	'dotfile|D', sub { push(@exclude, qr'/\.[^/]+$') },
-	'dot', sub { push(@exclude, qr'/\.') },
-	'git|g', sub { push(@exclude, qr'/\.git/') },
+	'dotdir|d', sub { push(@exclude, qr{/\..+/}m) },
+	'dotfile|D', sub { push(@exclude, qr{/\.[^/]+\z}m) },
+	'dot', sub { push(@exclude, qr{/\.}) },
+	'git|g', sub { push(@exclude, qr'{\.git}') },
 	'show|dry-run|s|n', \$show,
 	'quiet|q+', \$quiet,
 	'check|c', \$check,
@@ -408,16 +410,16 @@ unless($roundread) {
 
 # Compile regular expressions and make one array:
 for my $i (@exclude) {
-	$i = qr/$i/m if(ref($i) ne 'Regexp')
+	$i = qr{$i}m if(ref($i) ne 'Regexp')
 }
 for my $i (@iexclude) {
-	$i = qr/$i/im if(ref($i) ne 'Regexp');
+	$i = qr{$i}im if(ref($i) ne 'Regexp');
 	Push(@exclude, $i)
 }
 @iexclude = undef;
 
 # Main Loop
-foreach my $currdir (@ARGV) {
+for my $currdir (@ARGV) {
 	%DIR = ();
 	$count = 0;
 	&my_split(\@topdirs, File::Spec->canonpath($currdir));
@@ -438,11 +440,9 @@ foreach my $currdir (@ARGV) {
 	my @DIR = sort {
 		my $x = $DIR{$a};
 		my $y = $DIR{$b};
-		my $ret = -($x->[2] cmp $y->[2]);
-		return $ret if($ret);
-		return -($x->[3] cmp $y->[3])
+		($y->[2] cmp $x->[2]) || ($y->[3] cmp $x->[3])
 	} keys(%DIR);
-	foreach my $dir (@DIR) {
+	for my $dir (@DIR) {
 		my ($atime, $mtime) = &my_amtime($dir);
 		my ($newatime, $newmtime) = @{$DIR{$dir}};
 		if($force || &not_equal($atime, $newatime) || &not_equal($mtime, $newmtime)) {
