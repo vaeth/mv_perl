@@ -18,7 +18,7 @@ my @termlist = (
 
 my $BackSpacePattern = qr{[\b]|\x1b\[3\~};
 
-sub version { '$Revision: 2.11 $ ' =~ m{Revision:\s([^\s]*)};
+sub version { '$Revision: 2.12 $ ' =~ m{Revision:\s([^\s]*)};
 	print("plrep v$1 by Martin Väth\n"
 	 .    "martin\@mvath.de\n");
 	 exit 0
@@ -540,8 +540,8 @@ sub NormalExit {
 }
 
 sub optcolored {
-	my $string = shift;
-	my $opt = shift;
+	my $string = shift();
+	my $opt = shift();
 	$opt ? colored($string, $_[0]) : $string
 }
 
@@ -567,10 +567,11 @@ sub optcolored {
 	my $LenHeadEllipsis = length($HeadEllipsis);
 sub PrintLine {
 	my($Mode, $LineNumber, $String);
-	$Mode = shift; $LineNumber = shift;
-	if($LineNumber ne '') { ++$LineNumber }
+	$Mode = shift();
+	$LineNumber = shift();
+	++$LineNumber if($LineNumber ne '');
 	if($Mode == 0) {
-		$String = shift;
+		$String = shift();
 		if($nonprintable ne '') {
 			$String =~ s{[^\n[:print:]]}{$nonprintable}go
 		}
@@ -585,7 +586,7 @@ sub PrintLine {
 	} else {
 		$ModeString = ' '
 	}
-	my $PreString = "$FileName:$LineNumber$ModeString:";
+	my $PreString = $FileName . ':' . $LineNumber . $ModeString . ':';
 	my $PreStringLen = length($PreString);
 
 	# Calculate Beg, End (set CutEnd to true if End should be used), and
@@ -846,7 +847,9 @@ sub ProcessSingleline {
 		}
 		if($Line =~ m{$SearchPattern}og) {
 			if($ListOnly) {
-				print "$FileName\n"; $TotalMatches = 1; last
+				print("$FileName\n");
+				$TotalMatches = 1;
+				last
 			}
 			if((!$CountOnly) && ($ShowChanges || $GrepOnly)) {
 				if($Before>0) {
@@ -904,7 +907,7 @@ sub ProcessSingleline {
 			$LastPrinted = $i if($i > $LastPrinted);
 			--$WillPrint;
 			&PrintLine(0, $i, $Line)
-		} elsif(($Before>0) && $GrepOnly) {
+		} elsif(($Before > 0) && $GrepOnly) {
 			$A[$i%$Before] = $Line
 		}
 	}
@@ -1230,7 +1233,7 @@ if($Recurse) {
 		}
 	}}, $RecurseDir);
 } else {
-	if(($#ARGV < 0) && ($GrepOnly)) {
+	if((!@ARGV) && $GrepOnly) {
 		push(@Files, '')
 	} else {
 		for my $i (@ARGV) {
@@ -1292,8 +1295,9 @@ unless($GrepOnly || $PlainReplace) {
 
 # Now process every file:
 
-for $FileName (@Files) {
-	if($GrepOnly && ($FileName eq '' || (($FileName eq '-') && (!(-f '-'))))) {
+for my $fn (@Files) {
+	$FileName = $fn;
+	if($GrepOnly && ($FileName eq '' || (($FileName eq '-') && !(-f '-')))) {
 		binmode(STDIN) if($Binary);
 		*FH = *STDIN;
 		&ProcessFile;
@@ -1301,9 +1305,7 @@ for $FileName (@Files) {
 	}
 	open(FH, '<', $FileName) or next;
 		# die "could not open $FileName for reading.\nStopped";
-	if($Binary) {
-		binmode(FH)
-	}
+	binmode(FH) if($Binary);
 	unless(&ProcessFile) {
 		close(FH);
 		next
