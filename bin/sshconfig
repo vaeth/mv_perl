@@ -4,13 +4,11 @@ use integer;
 use Pod::Usage;
 use Getopt::Long;
 
-sub version { '$Revision: 1.6 $ ' =~ m{Revision:\s([^\s]*)};
-	print "sshconfig v$1 by Martin Väth\n"
-	 .    "martin\@mvath.de\n";
+sub version { '$Revision: 1.7 $ ' =~ m{Revision:\s([^\s]*)};
+	print("sshconfig v$1 by Martin Väth\n"
+	 .    "martin\@mvath.de\n");
 	 exit(0)
 }
-
-#$0 =~ m{([^\/]*)$}; my $script=$1;
 
 =head1 NAME
 
@@ -155,6 +153,7 @@ my $dir = "$ENV{'HOME'}/.ssh";
 my $file = "$dir/config";
 my $data = '';
 if(open(my $input, '<', $file)) {
+	local $/;
 	$data = <$input>
 }
 
@@ -163,18 +162,20 @@ my $startmatch = undef;
 my $end = undef;
 my $hostmatch;
 
-if($data =~ m{\A(\s*Host\s+\Q$hostname\E\s*)\z}mig) {
+if($data =~ m{^(\s*Host\s+\Q$hostname\E\s*)$}mig) {
 	$startmatch = pos($data);
 	$hostmatch = $1;
 	$start = $startmatch - length($hostmatch);
-	$end = pos($data) - length($1) if($data =~ m{^(\s*Host\s)}mig)
+	if($data =~ m{^(\s*Host\s)}mig) {
+		$end = pos($data) - length($1)
+	}
 }
 
 sub indata {
 	my $a = shift;
 	pos($data) = $startmatch;
 	return '' unless($data =~ m{$a}mig);
-	defined($end) && (pos($data)>$end)
+	!defined($end) || (pos($data) <= $end)
 }
 
 # Now the main task:
@@ -206,18 +207,18 @@ if($uninstall) {
 		# Remove the whole section if only spaces are left:
 
 		pos($data) = $start;
-		if($data =~ s{\G\Q$hostmatch\E[\s\r\n]*(Host\s)}{$1}si) {
+		if($data =~ s{\G\Q$hostmatch\E[\s\r\n]*(Host\s)}{$1}msi) {
 			$modified = 1
 		} else {
 			pos($data) = $start;
-			$modified = 1 if($data =~ s{\G\Q$hostmatch\E[\s\r\n]*$}{$1}si);
+			$modified = 1 if($data =~ s{\G\Q$hostmatch\E[\s\r\n]*$}{$1}msi);
 		}
 
 		# If nothing is left, remove ~/.ssh/config and possibly also ~/.ssh:
 
 		if($data =~ m{^[\s\r\n]*$}s) {
 			if($show) {
-				print("rm -- $file; rmdir -- $dir")
+				print("rm -- $file; rmdir -- $dir\n")
 			} else {
 				unlink($file);
 				rmdir($dir)
