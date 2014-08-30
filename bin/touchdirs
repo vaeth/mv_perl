@@ -2,19 +2,14 @@
 use strict;
 use integer;
 no  sort 'stable';
-use Getopt::Long;
-use Pod::Usage;
-use File::Find;
-use File::Spec;
-use Fcntl ':mode';
-use Time::localtime;
-#use Time::HiRes; # needed unless -R is used
+use Getopt::Long ();
+use Pod::Usage ();
+use File::Find ();
+use File::Spec ();
+use Time::localtime ();
+#use Time::HiRes (); # needed unless -R is used
 
-sub version {
-	print("Touchdirs v2.12 by Martin Väth\n",
-		"martin\@mvath.de\n");
-	exit(0)
-}
+our $VERSION = '3.0';
 
 =head1 NAME
 
@@ -135,6 +130,7 @@ my @iexclude = ();
 
 # Global Variables:
 
+my $name = 'touchdirs';
 my $hires_write;
 my %DIR;
 my $count;
@@ -164,7 +160,7 @@ sub myctime {
 	my $rest = '';
 	if($hires_write) {
 		$itime = int($rtime);
-		$time = localtime($itime);
+		$time = Time::localtime::localtime($itime);
 		if(&not_equal($itime, $rtime)) {
 			no integer;
 			$hires_writing = 1;
@@ -176,11 +172,11 @@ sub myctime {
 			$dot = ''
 		}
 	} else {
-		$time = localtime($rtime)
+		$time = Time::localtime::localtime($rtime)
 	}
 	($hires_writing, $arg, sprintf($format,
-			(1900 + $time->year()), 1 + $time->mon(), $time->mday(),
-			$time->hour(), $time->min(), $dot, $time->sec(), $rest))
+		(1900 + $time->year()), 1 + $time->mon(), $time->mday(),
+		$time->hour(), $time->min(), $dot, $time->sec(), $rest))
 }
 
 sub touchit {
@@ -238,7 +234,7 @@ sub printcomment {
 
 sub my_split {
 	my ($arr, $dir) = @_;
-	@$arr = File::Spec->splitdir($dir);
+	@$arr = File::Spec->splitdir($dir)
 }
 
 sub my_cat {
@@ -247,8 +243,9 @@ sub my_cat {
 
 sub my_amtime {
 	my ($file) = @_;
-	(((!$follow) && (-l $file)) ? lstat($file) :
-		($roundread ? CORE::stat($file) : Time::HiRes::stat($file)))[8, 9]
+	(((!$follow) && (-l $file)) ?
+		($roundread ? lstat($file) : Time::HiRes::lstat($file)) :
+		($roundread ? stat($file) : Time::HiRes::stat($file)))[8, 9]
 }
 
 sub dotouch {
@@ -327,21 +324,33 @@ sub shprint {
 	print(&shdash(@_), "\n")
 }
 
+sub info {
+	print("$name: ",
+		join("\n" . (' ' x (length($name) + 2)), @_), "\n");
+}
+
 sub warning {
-	print(STDERR 'touchdirs: warning: ', @_, "\n")
+	print(STDERR "$name: warning: ",
+		join("\n" . (' ' x (length($name) + 11)), @_), "\n");
 }
 
 sub fatal {
-	print(STDERR 'touchdirs: fatal: ', @_, "\n");
+	print(STDERR "$name: fatal: ",
+		join("\n" . (' ' x (length($name) + 9)), @_), "\n");
 	exit(1)
+}
+
+sub version {
+	print("$name $VERSION\n");
+	exit(0)
 }
 
 # Parse Options:
 
-$Getopt::Long::bundling = 1;
-GetOptions(
-	'help|h', sub { pod2usage(1) },
-	'man|?', sub { pod2usage(-verbose => 2) },
+Getopt::Long::Configure(qw(bundling gnu_compat));
+Getopt::Long::GetOptions(
+	'help|h', sub { Pod::Usage::pod2usage(1) },
+	'man|?', sub { Pod::Usage::pod2usage(-verbose => 2) },
 	'version|V', \&version,
 	'round|r', \$round,
 	'rounding', \$rounding,
@@ -360,8 +369,8 @@ GetOptions(
 	'check|c', \$check,
 	'follow-link|F', \$follow,
 	'nofollow-link|no-follow-link', sub { $follow = '' }
-) or pod2usage(2);
-pod2usage(-verbose => 2) unless($check || @ARGV);
+) or Pod::Usage::pod2usage(2);
+Pod::Usage::pod2usage(-verbose => 2) unless($check || @ARGV);
 
 # Set dependent options
 $rounding = 1 if($round || $roundread);
@@ -378,34 +387,41 @@ if($check) {
 $hires_write = !$rounding;
 unless($roundread) {
 	eval {
-		require Time::HiRes;
-		Time::HiRes->import()
+		require Time::HiRes
 	};
 	if($@) {
+		my @err = ('perl module Time::HiRes not found:', $@);
 		if($check) {
-			print("module Time::HiRes not found\n") unless($quiet);
+			&info(@err) unless($quiet);
 			exit(1)
 		}
-		&warning('module Time::HiRes not found. Forcing option -R');
-		$roundread = ''
+		&warning(@err, 'Forcing option -R');
+		$roundread = 1
 	} else {
 		my ($atime, $mtime) = &my_amtime(File::Spec->curdir());
 		if((int($atime) < 1000000) || (int($mtime) < 1000000)) {
+			my @err = ('Time::Hires::stat() appears broken');
 			if($check) {
-				print("module Time::Hires appears broken\n") unless($quiet);
+				print(@err) unless($quiet);
 				exit(1)
 			}
-			$roundread = '';
+			$roundread = 1;
 			($atime, $mtime) = &my_amtime(File::Spec->curdir());
-			&fatal("loading Time::Hires has probably corrupted stat()\nYou might want to retry with option -R")
-				if(($atime < 1000000) || (int($mtime) < 1000000));
-			&warning('Time::Hires::stat() appears broken. Forcing option -R');
+			&fatal('stat() appears to be corrupted by Time::Hires',
+				'You might want to retry with option -R')
+				if(($atime < 1000000) ||
+					(int($mtime) < 1000000));
+			&warning(@err, 'Forcing option -R')
 		} elsif($check) {
-			print("module Time::Hires appears to work\n") unless($quiet);
+			&info('Time::Hires appears to work')
+				unless($quiet);
 			exit(0)
 		}
 	}
-	$round = $rounding = '' unless($roundread)
+	if($roundread) {  # error case
+		$round = '';
+		$rounding = 1
+	}
 }
 
 # Compile regular expressions and make one array:
@@ -429,7 +445,7 @@ for my $currdir (@ARGV) {
 		&dotouch();
 		next
 	}
-	find({
+	File::Find::find({
 		bydepth => 1,
 		follows => $follow,
 		follow_skip => 2,
@@ -445,7 +461,8 @@ for my $currdir (@ARGV) {
 	for my $dir (@DIR) {
 		my ($atime, $mtime) = &my_amtime($dir);
 		my ($newatime, $newmtime) = @{$DIR{$dir}};
-		if($force || &not_equal($atime, $newatime) || &not_equal($mtime, $newmtime)) {
+		if($force || &not_equal($atime, $newatime) ||
+			&not_equal($mtime, $newmtime)) {
 			&touchit($newmtime, $newatime, $dir)
 		}
 	}
