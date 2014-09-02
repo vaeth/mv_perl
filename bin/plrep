@@ -1,12 +1,13 @@
 #!/usr/bin/perl
 use strict;
 use integer;
-use Pod::Usage;
-use Getopt::Long;
-use File::Find;
-use File::stat;
-use Term::ANSIColor;# needed only for colored(...) in function optcolored(...)
+use Pod::Usage ();
+use Getopt::Long ();
+use File::Find ();
+use Term::ANSIColor ();
 #use Data::Dumper;# For Debugging: print Dumper(...)
+
+our $VERSION = '2.13';
 
 # Colors for matches on the various terminal types:
 # Format is an array of the form [grep, "old" content, "new" content]
@@ -18,14 +19,6 @@ my @termlist = (
 
 my $BackSpacePattern = qr{[\b]|\x1b\[3\~};
 
-sub version { '$Revision: 2.12 $ ' =~ m{Revision:\s([^\s]*)};
-	print("plrep v$1 by Martin Väth\n"
-	 .    "martin\@mvath.de\n");
-	 exit 0
-}
-
-$0 =~ m{([^\/]*)$};
-my $script = $1;
 
 =head1 NAME
 
@@ -154,7 +147,7 @@ List only files which contain matches (implies B<--grep>)
 
 =item B<--keeptimestamp> or B<-k> (switch)
 
-List only files which contain matches (implies B<--grep>)
+Do not change the timestamps of modified files
 
 =item B<--nonprintable=>I<character> or B<-n> I<character>
 
@@ -512,6 +505,7 @@ my $Terminal = $termlist[0];
 
 # Global variables:
 
+my $name = 'plrep';
 my $ShowChanges = 1;
 my $TruncateMode = 0;
 my $Truncate;
@@ -533,6 +527,11 @@ my $SearchPattern;
 my $Search;
 my $Replace;
 
+sub version {
+	print("$name $VERSION\n");
+	exit(0)
+}
+
 sub NormalExit {
 	exit(0) unless($GrepOnly);
 	exit(127) if($TotalMatches > 127);
@@ -542,7 +541,7 @@ sub NormalExit {
 sub optcolored {
 	my $string = shift();
 	my $opt = shift();
-	$opt ? colored($string, $_[0]) : $string
+	$opt ? Term::ANSIColor::colored($string, $_[0]) : $string
 }
 
 #Output line StringList formatted, colorized, and truncated.
@@ -578,11 +577,14 @@ sub PrintLine {
 	}
 	my($ModeString, $Color);
 	if($GrepOnly) {
-		$ModeString = ''; $Color = $Terminal->[0]
+		$ModeString = '';
+		$Color = $Terminal->[0]
 	} elsif($Mode>0) {
-		$ModeString = '-'; $Color = $Terminal->[1]
+		$ModeString = '-';
+		$Color = $Terminal->[1]
 	} elsif($Mode<0) {
-		$ModeString = '+'; $Color = $Terminal->[2]
+		$ModeString = '+';
+		$Color = $Terminal->[2]
 	} else {
 		$ModeString = ' '
 	}
@@ -737,7 +739,7 @@ sub PrintLine {
 
 sub ReplaceAsk {
 	while() {
-		print("y(es)/n(o)/r(est of file)/q(uit this file)/a(lways)/s(top all) ");
+		print('y(es)/n(o)/r(est of file)/q(uit this file)/a(lways)/s(top all) ');
 		my $key = <STDIN>;
 		if($key =~ $BackSpacePattern) {
 			next
@@ -752,7 +754,7 @@ sub ReplaceAsk {
 			$AskForReplace = 0;
 			return 1
 		} elsif($key =~ m{^s}i) {
-			&NormalExit
+			&NormalExit()
 		} elsif($key =~ m{^a}i) {
 			$AlwaysReplace = 1;
 			$AskForReplace = 0;
@@ -766,9 +768,7 @@ sub ChangeString {
 	my ($Changed, $i, $j, $count, $subs, $DoReplace, $HavePrintedAfter, $r);
 	$Changed = '';
 	$DoReplace = 1;
-	if($PlainReplace) {
-		$subs = $Replace
-	}
+	$subs = $Replace if($PlainReplace);
 	for($count = 0; $#Substrings >= 2; shift(@Substrings), shift(@Substrings), ++$count) {
 		unless($PlainReplace) {
 			$subs = $Replacements[$count]
@@ -779,16 +779,16 @@ sub ChangeString {
 			if($ShowChanges) {
 				&PrintLine(1, $LineNumber);
 				$HavePrintedAfter = '';
-				if($After>0) {
-					my ($Ellipsis);
+				if($After > 0) {
+					my $Ellipsis;
 					if($LineNumber < $LastPrinted) {
 						$j = $LastPrinted + 1;
-						$Ellipsis = 1;
+						$Ellipsis = 1
 					} else {
 						$Ellipsis = '';
-						$j = $LineNumber + 1;
+						$j = $LineNumber + 1
 					}
-					for(; ($j <= $LineNumber+$After) && ($j < $#A); ++$j) {
+					for(; ($j <= $LineNumber + $After) && ($j < $#A); ++$j) {
 						if($Ellipsis) {
 							print '...'; $Ellipsis = ''
 						}
@@ -797,15 +797,13 @@ sub ChangeString {
 						$LastPrinted = $j;
 					}
 				}
-				if($HavePrintedAfter) {
-					print '---'
-				}
+				print('---') if($HavePrintedAfter);
 				$r = $Substrings[1];
 				$Substrings[1] = $subs; &PrintLine(-1, $LineNumber);
-				$Substrings[1] = $r;
+				$Substrings[1] = $r
 			}
 			if($AskForReplace) {
-				$DoReplace = &ReplaceAsk
+				$DoReplace = &ReplaceAsk()
 			}
 			if($DoReplace) {
 				$Changed = 1;
@@ -815,13 +813,12 @@ sub ChangeString {
 			}
 		}
 		if($AskForReplace < 0) {
-			$Substrings[0] = $Substrings[2]; last
+			$Substrings[0] = $Substrings[2];
+			last
 		}
 	}
-	if($Changed) {
-		$A[$LineNumber] = $Substrings[0]
-	}
-	return $Changed
+	$A[$LineNumber] = $Substrings[0] if($Changed);
+	$Changed
 }
 
 
@@ -994,7 +991,7 @@ sub ProcessMultiline {
 			push(@Substrings, substr($A[$i], 0, $d) . substr($A[$i], $c))
 		}
 		&PrintLine(1, '');
-		return '';
+		return ''
 	}
 
 	# Now the interactive replacement in multiline mode.
@@ -1043,14 +1040,15 @@ sub ProcessMultiline {
 		$Substrings[1] = $subs;
 		&PrintLine(-1, '');
 		if($AskForReplace) {
-			$DoReplace = &ReplaceAsk
+			$DoReplace = &ReplaceAsk()
 		}
 		if($DoReplace) {
-			$Changed = 1; $A[$i] = $subs
+			$Changed = 1;
+			$A[$i] = $subs
 		}
 		last if($AskForReplace < 0);
 	}
-	return $Changed
+	$Changed
 }
 
 # FindNewline(string, n)
@@ -1074,26 +1072,20 @@ sub FindNewline {
 			}
 		}
 	}
-	return(-$count) if($count > 0);
-	return $count;
+	($count > 0) ? (-$count) : $count
 }
 
 sub ProcessFile {
-	if($AlwaysReplace) {
-		$AskForReplace = 0
-	} else {
-		$AskForReplace = 1
-	}
-	return &ProcessMultiline if($Multiline);
-	return &ProcessSingleline
+	$AskForReplace = ($AlwaysReplace ? 0 : 1);
+	$Multiline ? &ProcessMultiline() : &ProcessSingleline()
 }
 
 # Parse Options:
 
-$Getopt::Long::bundling = 1;
-GetOptions(
-	'help|h', sub { pod2usage(1) },
-	'man|?', sub { pod2usage(-verbose => 2) },
+Getopt::Long::Configure(qw(bundling gnu_compat));
+Getopt::Long::GetOptions(
+	'help|h', sub { Pod::Usage::pod2usage(1) },
+	'man|?', sub { Pod::Usage::pod2usage(-verbose => 2) },
 	'version|V', \&version,
 	'ignore-case|i', \$Ignore,
 	'yes!', \$AlwaysReplace,
@@ -1135,7 +1127,7 @@ GetOptions(
 	'truncate|t=i', \$TruncOpt,
 	'notruncate|no-truncate', sub { $TruncOpt = '' },
 	'Truncate|shift|T=s', \$ShiftOpt
-) or pod2usage(2);
+) or Pod::Usage::pod2usage(2);
 
 
 # Set default variables according to the options:
@@ -1184,10 +1176,10 @@ if($FromFile) {
 		}
 	}
 } else {
-	pod2usage("No Search argument found") unless(@ARGV);
+	Pod::Usage::pod2usage("No Search argument found") unless(@ARGV);
 	$Search = shift(@ARGV);
 	unless($GrepOnly) {
-		pod2usage("No Replace argument found") unless(@ARGV);
+		Pod::Usage::pod2usage("No Replace argument found") unless(@ARGV);
 		$Replace = shift(@ARGV)
 	}
 }
@@ -1214,11 +1206,11 @@ if($Recurse) {
 				$ARGV[$i] = "^$_\$"
 			}
 		}
-		die "error: probably forgotten quote (recurse without joker)\nStopped"
+		die("error: probably forgotten quote (recurse without joker)\nStopped")
 			unless($changed);
 	}
 	$RecurseDir = '.' if($RecurseDir eq '');
-	find({wanted => sub {
+	File::Find::find({wanted => sub {
 		return unless(-r $_);
 		if(!@ARGV) {
 			push(@Files, $File::Find::name);
@@ -1300,13 +1292,13 @@ for my $fn (@Files) {
 	if($GrepOnly && ($FileName eq '' || (($FileName eq '-') && !(-f '-')))) {
 		binmode(STDIN) if($Binary);
 		*FH = *STDIN;
-		&ProcessFile;
+		&ProcessFile();
 		next
 	}
 	open(FH, '<', $FileName) or next;
-		# die "could not open $FileName for reading.\nStopped";
+		# die("could not open $FileName for reading.\nStopped");
 	binmode(FH) if($Binary);
-	unless(&ProcessFile) {
+	unless(&ProcessFile()) {
 		close(FH);
 		next
 	}
@@ -1337,11 +1329,7 @@ for my $fn (@Files) {
 	{
 		my $WrittenOK = 1;
 		my ($atime, $mtime);
-		if($KeepTimestamp) {
-			my $stat = stat($FileName);
-			$atime = $stat->atime;
-			$mtime = $stat->mtime
-		}
+		($atime, $mtime) = ((stat($FileName))[8, 9]) if($KeepTimestamp);
 		open(my $fh, '>', $FileName) or
 			die("could not open $FileName for writing.\nStopped");
 		binmode($fh) if($Binary);
