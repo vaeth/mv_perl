@@ -1,12 +1,13 @@
 #!/usr/bin/env perl
 require 5.012;
-package Plrep v2.13.1;
+package Plrep v2.13.2;
 
 use warnings;
 use strict;
 use integer;
+use version 0.77 ();
 use Pod::Usage ();
-use Getopt::Long ();
+use Getopt::Long 2.24 ();
 use File::Find ();
 use Term::ANSIColor ();
 #use Data::Dumper;# For Debugging: print Dumper(...)
@@ -828,16 +829,17 @@ sub ChangeString {
 # The function to process a single file (in singleline mode)
 
 sub ProcessSingleline {
-	my($Changed, $i, $j, $LastPos, $WillPrint);
+	my ($fh) = @_;
+	my ($Changed, $i, $j, $LastPos, $WillPrint);
 	$Changed = '';
 	$LastPrinted = -1; $i = $WillPrint = 0;
 	$FileMatches = 0;
 	unless($GrepOnly) {
-		@A = <FH> or return ''
+		@A = <$fh> or return ''
 	}
 	for($i = 0; ; ++$i) {
 		if($GrepOnly) {
-			unless(defined($Line = <FH>)) {
+			unless(defined($Line = <$fh>)) {
 				last
 			}
 		} elsif($i > $#A) {
@@ -921,18 +923,21 @@ sub ProcessSingleline {
 # The function to process a single file (in multiline mode)
 
 sub ProcessMultiline {
-	my ($Changed, $i, $LastPos);
-	$Changed = '';
-	$LastPrinted = -1; $i = 0;
+	my ($fh) = @_;
+	return '' unless(read($fh, $A, -s $fh));
+	my $Changed = '';
+	my $i = 0;
+	$LastPrinted = -1;
 	$FileMatches = 0;
-	read(FH, $A, -s FH) or return '';
 
 	# Scan all occurences and build corresponding @A/@Replacements
 
-	@A = (); @Replacements = (); $LastPos = 0;
+	@A = ();
+	@Replacements = ();
+	my $LastPos = 0;
 	while($A =~ m{$SearchPattern}og) {
 		if($ListOnly) {
-			print("$FileName\n");
+			print($FileName, "\n");
 			$TotalMatches = 1;
 			return ''
 		}
@@ -951,13 +956,10 @@ sub ProcessMultiline {
 			push(@A, $&)
 		}
 	}
-	if($CountOnly && $FileMatches) {
-		print("$FileName: $FileMatches\n")
-	}
+	print($FileName, ': ', $FileMatches, "\n")
+		if($CountOnly && $FileMatches);
 	$TotalMatches += $FileMatches;
-	if($ListOnly || $CountOnly || ($#A <= 0)) {
-		return ''
-	}
+	return '' if($ListOnly || $CountOnly || !@A);
 	push(@A, substr($A, $LastPos));
 
 	# Now the multiline grep.
@@ -1026,7 +1028,7 @@ sub ProcessMultiline {
 		}
 		@Substrings = ($a);
 		push(@Substrings, $A[$i]);
-		for($j = $i + 1; $j < scalar(@A); ++$j) {
+		for($j = $i + 1; $j < @A; ++$j) {
 			$p = &FindNewline($A[$j], 1);
 			if($p >= 0) {
 				push(@Substrings, substr($A[$j], 0, $p));
@@ -1034,7 +1036,7 @@ sub ProcessMultiline {
 			}
 			push(@Substrings, $A[$j]);
 		}
-		if($#Substrings >= 2) {
+		if(@Substrings >= 3) {
 			$Substrings[$#Substrings] .= "\n"
 		} else {
 			push(@Substrings, "\n")
@@ -1042,14 +1044,12 @@ sub ProcessMultiline {
 		&PrintLine(1, '');
 		$Substrings[1] = $subs;
 		&PrintLine(-1, '');
-		if($AskForReplace) {
-			$DoReplace = &ReplaceAsk()
-		}
+		$DoReplace = &ReplaceAsk() if($AskForReplace);
 		if($DoReplace) {
 			$Changed = 1;
 			$A[$i] = $subs
 		}
-		last if($AskForReplace < 0);
+		last if($AskForReplace < 0)
 	}
 	$Changed
 }
@@ -1080,7 +1080,7 @@ sub FindNewline {
 
 sub ProcessFile {
 	$AskForReplace = ($AlwaysReplace ? 0 : 1);
-	$Multiline ? &ProcessMultiline() : &ProcessSingleline()
+	$Multiline ? &ProcessMultiline(@_) : &ProcessSingleline(@_)
 }
 
 # Parse Options:
@@ -1151,9 +1151,9 @@ if($TruncOpt ne '') {
 	}
 	$ShiftFromEnd = '';
 	if($ShiftOpt ne '') {
-		($ShiftOpt =~ s{e}{}i) and ($ShiftFromEnd = 1);
-		$ShiftOpt =~ s{s}{}i;
-		$Shift = scalar($ShiftOpt);
+		$ShiftFromEnd = 1 if($ShiftOpt =~ s{e}{}i);
+		$ShiftOpt =~ m{^s?([+-]\d+)}i;
+		$Shift = ($1 // 0)
 	} else {
 		$Shift = 3
 	}
@@ -1162,27 +1162,30 @@ if($TruncOpt ne '') {
 # Read $Search and $Replace according to the options:
 
 if($FromFile) {
-	if(($DataName ne '') && open(PARA, '<', $DataName)) {
-		$Search = <PARA>; chomp($Search);
+	if(($DataName ne '') && open(my $para, '<', $DataName)) {
+		$Search = <$para>;
+		chomp($Search);
 		unless($GrepOnly) {
-			$Replace = <PARA>;
+			$Replace = <$para>;
 			chomp($Replace)
 		}
-		close(PARA);
+		close($para)
 	} else {
-		print "Search : ";
-		$Search = <STDIN>; chomp($Search);
+		print('Search : ');
+		$Search = <STDIN>;
+		chomp($Search);
 		unless($GrepOnly) {
-			print "Replace: ";
+			print('Replace: ');
 			$Replace = <STDIN>;
 			chomp($Replace)
 		}
 	}
 } else {
-	Pod::Usage::pod2usage("No Search argument found") unless(@ARGV);
+	Pod::Usage::pod2usage('No Search argument found') unless(@ARGV);
 	$Search = shift(@ARGV);
 	unless($GrepOnly) {
-		Pod::Usage::pod2usage("No Replace argument found") unless(@ARGV);
+		Pod::Usage::pod2usage('No Replace argument found')
+			unless(@ARGV);
 		$Replace = shift(@ARGV)
 	}
 }
@@ -1292,20 +1295,20 @@ unless($GrepOnly || $PlainReplace) {
 
 for my $fn (@Files) {
 	$FileName = $fn;
-	if($GrepOnly && ($FileName eq '' || (($FileName eq '-') && !(-f '-')))) {
-		binmode(STDIN) if($Binary);
-		*FH = *STDIN;
-		&ProcessFile();
+	if($GrepOnly && (($FileName eq '') || ($FileName eq '-'))) {
+		my $fh = \*STDIN;
+		binmode($fh) if($Binary);
+		&ProcessFile($fh);
 		next
 	}
-	open(FH, '<', $FileName) or next;
+	open(my $fh, '<', $FileName) or next;
 		# die("could not open $FileName for reading.\nStopped");
-	binmode(FH) if($Binary);
-	unless(&ProcessFile()) {
-		close(FH);
+	binmode($fh) if($Binary);
+	unless(&ProcessFile($fh)) {
+		close($fh);
 		next
 	}
-	close(FH);
+	close($fh);
 	next if($GrepOnly);
 	unless($AlwaysWrite) {
 		my $key = '';

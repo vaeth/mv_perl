@@ -1,11 +1,12 @@
 #!/usr/bin/env perl
 require 5.012;
-package Touchdirs v3.0.1;
+package Touchdirs v3.0.2;
 
 use warnings;
 use strict;
 use integer;
 no  sort 'stable';
+use version 0.77 ();
 use Getopt::Long 2.24 ();
 use Pod::Usage ();
 use File::Find ();
@@ -329,12 +330,12 @@ sub shprint {
 
 sub info {
 	print("$name: ",
-		join("\n" . (' ' x (length($name) + 2)), @_), "\n");
+		join("\n" . (' ' x (length($name) + 2)), @_), "\n")
 }
 
 sub warning {
 	print(STDERR "$name: warning: ",
-		join("\n" . (' ' x (length($name) + 11)), @_), "\n");
+		join("\n" . (' ' x (length($name) + 11)), @_), "\n")
 }
 
 sub fatal {
