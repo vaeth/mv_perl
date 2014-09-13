@@ -1,15 +1,17 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
+require 5.012;
+package Touchdirs v3.0.1;
+
+use warnings;
 use strict;
 use integer;
 no  sort 'stable';
-use Getopt::Long ();
+use Getopt::Long 2.24 ();
 use Pod::Usage ();
 use File::Find ();
 use File::Spec ();
 use Time::localtime ();
 #use Time::HiRes (); # needed unless -R is used
-
-our $VERSION = '3.0';
 
 =head1 NAME
 
@@ -130,6 +132,7 @@ my @iexclude = ();
 
 # Global Variables:
 
+our $VERSION;
 my $name = 'touchdirs';
 my $hires_write;
 my %DIR;
@@ -341,7 +344,7 @@ sub fatal {
 }
 
 sub version {
-	print("$name $VERSION\n");
+	print($name . ' ' . $VERSION->stringify() . "\n");
 	exit(0)
 }
 

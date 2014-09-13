@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # double $Revision: 1.6 $ by Martin Väth
 # martin@mvath.de

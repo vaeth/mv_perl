@@ -1,4 +1,8 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
+require 5.012;
+package Plrep v2.13.1;
+
+use warnings;
 use strict;
 use integer;
 use Pod::Usage ();
@@ -6,8 +10,6 @@ use Getopt::Long ();
 use File::Find ();
 use Term::ANSIColor ();
 #use Data::Dumper;# For Debugging: print Dumper(...)
-
-our $VERSION = '2.13';
 
 # Colors for matches on the various terminal types:
 # Format is an array of the form [grep, "old" content, "new" content]
@@ -505,6 +507,7 @@ my $Terminal = $termlist[0];
 
 # Global variables:
 
+our $VERSION;
 my $name = 'plrep';
 my $ShowChanges = 1;
 my $TruncateMode = 0;
@@ -528,7 +531,7 @@ my $Search;
 my $Replace;
 
 sub version {
-	print("$name $VERSION\n");
+	print($name . ' ' . $VERSION->stringify() . "\n");
 	exit(0)
 }
 

@@ -36,7 +36,7 @@ Here is a brief overview of the scripts:
 
   With plrep --man you get a detailed help as a manpage (new since v2.1).
 
-  This script requires Perl 5 (together with some modules).
+  This script requires Perl 5.12 (together with some modules).
   If you really must use Perl 4, you can use the scripts prep and
   rrep below which together have almost the same functionality.
 
@@ -78,7 +78,7 @@ Here is a brief overview of the scripts:
 - commlist. Print lines common to two list of file resp. contained in
   only one of these lists. This is similar to the standard unix comm utility,
   but deals with unsorted input/output.
-  Perl 5 (with elementary modules) is required.
+  Perl 5.12 (with elementary modules) is required.
 
 - sshconfig. If you frequently ssh/scp/sftp/rsync to computers with a
   dynamic IP address, you will find this script very useful.
@@ -122,3 +122,4 @@ Here is a brief overview of the scripts:
 - touchdirs. Touch directories according to their newest file.
   This script can also be used to "round" file/directiry timestamps
   to a full second.
+  This script require perl-5.12

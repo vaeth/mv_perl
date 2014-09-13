@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # renreg $Revision: 1.5 $ by Martin Väth
 # martin@mvath.de
