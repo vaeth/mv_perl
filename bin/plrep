@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Plrep v2.13.3;
+package Plrep v2.13.4;
 
 use warnings;
 use strict;
@@ -1088,7 +1088,7 @@ sub ProcessFile {
 
 # Parse Options:
 
-Getopt::Long::Configure(qw(bundling gnu_compat));
+Getopt::Long::Configure(qw(bundling gnu_compat permute));
 Getopt::Long::GetOptions(
 	'help|h', sub { &pod2usage(0) },
 	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },

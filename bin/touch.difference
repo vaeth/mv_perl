@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package TouchDifference v1.4.2;
+package TouchDifference v1.4.3;
 
 use strict;
 use integer;
@@ -109,7 +109,7 @@ sub pod2usage {
 
 # Parse Options:
 
-Getopt::Long::Configure(qw(bundling gnu_compat));
+Getopt::Long::Configure(qw(bundling gnu_compat permute));
 Getopt::Long::GetOptions(
 	'help|h', sub { &pod2usage(0) },
 	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },

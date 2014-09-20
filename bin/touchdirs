@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Touchdirs v3.0.3;
+package Touchdirs v3.0.4;
 
 use warnings;
 use strict;
@@ -386,7 +386,7 @@ sub pod2usage {
 
 # Parse Options:
 
-Getopt::Long::Configure(qw(bundling gnu_compat));
+Getopt::Long::Configure(qw(bundling gnu_compat permute));
 Getopt::Long::GetOptions(
 	'help|h', sub { &pod2usage(0) },
 	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
