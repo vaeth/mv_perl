@@ -6,12 +6,12 @@ use warnings;
 use strict;
 use integer;
 no  sort 'stable';
-use version 0.77 ();
 use Getopt::Long 2.24 ();
-use Pod::Usage ();
 use File::Find ();
 use File::Spec ();
 use Time::localtime ();
+#use Fcntl (); # needed only if $force_utime is set
+#use Pod::Usage ();  # needed for --man, --help, some errors
 #use Time::HiRes (); # needed unless -R is used
 
 =head1 NAME
@@ -20,7 +20,9 @@ touchdirs - Touch directories according to their newest file
 
 =head1 SYNOPSIS
 
-B<touchdirs> [options] I<dirs>
+B<touchdirs> [options] [I<dirs or files>]
+
+To get an extended help, type B<plrep --man> or B<plrep -?>
 
 =head1 DESCRIPTION
 
@@ -28,6 +30,7 @@ Look for all files in I<dirs> and then change all dirs' mtimestamps according
 to the newest file contained (empty dirs' mtimestamps are ignored).
 The used resolution of timestamps is one second, independent of the
 properties of the filesystem.
+If I<dirs or files> is not specified, the current directory is assumed.
 
 =head1 OPTIONS AND ARGUMENTS
 
@@ -108,6 +111,18 @@ Only show what would be done, do not alter anything.
 
 Print version number
 
+=item B<--help> or B<-h>
+
+Display brief help.
+
+=item B<--man> or B<-?>
+
+Display extended help as a manpage.
+
+=item B<-->
+
+Last option
+
 =back
 
 =head1 AUTHOR
@@ -139,6 +154,10 @@ my $hires_write;
 my %DIR;
 my $count;
 my @topdirs;
+
+# If the following is set, we force utime() even for symlinks.
+# This requires Fcntl::O_PATH() support which currently does not work...
+my $force_utime = '';
 
 # Functions:
 
@@ -183,41 +202,48 @@ sub myctime {
 		$time->hour(), $time->min(), $dot, $time->sec(), $rest))
 }
 
+sub printtouch {
+	return unless($quiet < 2);
+	my @touch = @_;
+	my $file = pop(@touch);
+	while(@touch < 6) {
+		splice(@touch, 1, 0, '  ')
+	}
+	$touch[$#touch] = &shq($touch[$#touch]);
+	&shprint(join(' ', @touch), $file)
+}
+
 sub touchit {
 	my ($atime, $mtime, $file) = @_;
 	return if($show && ($quiet >= 2));
+	my $symlink = ((!$follow) && (-l $file));
+	my @touch = ('touch');
+	push(@touch, '-h') if($symlink);
 	my ($cm, $cmarg, $cmtime) = &myctime($mtime);
-	if((!$follow) && (-l $file)) {
-		if(&is_equal($atime, $mtime)) {
-			&shprint("touch -h    $cmarg " . &shq($cmtime), $file) if($quiet < 2);
-			system('touch', '-h', $cmarg, $cmtime, '--', $file) unless($show);
-		} else {
-			&shprint("touch -h -m $cmarg " . &shq($cmtime), $file) if($quiet < 2);
-			system('touch', '-h', '-m', $cmarg, $cmtime, '--', $file) unless($show);
-			my ($ca, $caarg, $catime) = &myctime($atime);
-			&shprint("touch -h -a $caarg " . &shq($catime), $file) if($quiet < 2);
-			system('touch', '-h', '-a', $caarg, $catime, '--', $file) unless($show);
-		}
-		return
-	}
+	my $system = ($cm || ($symlink && !$force_utime));
 	if(&is_equal($atime, $mtime)) {
-		&shprint("touch       $cmarg " . &shq($cmtime), $file) if($quiet < 2);
-		if($cm && !$show) {
-			system('touch', $cmarg, $cmtime, '--', $file);
-			return
-		}
+		&printtouch(@touch, $cmarg, $cmtime, $file);
+		system(@touch, $cmarg, $cmtime, '--', $file)
+			if($system && !$show);
 	} else {
 		my ($ca, $caarg, $catime) = &myctime($atime);
-		&shprint("touch    -m $cmarg " . &shq($cmtime), $file) if($quiet < 2);
-		my $system = ((!$show) && ($cm || $ca));
-		system('touch', '-m', $cmarg, $cmtime, '--', $file) if($system);
-		&shprint("touch    -a $caarg " . &shq($catime), $file) if($quiet < 2);
-		if($system) {
-			system('touch', '-a', $caarg, $catime, '--', $file);
-			return
-		}
+		$system ||= $ca;
+		&printtouch(@touch, '-m', $cmarg, $cmtime, $file);
+		system(@touch, '-m', $cmarg, $cmtime, '--', $file)
+			if($system && !$show);
+		&printtouch(@touch, '-a', $caarg, $catime, $file);
+		system(@touch, '-a', $caarg, $catime, '--', $file)
+			if($system && !$show)
 	}
-	utime($atime, $mtime, $file) unless($show)
+	return if($system || $show);
+	unless($symlink) {
+		utime($atime, $mtime, $file);
+		return
+	}
+	return unless(sysopen(my $fh, $file, # Fcntl::O_PATH() == 010000000
+		(Fcntl::O_WRONLY() | 0100000000 | Fcntl::O_NOFOLLOW())));
+	utime($atime, $mtime, $fh);
+	close($fh);
 }
 
 sub exclude {
@@ -257,20 +283,24 @@ sub dotouch {
 		return if($follow || !(-l $_));
 	}
 	if(&exclude($_)) {
-		&printcomment("Ignored:", $_) unless($quiet);
+		&printcomment('ignored:', $_) unless($quiet);
 		return
 	}
 	my @dirs;
 	&my_split(\@dirs, $_);
 	for my $i (@topdirs) {
 		if((!@dirs) || ($i ne shift(@dirs))) {
-			&printcomment("Prune:", $_);
+			&printcomment('prune:', $_);
 			$File::Find::prune = 1;
 			return
 		}
 	}
 	my $filename = &my_cat(@topdirs, @dirs);
 	my ($atime, $mtime) = &my_amtime($filename);
+	unless(defined($atime) && defined($mtime)) {
+		&printcomment('cannot stat:', $filename);
+		return
+	}
 	my $write = $all;
 	if($rounding) {
 		my ($oldatime, $oldmtime) = ($atime, $mtime);
@@ -345,16 +375,21 @@ sub fatal {
 }
 
 sub version {
-	print($name . ' ' . $VERSION->stringify() . "\n");
+	print($name, ' ', $VERSION, "\n");
 	exit(0)
+}
+
+sub pod2usage {
+	require Pod::Usage;;
+	Pod::Usage::pod2usage(@_)
 }
 
 # Parse Options:
 
 Getopt::Long::Configure(qw(bundling gnu_compat));
 Getopt::Long::GetOptions(
-	'help|h', sub { Pod::Usage::pod2usage(1) },
-	'man|?', sub { Pod::Usage::pod2usage(-verbose => 2) },
+	'help|h', sub { &pod2usage(0) },
+	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
 	'version|V', \&version,
 	'round|r', \$round,
 	'rounding', \$rounding,
@@ -373,8 +408,13 @@ Getopt::Long::GetOptions(
 	'check|c', \$check,
 	'follow-link|F', \$follow,
 	'nofollow-link|no-follow-link', sub { $follow = '' }
-) or Pod::Usage::pod2usage(2);
-Pod::Usage::pod2usage(-verbose => 2) unless($check || @ARGV);
+) or &pod2usage(2);
+for my $i (@ARGV) {
+	(-e $i) || (-l $i) || &pod2usage("cannot find $i")
+}
+@ARGV = (File::Spec->curdir()) unless($check || @ARGV);
+
+require Fcntl if($force_utime);
 
 # Set dependent options
 $rounding = 1 if($round || $roundread);
@@ -471,4 +511,5 @@ for my $currdir (@ARGV) {
 		}
 	}
 }
-1;
+
+'EOF';

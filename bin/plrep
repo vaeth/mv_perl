@@ -1,16 +1,14 @@
 #!/usr/bin/env perl
 require 5.012;
-package Plrep v2.13.2;
+package Plrep v2.13.3;
 
 use warnings;
 use strict;
 use integer;
-use version 0.77 ();
-use Pod::Usage ();
 use Getopt::Long 2.24 ();
 use File::Find ();
 use Term::ANSIColor ();
-#use Data::Dumper;# For Debugging: print Dumper(...)
+#use Pod::Usage ();
 
 # Colors for matches on the various terminal types:
 # Format is an array of the form [grep, "old" content, "new" content]
@@ -532,8 +530,13 @@ my $Search;
 my $Replace;
 
 sub version {
-	print($name . ' ' . $VERSION->stringify() . "\n");
+	print($name, ' ', $VERSION, "\n");
 	exit(0)
+}
+
+sub pod2usage {
+	require Pod::Usage;;
+	Pod::Usage::pod2usage(@_)
 }
 
 sub NormalExit {
@@ -1087,8 +1090,8 @@ sub ProcessFile {
 
 Getopt::Long::Configure(qw(bundling gnu_compat));
 Getopt::Long::GetOptions(
-	'help|h', sub { Pod::Usage::pod2usage(1) },
-	'man|?', sub { Pod::Usage::pod2usage(-verbose => 2) },
+	'help|h', sub { &pod2usage(0) },
+	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
 	'version|V', \&version,
 	'ignore-case|i', \$Ignore,
 	'yes!', \$AlwaysReplace,
@@ -1130,8 +1133,7 @@ Getopt::Long::GetOptions(
 	'truncate|t=i', \$TruncOpt,
 	'notruncate|no-truncate', sub { $TruncOpt = '' },
 	'Truncate|shift|T=s', \$ShiftOpt
-) or Pod::Usage::pod2usage(2);
-
+) or &pod2usage(2);
 
 # Set default variables according to the options:
 
@@ -1181,15 +1183,13 @@ if($FromFile) {
 		}
 	}
 } else {
-	Pod::Usage::pod2usage('No Search argument found') unless(@ARGV);
+	&pod2usage('No Search argument found') unless(@ARGV);
 	$Search = shift(@ARGV);
 	unless($GrepOnly) {
-		Pod::Usage::pod2usage('No Replace argument found')
-			unless(@ARGV);
+		&pod2usage('No Replace argument found') unless(@ARGV);
 		$Replace = shift(@ARGV)
 	}
 }
-
 
 # Prepare the list of files to visit:
 

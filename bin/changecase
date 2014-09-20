@@ -1,12 +1,11 @@
 #!/usr/bin/env perl
 use integer;
-use Getopt::Long;
-use File::Find;
+use Getopt::Long ();
+use File::Find ();
 use strict;
 
-sub version { '$Revision: 2.1 $ ' =~ /Revision:\s([^\s]*)/;
-	print "Changecase v$1 by Martin Väth\n"
-	 .    "martin\@mvath.de\n";
+sub version {
+	print("changecase v2.1.1\n");
 	 exit(0)
 }
 
@@ -43,7 +42,7 @@ $skip_links = $skip_dirs = $skip_files = $skip_nonfiles = '';
 # Parse Options:
 
 $Getopt::Long::bundling = 1;
-GetOptions(
+Getopt::Long::GetOptions(
 	'help|h|?', sub { &usage(0) },
 	'version|V', \&version,
 	'recurse|r', \$recurse,
@@ -55,17 +54,21 @@ GetOptions(
 	'dry-run|n', \$dry_run,
 	'dir|d=s', sub { $dir = $_[1] },
 	'quiet|q', \$quiet
-) or &usage(-1);
+) or &usage(2);
 
 # Read first (and only) argument:
 
+&usage(1) if(@ARGV != 1):
 $mode = shift(@ARGV);
-&usage(1) unless((defined($mode) && (($mode eq 'l') || ($mode eq 'u')))
-	|| @ARGV);
+&usage(1) unless(($mode eq 'l') || ($mode eq 'u'));
 
 # Now we start:
 
-find({ bydepth => $recurse, follows => 1, wanted => \&dorename }, $dir);
+File::Find::find({
+	bydepth => $recurse,
+	follows => 1,
+	wanted => \&dorename
+}, $dir);
 
 sub dorename {
 	return if(($_ eq $mdot) || ($_ eq $ddot));
@@ -92,5 +95,5 @@ sub dorename {
 	print("$source -> $dest\n") unless($quiet);
 	return if($dry_run);
 	rename($_, $change) or
-		print(STDERR "warning: Cannot rename $source -> $dest\n");
+		print(STDERR "warning: cannot rename $source -> $dest\n");
 }

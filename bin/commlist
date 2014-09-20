@@ -1,13 +1,12 @@
 #!/usr/bin/env perl
 require 5.012;
-package Commmlist v2.0.1;
+package Commmlist v2.0.2;
 
 use warnings;
 use strict;
 use integer;
-use version 0.77 ();
-use Pod::Usage ();
 use Getopt::Long 2.24 ();
+#use Pod::Usage ();
 
 =head1 NAME
 
@@ -88,22 +87,27 @@ my $common = '';
 # Functions
 
 sub version {
-	print($name . ' ' . $VERSION->stringify() . "\n");
+	print($name, ' ', $VERSION, "\n");
 	exit(0)
+}
+
+sub pod2usage {
+	require Pod::Usage;;
+	Pod::Usage::pod2usage(@_)
 }
 
 # Parse Options:
 
 Getopt::Long::Configure(qw(bundling gnu_compat));
 Getopt::Long::GetOptions(
-	'help|h', sub { Pod::Usage::pod2usage(1) },
-	'man|?', sub { Pod::Usage::pod2usage(-verbose => 2) },
+	'help|h', sub { &pod2usage(0) },
+	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
 	'only|o=s', \$only,
 	'common|c=s', \$common,
 	'1', \$suppress1,
 	'2', \$suppress2,
 	'version|V', \&version
-) or Pod::Usage::pod2usage(2);
+) or &pod2usage(2);
 
 $only //= ($suppress1 ? '' : "\t");
 
@@ -122,7 +126,7 @@ foreach (@ARGV) {
 		push(@fileA, $_)
 	}
 }
-&Pod::Usage::pod2usage(1) unless($found);
+&pod2usage(1) unless($found);
 exit(0) unless(@fileA);
 
 my %B = ();

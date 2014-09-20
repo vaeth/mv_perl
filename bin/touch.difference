@@ -1,16 +1,12 @@
 #!/usr/bin/env perl
+require 5.012;
+package TouchDifference v1.4.1;
+
 use strict;
 use integer;
-use Pod::Usage;
-use File::stat;
-use Getopt::Long;
-use Time::localtime;
-
-sub version { '$Revision: 1.4 $ '=~ /Revision:\s([^\s]*)/;
-	print "touch.difference v$1 by Martin Väth\n"
-	 .    "martin\@mvath.de\n";
-	 exit(0)
-}
+use Getopt::Long 2.24 ();
+#use Time::localtime (); # if verbose is used
+#use Pod::Usage ();
 
 =head1 NAME
 
@@ -94,12 +90,29 @@ my $dry = '';
 my $addatime = 1;
 my $addmtime = 1;
 
+# Global variables:
+
+my $name = 'touch.difference';
+our $VERSION;
+
+# Functions:
+
+sub version {
+	print($name, ' ', $VERSION, "\n");
+	exit(0)
+}
+
+sub pod2usage {
+	require Pod::Usage;;
+	Pod::Usage::pod2usage(@_)
+}
+
 # Parse Options:
 
-$Getopt::Long::bundling = 1;
-GetOptions(
-	'help|h', sub { pod2usage(1) },
-	'man|?', sub { pod2usage(-verbose => 2) },
+Getopt::Long::Configure(qw(bundling gnu_compat));
+Getopt::Long::GetOptions(
+	'help|h', sub { &pod2usage(0) },
+	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
 	'version|V', \&version,
 	'verbose!', \$verbose,
 	'v', \$verbose,
@@ -109,20 +122,23 @@ GetOptions(
 	'mtime!', \$addmtime,
 	'add|a=i', \$seconds,
 	'sub|s=i', sub { $seconds = -$_[1] }
-) or pod2usage(2);
+) or &pod2usage(2);
 
-pod2usage(2) unless(@ARGV);
+&pod2usage(2) unless(@ARGV);
+
+require Time::localtime if($verbose);
 
 # Actual touch function:
 
 sub dotouch {
 	my ($file) = @_;
-	my $stat = stat($file);
-	my $atime = $stat->atime;
-	my $mtime = $stat->mtime;
+	my ($atime, $mtime) = ((stat($file))[8, 9]);
+	return unless(defined($atime) && defined($mtime));
 	$atime += $seconds if($addatime);
 	$mtime += $seconds if($addmtime);
-	printf("%s %s (%s)\n", $file, ctime($mtime), ctime($atime)) if($verbose);
+	printf("%s %s (%s)\n", $file,
+		Time::localtime::ctime($mtime),
+		Time::localtime::ctime($atime)) if($verbose);
 	utime($atime, $mtime, $file) unless($dry)
 }
 
@@ -131,3 +147,5 @@ sub dotouch {
 for my $file (@ARGV) {
 	&dotouch($file)
 }
+
+'EOF';
