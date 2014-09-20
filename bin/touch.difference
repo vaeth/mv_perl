@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package TouchDifference v1.4.1;
+package TouchDifference v1.4.2;
 
 use strict;
 use integer;
@@ -147,5 +147,4 @@ sub dotouch {
 for my $file (@ARGV) {
 	&dotouch($file)
 }
-
-'EOF';
+1;

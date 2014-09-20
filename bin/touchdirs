@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Touchdirs v3.0.2;
+package Touchdirs v3.0.3;
 
 use warnings;
 use strict;
@@ -511,5 +511,4 @@ for my $currdir (@ARGV) {
 		}
 	}
 }
-
-'EOF';
+1;
