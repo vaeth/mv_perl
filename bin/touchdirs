@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Touchdirs v3.0.4;
+package Touchdirs v4.0.0;
 
 use warnings;
 use strict;
@@ -10,7 +10,7 @@ use Getopt::Long 2.24 ();
 use File::Find ();
 use File::Spec ();
 use Time::localtime ();
-#use Fcntl (); # needed only if $force_utime is set
+#use File::lchown 0.02 (); # used for lutimes if available; fallback to system
 #use Pod::Usage ();  # needed for --man, --help, some errors
 #use Time::HiRes (); # needed unless -R is used
 
@@ -154,10 +154,7 @@ my $hires_write;
 my %DIR;
 my $count;
 my @topdirs;
-
-# If the following is set, we force utime() even for symlinks.
-# This requires Fcntl::O_PATH() support which currently does not work...
-my $force_utime = '';
+my $lutimes = undef;
 
 # Functions:
 
@@ -213,6 +210,16 @@ sub printtouch {
 	&shprint(join(' ', @touch), $file)
 }
 
+sub check_lutimes {
+	eval {
+		require File::lchown
+	};
+	return ($lutimes = '') if($@);
+	no integer;
+	$lutimes = (defined($File::lchown::VERSION) &&
+		($File::lchown::VERSION >= 0.02))
+}
+
 sub touchit {
 	my ($atime, $mtime, $file) = @_;
 	return if($show && ($quiet >= 2));
@@ -220,14 +227,18 @@ sub touchit {
 	my @touch = ('touch');
 	push(@touch, '-h') if($symlink);
 	my ($cm, $cmarg, $cmtime) = &myctime($mtime);
-	my $system = ($cm || ($symlink && !$force_utime));
-	if(&is_equal($atime, $mtime)) {
+	my ($ca, $caarg, $catime) =
+		(&is_equal($atime, $mtime) ? (undef) : &myctime($atime));
+	my $system = ($cm || ($ca // ''));
+	if($symlink && !$system) {
+		&check_lutimes() unless(defined($lutimes));
+		$system = 1 unless($lutimes)
+	}
+	if(!defined($ca)) {
 		&printtouch(@touch, $cmarg, $cmtime, $file);
 		system(@touch, $cmarg, $cmtime, '--', $file)
 			if($system && !$show);
 	} else {
-		my ($ca, $caarg, $catime) = &myctime($atime);
-		$system ||= $ca;
 		&printtouch(@touch, '-m', $cmarg, $cmtime, $file);
 		system(@touch, '-m', $cmarg, $cmtime, '--', $file)
 			if($system && !$show);
@@ -240,10 +251,7 @@ sub touchit {
 		utime($atime, $mtime, $file);
 		return
 	}
-	return unless(sysopen(my $fh, $file, # Fcntl::O_PATH() == 010000000
-		(Fcntl::O_WRONLY() | 0100000000 | Fcntl::O_NOFOLLOW())));
-	utime($atime, $mtime, $fh);
-	close($fh);
+	File::lchown::lutimes($atime, $mtime, $file)
 }
 
 sub exclude {
@@ -413,8 +421,6 @@ for my $i (@ARGV) {
 	(-e $i) || (-l $i) || &pod2usage("cannot find $i")
 }
 @ARGV = (File::Spec->curdir()) unless($check || @ARGV);
-
-require Fcntl if($force_utime);
 
 # Set dependent options
 $rounding = 1 if($round || $roundread);

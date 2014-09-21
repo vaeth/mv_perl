@@ -3,10 +3,13 @@ _arguments -s -S : \
 '(* -)'{'--help','-h'}'[print a brief help]' \
 '(* -)'{'--man','-\\?'}'[show extended help as a manpage]' \
 '(* -)'{'--version','-V'}'[print version]' \
+{'(--quiet)-q','(-q)--quiet'}'[quiet]' \
 {'(--dry-run)-n','(-n)--dry-run'}'[do not modify anything]' \
 {'(--verbose)-v','(-v)--verbose'}'[be verbose]' \
 '(--sub -s '{'--add)-a','-a)--add'}'+[add N seconds]:add-seconds:(0 1 60 3600)' \
 '(--add -a '{'--sub)-s','-s)--sub'}'+[sub N seconds]:sub-seconds:(0 1 60 3600)' \
 '--noatime[do not modify the atime]' \
 '--nomtime[do not modify the mtime]' \
+{'(-c)--check','(--check)-c'}'[check whether symlinks can be changed]' \
+{'(--follow-link)-F','(-F)--follow-link'}'[follow links for recursion and getting times]' \
 '*:files:_files'
