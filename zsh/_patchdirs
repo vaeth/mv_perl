@@ -12,8 +12,6 @@ _arguments -C -s -S -A '-*' : \
 {'(--strip)-p+','(-p)--strip='}'[cut first num "/" levels]:strip-num:(0)' \
 {'(--output-strip)-P+','(-P)--output-strip='}'[cut first num "/" levels for output]:output-strip-num:(0)' \
 {'(--dry-run -n '{'--show)-s','-s)--show'},'(--show -s '{'--dry-run)-n','-n)--dry-run'}}'[only show what would be done]' \
-{'(--separator)-x+','(-x)--separator='}'[use ARG as separator]:separator:("@")' \
-{'(--dirsep)-X+','(-X)--dirsep='}'[use ARG as directory-separator]:dir-separator:(/)' \
 {'(--delete)-d','(-d)--delete'}'[delete files not in destlist (default)]' \
 {'(--owner)-o','(-o)--owner'}'[modify owner/group (default)]' \
 {'(--attrib)-a','(-a)--attrib'}'[modify permission attributes (default)]' \

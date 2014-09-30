@@ -59,6 +59,10 @@ Here is a brief overview of the scripts:
      against a given directory tree. (If you want more reliable information
      than only a checksum comparison, use the "find_double" perl script of this
      collection).
+  Since v2.0.0 the output format is incompatible with older versions;
+  in contrast to older versions, all symbols in filenames are supported
+  without any hacks.
+  Since v2.0.0, this script requires Perl 5.12 (together with some modules).
 
 - patchdirs-ls. This is somewhat similar to patchdirs but can only
   reconstruct from an "ls --recursive" output exclusively on the base
