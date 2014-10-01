@@ -5,7 +5,7 @@ use File::Find ();
 use strict;
 
 sub version {
-	print("changecase v2.1.1\n");
+	print("changecase v2.1.2\n");
 	 exit(0)
 }
 
@@ -58,7 +58,7 @@ Getopt::Long::GetOptions(
 
 # Read first (and only) argument:
 
-&usage(1) if(@ARGV != 1):
+&usage(1) if(@ARGV != 1);
 $mode = shift(@ARGV);
 &usage(1) unless(($mode eq 'l') || ($mode eq 'u'));
 
