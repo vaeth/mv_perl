@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Patchdirs v2.0.0;
+package Patchdirs v2.0.1;
 
 use warnings;
 use strict;
@@ -486,7 +486,7 @@ sub pod2usage {
 
 # Parse Options:
 
-Getopt::Long::Configure(qw(bundling gnu_compat permute));
+Getopt::Long::Configure(qw(gnu_getopt));
 Getopt::Long::GetOptions(
 	'help|h', sub { &pod2usage(0) },
 	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },

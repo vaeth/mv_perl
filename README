@@ -62,7 +62,7 @@ Here is a brief overview of the scripts:
   Since v2.0.0 the output format is incompatible with older versions;
   in contrast to older versions, all symbols in filenames are supported
   without any hacks.
-  Since v2.0.0, this script requires Perl 5.12 (together with some modules).
+  Since v2.0.0, this script requires Perl 5.12
 
 - patchdirs-ls. This is somewhat similar to patchdirs but can only
   reconstruct from an "ls --recursive" output exclusively on the base
@@ -82,7 +82,7 @@ Here is a brief overview of the scripts:
 - commlist. Print lines common to two list of file resp. contained in
   only one of these lists. This is similar to the standard unix comm utility,
   but deals with unsorted input/output.
-  Perl 5.12 (with elementary modules) is required.
+  Perl 5.12 is required.
 
 - sshconfig. If you frequently ssh/scp/sftp/rsync to computers with a
   dynamic IP address, you will find this script very useful.
@@ -124,6 +124,6 @@ Here is a brief overview of the scripts:
   However, for the latter you can also use touchdirs.
 
 - touchdirs. Touch directories according to their newest file.
-  This script can also be used to "round" file/directiry timestamps
+  This script can also be used to "round" file/directpry timestamps
   to a full second.
-  This script require perl-5.12
+  This script requires perl-5.12
