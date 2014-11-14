@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Touchdirs v4.0.1;
+package Touchdirs v4.0.2;
 
 use warnings;
 use strict;
@@ -279,12 +279,15 @@ sub my_cat {
 	File::Spec->catdir(@_)
 }
 
+{ my $have_hires_lstat = undef;
 sub my_amtime {
 	my ($file) = @_;
 	(((!$follow) && (-l $file)) ?
-		($roundread ? lstat($file) : Time::HiRes::lstat($file)) :
+		(($roundread ||
+			!($have_hires_lstat //= defined(&Time::HiRes::lstat))) ?
+			lstat($file) : Time::HiRes::lstat($file)) :
 		($roundread ? stat($file) : Time::HiRes::stat($file)))[8, 9]
-}
+}}
 
 sub dotouch {
 	if(-d $_) {
