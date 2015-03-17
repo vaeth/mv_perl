@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Patchdirs v2.0.1;
+package Patchdirs v2.0.2;
 
 use warnings;
 use strict;
@@ -727,8 +727,7 @@ sub unify_name {
 sub make_check {
 	my ($A, $check) = @_;
 	%$check = ();
-	for(my $j = 0; $j < @$A; ++$j) {
-		my $ref = $A->[$j];
+	while(my ($j, $ref) = each(@$A)) {
 		my ($name, $checksum, $mode, $owner, $time) = @$ref;
 		$check->{$checksum} = [] unless(defined($check->{$checksum}));
 		push(@{$check->{$checksum}}, $j);
@@ -760,9 +759,8 @@ sub patchlist () {
 	# Pass 1: We decide which files to move where (collect into %FromName).
 	#         Also build @ModCmds, @LinkCmd, @MkDirCmds, @copylist, @NotExist,
 	#         @DeletedIndex,%NeededDir.
-	for(my $i = 0; $i < @A; ++$i) {
+	while(my ($i, $f) = each(@A)) {
 		#if(($i % 50) == 0) { print STDERR "." }
-		my $f = $A[$i];
 		my ($Aname, $Achecksum, $Amode, $Aowner, $Atime) = @$f;
 		if(&isordinary($Achecksum)) {
 			my $sumarr = $Bcheck{$Achecksum};
@@ -804,18 +802,15 @@ sub patchlist () {
 							push(@copylist, [$j, $Aname]);
 						}
 						&changemods($Aname, $Amode, $Aowner, $Atime, '', $isnew, $j);
-					}
-					else {
+					} else {
 						push(@NotExist, $f)
 					}
-				}
-				else {
+				} else {
 					my $j;                # Index of chosen movecandidate
 					my $morecand = '';    # More than 1 candidate -> print an error/warning.
 					if($#movecand == 0) { # There is precisely one optimal:
 						$j = $movecand[0]
-					}
-					else {
+					} else {
 						push(@movecand, @movecandsub);
 						if(@movecand == 1) {  # There is precisely one (sub)optimal
 							$j = $movecand[0]
@@ -1206,10 +1201,9 @@ sub printdoubles {
 	my @finallist = ();
 	my @doubles = ();
 	my $prevc = 'dir';
-	for(my $i = 0; $i < scalar(@A); ++$i) {
-		my $c = ($A[$i]->[1]);
+	while(my ($i, $c) = each(@A)) {
 		if(($c eq $prevc) && (&isordinary($c))) {
-			push(@doubles, &thename($A[$i-1])) unless(@doubles);
+			push(@doubles, &thename($A[$i - 1])) unless(@doubles);
 			push(@doubles, &thename($A[$i]))
 		} elsif(@doubles) {
 			&pushsorted(\@finallist, \@doubles);

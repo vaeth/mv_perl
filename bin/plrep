@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Plrep v2.13.5;
+package Plrep v2.13.6;
 
 use warnings;
 use strict;
@@ -777,9 +777,7 @@ sub ChangeString {
 	$DoReplace = 1;
 	$subs = $Replace if($PlainReplace);
 	for($count = 0; $#Substrings >= 2; shift(@Substrings), shift(@Substrings), ++$count) {
-		unless($PlainReplace) {
-			$subs = $Replacements[$count]
-		}
+		$subs = $Replacements[$count] unless($PlainReplace);
 		if($subs eq $Substrings[1]) {
 			$Substrings[2] = $Substrings[0] . $Substrings[1] . $Substrings[2]
 		} else {
@@ -859,12 +857,11 @@ sub ProcessSingleline {
 			if((!$CountOnly) && ($ShowChanges || $GrepOnly)) {
 				if($Before>0) {
 					$j = $i - $Before;
-					if($j <= $LastPrinted) {
-						$j = $LastPrinted + 1
-					}
+					$j = $LastPrinted + 1
+						if($j <= $LastPrinted);
 					if($GrepOnly) {
 						for(; $j < $i; ++$j) {
-							&PrintLine(0, $j, $A[$j%$Before])
+							&PrintLine(0, $j, $A[$j % $Before])
 						}
 					} else {
 						for(; $j < $i; ++$j) {
@@ -972,31 +969,37 @@ sub ProcessMultiline {
 
 	if($GrepOnly) {
 		@Substrings = ();
-		for($i = 0; $i < scalar(@A); ++$i) {
+		while(my ($i, $curr) = each(@A)) {
 			if(($i & 1) != 0) {
-				push(@Substrings, $A[$i]); next
+				push(@Substrings, $curr);
+				next
 			}
 			my ($c, $d);
 			if($i < $#A) {
-				$c = &FindNewline($A[$i], -($Before+1));
+				$c = &FindNewline($curr, -($Before+1));
 				if($c < 0) {
-					push(@Substrings, $A[$i]); next
+					push(@Substrings, $curr);
+					next
 				}
 				if($i == 0) {
-					push(@Substrings, substr($A[$i], $c)); next
+					push(@Substrings, substr($curr, $c));
+					next
 				}
 			}
-			$d = &FindNewline($A[$i], $After + 1);
+			$d = &FindNewline($curr, $After + 1);
 			if($d++ < 0) {
-				push(@Substrings, $A[$i]); next
+				push(@Substrings, $curr);
+				next
 			}
 			if($i == $#A) {
-				push(@Substrings, substr($A[$i], 0, $d)); next
+				push(@Substrings, substr($curr, 0, $d));
+				next
 			}
 			if($d >= $c) {
-				push(@Substrings, $A[$i]); next
+				push(@Substrings, $curr);
+				next
 			}
-			push(@Substrings, substr($A[$i], 0, $d) . substr($A[$i], $c))
+			push(@Substrings, substr($curr, 0, $d) . substr($curr, $c))
 		}
 		&PrintLine(1, '');
 		return ''
@@ -1010,13 +1013,13 @@ sub ProcessMultiline {
 	my $k = 0;
 	my $DoReplace = 1;
 	my $subs;
-	for($i = 1; $i < scalar(@A); $i += 2, ++$k) {
+	for(my ($i, $curr) = each(@A)) {
 		if($PlainReplace) {
 			$subs = $Replace
 		} else {
 			$subs = $Replacements[$k]
 		}
-		next if($A[$i] eq $subs);
+		next if($curr eq $subs);
 		my($p, $j);
 		for($j = $i - 1; $j >= 0; --$j) {
 			$p = &FindNewline($A[$j], -1);
@@ -1027,10 +1030,10 @@ sub ProcessMultiline {
 		}
 		$a = substr($A[$j], $p);
 		if(++$j < $i) {
-			$a = join('', $a, @A[$j..($i - 1)])
+			$a = join('', $a, @A[$j .. ($i - 1)])
 		}
 		@Substrings = ($a);
-		push(@Substrings, $A[$i]);
+		push(@Substrings, $curr);
 		for($j = $i + 1; $j < @A; ++$j) {
 			$p = &FindNewline($A[$j], 1);
 			if($p >= 0) {
@@ -1052,7 +1055,10 @@ sub ProcessMultiline {
 			$Changed = 1;
 			$A[$i] = $subs
 		}
-		last if($AskForReplace < 0)
+		if($AskForReplace < 0) {
+			keys(@A);  # reset "each" counter
+			last
+		}
 	}
 	$Changed
 }
@@ -1197,11 +1203,11 @@ my @Files = ();
 if($Recurse) {
 	if(@ARGV) {
 		my $changed = 1;
-		for(my $i = 0; $i < scalar(@ARGV); ++$i) {
-			$_ = $ARGV[$i];
+		for my $i (@ARGV) {
+			$_ = $i;
 			s{([./^\$()])}{\\$1}g;
 			if(!s{([?*])}{.$1}g) { # If we have no ? or * joker, test for [..]:
-				$ARGV[$i] = "^$_\$";
+				$i = "^$_\$";
 				if($changed && (!$Suppress)) { # No * or ? joker, but perhaps [...]?
 					s{\\\\}{}g; # First, eliminate quoted \ characters
 					s{\\\[}{}g; # Then,  eliminate quoted [ and ] charaters
@@ -1209,7 +1215,7 @@ if($Recurse) {
 					m{\[(.+)\]} or ($changed = '')
 				}
 			} else {
-				$ARGV[$i] = "^$_\$"
+				$i = "^$_\$"
 			}
 		}
 		die("error: probably forgotten quote (recurse without joker)\nStopped")
