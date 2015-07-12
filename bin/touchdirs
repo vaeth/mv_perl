@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Touchdirs v4.0.2;
+package Touchdirs v4.0.3;
 
 use warnings;
 use strict;
@@ -500,7 +500,7 @@ for my $currdir (@ARGV) {
 	}
 	File::Find::find({
 		bydepth => 1,
-		follows => $follow,
+		follow => $follow,
 		follow_skip => 2,
 		no_chdir => 1,
 		dangling_symlinks => '',
