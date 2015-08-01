@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Patchdirs v2.0.2;
+package Patchdirs v2.0.3;
 
 use warnings;
 use strict;
@@ -901,7 +901,7 @@ sub patchlist () {
 	for my $a (@copylist) {
 		my $to = $a->[1];
 		my $from = &thename($B[$a->[0]]);
-		my $froma = $FromName{$from};
+		my $froma = ($FromName{$from} // '');
 		$from = $froma if($froma ne '');
 		push(@CopyCmds, &shdash('cp -p -i', $from, $to));
 	}
@@ -959,8 +959,9 @@ sub patchlist () {
 				my $g = $Bfullname{$to};
 				if(defined($g)) {
 					my $checksum = undef;
-					if($g ne '')
-						{ $checksum = &thechecksum($B[$g]) }
+					if($g ne '') {
+						$checksum = &thechecksum($B[$g])
+					}
 					if(&isdircheck($checksum)) {
 						# We should move a file onto a yet existing directory:
 						my $tempname = &mktempname($to);
@@ -1236,8 +1237,5 @@ sub formatnice {
 	my ($f) = @_;
 	my ($name, $checksum, $mode, $owner, $time) = @$f;
 	join(' ', &shq($name),
-		(defined($time) ? $time : ()),
-		(defined($owner) ? $owner : ()),
-		(defined($mode) ? $mode : ()),
-		(defined($checksum) ? $checksum : ()))
+		$time // (), $owner // (), $mode // (), $checksum // ())
 }
