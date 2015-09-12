@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Patchdirs v2.0.3;
+package Patchdirs v2.0.4;
 
 use warnings;
 use strict;
@@ -112,7 +112,7 @@ existence of certain files (manipulate I<file> by hand).
 
 It is explicitly admissible to use this option repeatedly:
 The I<file>s are then concatenated. It is also admissible
-to pass a comma-separated list of filenames to this option.
+to pass a comma separated list of filenames to this option.
 As usual in Perl, if a filename is "-", standard input is used instead.
 If a filename occurs more than once within <file>, always the first
 occurence of this name is assumed to be the correct one.
@@ -131,9 +131,13 @@ the pattern B<*.pds>.
 
 A disadvantage compared to the B<--file> option is that another option
 (starting with the character B<->) B<must> follow to mark the end of
-the list. For this reason, it is not possible with this option to use
-a filename starting with the character B<-> (the only exception is the name
-B<-> itself which has the usual magic meaning).
+the list; if you have no other option to follows the list, you B<must> use
+B<--> to mark the end of the options.
+
+Obviously, it is not possible with this option to use a filename starting
+with the character B<-> (the only exception is the name B<-> itself
+which has the usual magic meaning).
+
 As with B<--file>, the character B<,> is considered as a separation character
 for several names.
 

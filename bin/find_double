@@ -1,44 +1,61 @@
 #!/usr/bin/env perl
 
-# double $Revision: 1.6 $ by Martin Väth
+# double $Revision: 1.7 $ by Martin Väth
 # martin@mvath.de
 
-# If the Environment-Variable path contains a '/', we assume that we are
+# If the Environment-Variable PATH contains a '/', we assume that we are
 # in a Unix-like environment. Otherwise, we assume we are in DOS.
 
-if($ENV{'PATH'} =~ /\// ) {
-	$unix = 1; $sep = "\/"
+if($ENV{'PATH'} =~ m{\/} ) {
+	$unix = 1;
+	$sep = '/'
 } else {
 	$sep = "\\"
 }
 
+sub warning {
+	print(STDERR "warning: ", @_, "\n")
+}
+
+sub error {
+	print(STDERR @_, "\n")
+}
+
+sub printdot {
+	print(STDERR @_);
+}
+
+sub fatal {
+	&error(@_);
+	exit(1)
+}
+
 sub help {
-	$0 =~ /([^\/]*)$/; print <<"EOHELP";
-Usage: $1 [Option] ... [Option]  FILENAMES [@ SECONDLIST]
+	$0 =~ m{([^\/]*)$};
+	print("Usage: $1 [Option] ... [Option]  FILENAMES [\@ SECONDLIST]
 Purpose: Print all files from FILENAMES which are double (ALL coincidences!).
 By default, two files are considered as equal, if their content is the same.
-If [@ SECONDLIST] is given, FILENAMES are also checked whether they occur in
+If [\@ SECONDLIST] is given, FILENAMES are also checked whether they occur in
 SECONDLIST (only the first coincidence in SECONDLIST is output for each match).
 Options:
 -b report as double if file is only first part of another
--N require for equality also that the filenames (without path) are the same.
--t require also that the (last modification) filestamps are the same.
--d do not check the content of the files, only consider their length.
--n do not even check the length (implies -N and -d); the files need not exist.
+-N require for equality also that the filenames (without path) are the same
+-t require also that the (last modification) filestamps are the same
+-d do not check the content of the files, only consider their length
+-n do not even check the length (implies -N and -d); the files need not exist
 -p as -n, but require additionally that even the paths of the files coincide
-   (different notations for the same paths are not considered as equal).
--f ignore files which are not readable by effective user.
--v be verbose and print progress dots (on STDERR).
--V be verbose but do not print progress dots (on STDERR).
--\@ MAGIC: Use MAGIC in place of \@ as the magic filename to separate the lists.
--a use an alternative algorithm which preserves the order (much slower!).
+   (different notations for the same paths are not considered as equal)
+-f ignore files which are not readable by effective user
+-v be verbose and print progress dots (on STDERR)
+-V be verbose but do not print progress dots (on STDERR)
+-\@ MAGIC: Use MAGIC in place of \@ as the magic filename to separate the lists
+-a use an alternative algorithm which preserves the order (much slower!)
 -x use external diff/comp program to do the comparison
    (may be faster if there are long files with the same length and which
    differ only near the end). Sadly, this switch implies -a (Reason: The faster
    algorithm requires some implicit information which is not provided by diff),
--s Read additional parameters (i.e. filenames) from standard input.
--- last option.
-EOHELP
+-s Read additional parameters (i.e. filenames) from standard input
+-- last option.");
 	exit
 }
 
@@ -46,41 +63,61 @@ $magic = '@';
 &help() unless(@ARGV);
 
 sub readarg {
-	$optarg = $optrest; $optrest = '';
-	if($optarg eq '') {
-		$optarg = shift(@ARGV)
-	}
+	$optarg = $optrest;
+	$optrest = '';
+	$optarg = shift(@ARGV) if($optarg eq '')
 }
 
-optparse:while($ARGV[0] =~ /^-(.)(.*)$/) {
+optparse:while($ARGV[0] =~ m{^-(.)(.*)$}) {
 	shift(@ARGV);
 	while($1 ne '') {
-		$optlett = $1; $optrest = $2;
-		if   ($optlett eq 'N'){ $nametest = 1; $pathtest = '' }
-		elsif($optlett eq 't'){ $timetest = 1 }
-		elsif($optlett eq 'b'){ $beginning = 1; $nodiff = $nolength = '' }
-		elsif($optlett eq 'd'){ $nodiff = 1; $nolength = '' }
-		elsif($optlett eq 'n'){ $nolength = $nodiff = $nametest = $nodisk = 1; $beginning = $pathtest = '' }
-		elsif($optlett eq 'p'){ $nolength = $nodiff = $nametest = $pathtest = 1; $beginning = '' }
-		elsif($optlett eq 'f'){ $ignorebad = 1 }
-		elsif($optlett eq 'v'){ $verbose = $showdot = 1 }
-		elsif($optlett eq 'V'){ $verbose = 1; $showdot = '' }
-		elsif($optlett eq '@'){ &readarg(); $magic = $optarg }
-		elsif($optlett eq 'a'){ $bubble = 1 }
-		elsif($optlett eq 's'){ $standardin = 1 }
-		elsif($optlett eq 'x'){ $bubble = $extern = 1 }
-		elsif($optlett =~ /[hH?]/){ &help() }
-		elsif($optlett eq '-') {
+		$optlett = $1;
+		$optrest = $2;
+		if($optlett eq 'N') {
+			$nametest = 1;
+			$pathtest = ''
+		} elsif($optlett eq 't') {
+			$timetest = 1
+		} elsif($optlett eq 'b') {
+			$beginning = 1;
+			$nodiff = $nolength = ''
+		} elsif($optlett eq 'd') {
+			$nodiff = 1;
+			$nolength = ''
+		} elsif($optlett eq 'n') {
+			$nolength = $nodiff = $nametest = $nodisk = 1;
+			$beginning = $pathtest = ''
+		} elsif($optlett eq 'p') {
+			$nolength = $nodiff = $nametest = $pathtest = 1;
+			$beginning = ''
+		} elsif($optlett eq 'f') {
+			$ignorebad = 1
+		} elsif($optlett eq 'v') {
+			$verbose = $showdot = 1
+		} elsif($optlett eq 'V') {
+			$verbose = 1; $showdot = ''
+		} elsif($optlett eq '@') {
+			&readarg();
+			$magic = $optarg
+		} elsif($optlett eq 'a') {
+			$bubble = 1
+		} elsif($optlett eq 's'){
+			$standardin = 1
+		} elsif($optlett eq 'x'){
+			$bubble = $extern = 1
+		} elsif($optlett =~ m{[hH?]}){
+			&help()
+		} elsif($optlett eq '-') {
 			if($optrest eq '') {
 				last optparse
 			} elsif(($optrest =~ /^h(elp)?$/i) || ($optrest eq '?')) {
 				&help()
 			} else {
-				die "Illegal option: --$optrest\nStopped"
+				&fatal("illegal option: --" . $optrest)
 			}
 			last
 		} else {
-			die "Illegal option: $optlett\nStopped"
+			die("illegal option: -" . $optlett)
 		}
 		last unless($optrest =~ /^(.)(.*)$/)
 	}
@@ -88,7 +125,8 @@ optparse:while($ARGV[0] =~ /^-(.)(.*)$/) {
 
 if($standardin) {
 	while(<STDIN>) {
-		chomp; push(@ARGV, $_)
+		chomp();
+		push(@ARGV, $_)
 	}
 }
 
@@ -108,40 +146,38 @@ for($i = 0; $i < scalar(@ARGV); ++$i) {
 }
 
 if($showdot) {
-	$| = 1; $dotcount = 0
+	$| = 1;
+	$dotcount = 0
 }
 if($verbose) {
 	$i = $lastfile + 1;
-	print STDERR "Number of files: $i\n";
+	&error('Number of files: ' . $i);
 	if($withmagic) {
 		$i = $#ARGV - $i;
-		print STDERR "Number of files to check against: $i\n";
-		print STDERR "Total number of files: $#ARGV\n"
+		&error('Number of files to check against: ' . $i);
+		&error('Total number of files: ' . $#ARGV)
 	}
 }
 
 # Read the filelength into @size and
 # mark @badfile if file does not exist or is not readable
 
-if((!$nolength) || ($timetest) || ($ignorebad)) {
+if((!$nolength) || $timetest || $ignorebad) {
 	for($i = $#ARGV; $i >= 0; --$i) {
 		if($i != $lastfile + 1) { # ignore the magic index
-			if((!$nodisk) && (-f "$ARGV[$i]")) {
-				unless($nolength) {
-					$size[$i] = (-s $ARGV[$i])
-				}
+			if((!$nodisk) && (-f $ARGV[$i])) {
+				$size[$i] = (-s $ARGV[$i]) unless($nolength);
 				if($ignorebad) {
-					unless(-r "$ARGV[$i]") {
-						$badfile[$i] = 1
-					}
+					$badfile[$i] = 1 unless(-r $ARGV[$i])
 				}
 			} else {
-				$size[$i] = -1; $badfile[$i] = 1
+				$size[$i] = -1;
+				$badfile[$i] = 1
 			}
 			if($showdot) {
 				if(++$dotcount >= 100) {
 					$dotcount = 0;
-					print STDERR "-";
+					&printdot('-');
 					$wasdot = 1;
 				}
 			}
@@ -150,23 +186,23 @@ if((!$nolength) || ($timetest) || ($ignorebad)) {
 }
 
 sub flushdot {
-	if($wasdot) {
-		print STDERR "\n"; $wasdot = ''
-	}
+	return unless($wasdot);
+	&printdot("\n");
+	$wasdot = ''
 }
-#&flushdot;
+#&flushdot();
 
 # The following function compares the names (=arguments without paths)
 # alphanumerically (-1, 0, 1 is returned when name_1 <, =, > name_2)
 
-# In perl 5, one should better use my() in place of local(), but I want
+# In perl 5, one should better use "my" in place of "local", but I want
 # to run the program also with perl 4.
 
 sub namecomp {
-	local($n1, $n2) = @_;
-	$n1 =~ s/^.*$sep//o;
-	$n2 =~ s/^.*$sep//o;
-	return("$n1" cmp "$n2")
+	local ($n1, $n2) = @_;
+	$n1 =~ s{^.*$sep}{}o;
+	$n2 =~ s{^.*$sep}{}o;
+	$n1 cmp $n2
 }
 
 # The following function compares the timestamps of the files corresponding
@@ -174,11 +210,11 @@ sub namecomp {
 # (-1, 0, 1 is returned when time_1 <, =, > time_2)
 
 sub timecomp {
-	local(@A, $time);
+	local (@A, $time);
 	@A = stat($ARGV[$a]);
 	$time = $A[9];
 	@A = stat($ARGV[$b]);
-	return($A[9] <=> $time)
+	$A[9] <=> $time
 }
 
 # There are two independent algorithms:
@@ -190,36 +226,22 @@ sub timecomp {
 # This function uses the external programs diff/comp to decide this.
 
 sub isequalextern {
-	if(($badfile[$a])||($badfile[$b])) {
-		return ''
-	}
-	if($ARGV[$a] eq $ARGV[$b]) {
-		return 1
-	}
-	if($nametest) {
-		if($pathtest) {
-			return ''
-		}
-		if((&namecomp($ARGV[$a], $ARGV[$b])) != 0) {
-			return ''
-		}
-	}
+	return '' if(($badfile[$a]) || ($badfile[$b]));
+	return 1 if($ARGV[$a] eq $ARGV[$b]);
+	return '' if($nametest && ($pathtest ||
+			((&namecomp($ARGV[$a], $ARGV[$b])) != 0)));
 	unless($nolength) {
-		if($size[$a] != $size[$b]) {
-			return ''
-		}
+		return '' if($size[$a] != $size[$b]);
 		unless($nodiff) {
 			if($unix) {
-				return '' if(system("diff -q \"$ARGV[$a]\" \"$ARGV[$b]\" >/dev/null"));
+				return '' if(system('diff', '-q', '--',
+					$ARGV[$a], $ARGV[$b]));
 			} else {
 				return '' if(system("comp $ARGV[$a] $ARGV[$b] >nul"));
 			}
 		}
 	}
-	if($timetest) {
-		return '' if((&timecomp) != 0);
-	}
-	return 1
+	($timetest && ((&timecomp()) != 0)) ? '' : 1
 }
 
 # For the sort comparison algorithm, we need a smarter comparison function
@@ -254,23 +276,18 @@ sub compare {
 	if(($showdot) && ($sorting)) {
 		if(++$dotcount > 100) {
 			$dotcount = 0;
-			print STDERR '.';
+			&printdot('.');
 			$wasdot = 1
 		}
 	}
 	if($badfile[$a]) {
-		if(($sorting) && ($badfile[$b]))
-			{ return($a <=> $b) }
+		return($a <=> $b) if(($sorting) && ($badfile[$b]));
 		return 1
 	}
-	if($badfile[$b]) {
-		return(-1)
-	}
+	return (-1) if($badfile[$b]);
 	if($ARGV[$a] ne $ARGV[$b]) {
 		if($nametest) {
-			if($pathtest) {
-				return($ARGV[$a] cmp $ARGV[$b])
-			}
+			return($ARGV[$a] cmp $ARGV[$b]) if($pathtest);
 			if(($rcomp = &namecomp($ARGV[$a], $ARGV[$b])) !=0) {
 				return $rcomp
 			}
@@ -281,20 +298,18 @@ sub compare {
 			}
 			unless($nodiff) {
 				unless(open(FA, '<', $ARGV[$a])) {
-					&flushdot;
-					print STDERR "Warning: Cannot open file $ARGV[$a] but system claimed contrary\n";
+					&flushdot();
+					&warning("cannot open file $ARGV[$a] but system claimed contrary");
 					$badfile[$a] = 1
 				}
 				unless(open(FB, '<', $ARGV[$b])) {
-					&flushdot;
-					print STDERR "Warning: Cannot open file $ARGV[$b] but system claimed contrary\n";
+					&flushdot();
+					&warning("cannot open file $ARGV[$b] but system claimed contrary");
 					$badfile[$b] = 1
 				}
 				if($badfile[$a]) {
 					if($badfile[$b]) {
-						if($sorting) {
-							return($a <=> $b)
-						}
+						return($a <=> $b) if($sorting)
 					} else {
 						close(FB)
 					}
@@ -302,17 +317,19 @@ sub compare {
 				}
 				if($badfile[$b]) {
 					close(FA);
-					return(-1)
+					return (-1)
 				}
-				binmode(FA); binmode(FB);
-				local($A, $B);
+				binmode(FA);
+				binmode(FB);
+				local ($A, $B);
 				while(($aread = read(FA, $A, 1024))>0) {
 					$bread = read(FB, $B, 1024);
 					if($bread != $aread) {
 						unless($beginning) {
-							&flushdot;
-							print STDERR "warning: length of $ARGV[$a] or $ARGV[$b] changed\n";
-							close(FB); close(FA);
+							&flushdot();
+							warning("length of $ARGV[$a] or $ARGV[$b] changed");
+							close(FB);
+							close(FA);
 							return ($aread <=> $bread)
 						}
 						if($aread < $bread) {
@@ -320,12 +337,14 @@ sub compare {
 						} elsif($bread > 0) {
 							$A = substr($A, 0, $bread)
 						} else {
-							close(FB); close(FA);
+							close(FB);
+							close(FA);
 							return 0
 						}
 					}
 					if(($rcomp = ($A cmp $B)) != 0) {
-						close(FB); close(FA);
+						close(FB);
+						close(FA);
 						return $rcomp
 					}
 				}
@@ -335,22 +354,19 @@ sub compare {
 				}
 				close(FB);
 				if((!$beginning) && ($bread > 0)) {
-					&flushdot;
-					print STDERR "warning: length of $ARGV[$a] and $ARGV[$b] changed\n";
+					&flushdot();
+					&warning("length of $ARGV[$a] and $ARGV[$b] changed");
 					return (0 <=> $bread)
 				}
 			}
 		}
 		if($timetest) {
-			if(($rcomp = &timecomp) != 0) {
+			if(($rcomp = &timecomp()) != 0) {
 				return $rcomp
 			}
 		}
 	}
-	if($sorting) {
-		return($a <=> $b)
-	}
-	return 0
+	$sorting ? ($a <=> $b) : 0
 }
 
 # The following function requires that
@@ -359,10 +375,7 @@ sub compare {
 # external programs are used only if $extern is set.
 
 sub isequal {
-	if($extern) {
-		return &isequalextern()
-	}
-	return(&compare == 0)
+	$extern ? &isequalextern() : (&compare() == 0)
 }
 
 # The next function performs the bubble-comparison.
@@ -372,47 +385,42 @@ sub isequal {
 # parameters in &isequal (and its subfunctions)
 
 sub bubble {
-	for($a = 0; $a<= $lastfile; ++$a) {
+	for($a = 0; $a <= $lastfile; ++$a) {
 		unless($double[$a]) {
 			$foundpair = '';
-			for($b = $a + 1; $b <= $#ARGV; ++$b) {
+			for($b = $a + 1; $b < scalar(@ARGV); ++$b) {
 				unless($double[$b]) {
 					if(&isequal) {
 						unless($foundpair) {
 							$foundpair = 1;
-							if($wasdot) {
-								print STDERR "\n"
-							}
+							&flushdot();
 							if($b <= $lastfile) {
-								print "Double: $ARGV[$a]"
+								print('Double: ', $ARGV[$a])
 							} else {
-								print "Match:	$ARGV[$a]"
+								print("Match:\t", $ARGV[$a])
 							}
-							$double[$a] = 1;
+							$double[$a] = 1
 						} elsif($b > $lastfile) {
-							print " and"
+							print ' and'
 						}
 						$double[$b] = 1;
-						if($b>$lastfile) {
-							print " matches with $ARGV[$b]";
+						if($b > $lastfile) {
+							print(' matches with ', $ARGV[$b]);
 							last # print only the first occurence in SECONDLIST
 						}
-						print " $ARGV[$b]"
+						print(' ', $ARGV[$b])
 					}
 				}
 			}
 			if($foundpair) {
-				print "\n";
-				$wasdot = ''
+				&flushdot()
 			} elsif($showdot) {
-				print STDERR '.';
+				&printdot('.');
 				$wasdot = 1
 			}
 		}
 	}
-	if($wasdot) {
-		print STDERR "\n"
-	}
+	&flushdot()
 }
 
 # The following function performs a binary search on the array @index.
@@ -420,22 +428,21 @@ sub bubble {
 # where $j denotes a temporary index to compare with; the return value should
 # be <, =, > 0 if the entry corresponding to index $j is <, =, > than the search.
 # (Recall that in our case &compare compares $a with $b;
-#  thus we actually search for the file corresponding to index $b).
-# Returns -1 if search was unsuccesfull,  otherwise it returns the LARGEST index
+# thus we actually search for the file corresponding to index $b).
+# Returns -1 if search was unsuccesful, otherwise it returns the LARGEST index
 # with equality.
 
 sub binsearch {
-	local($l, $r, $m, $c, $ret);
+	local ($l, $r, $m, $c, $ret);
 	$ret = -1;
 	for($l = 0, $r = $#index; $l <= $r; ) {
-		$m = int(($l+$r)/2); # Find the middle; for odd sizes it is not important
-		                     # which of the two middle elements is chosen
-		$a = $index[$m]; $c = &compare; # Compare entry of index $m with search
+		$m = int(($l + $r) / 2); # Find the middle; for odd sizes it is not important
+		                         # which of the two middle elements is chosen
+		$a = $index[$m];
+		$c = &compare(); # Compare entry of index $m with search
 		if($c <= 0) {
 			$l = $m + 1;
-			if($c == 0) {
-				$ret = $m
-			}
+			$ret = $m if($c == 0)
 		} else { # $c > 0
 			$r = $m - 1
 		}
@@ -445,7 +452,7 @@ sub binsearch {
 		# If we would have wanted to return SOME index (and gain speed), we could
 		# just return with $m as soon as we have equality.
 	}
-	return $ret
+	$ret
 }
 
 # The following function performs the tricky sort comparison.
@@ -463,9 +470,9 @@ sub tricky {
 		$index[$i] = $i
 	}
 	$sorting = 1;
-	@index = sort compare @index;
+	@index = sort { &compare() } @index;
 	$sorting = '';
-	#&flushdot;
+	#&flushdot();
 
 	# Now we "sort in" all names ($b) of SECONDLIST with a binary search:
 	# If there is no match, we are done with the corresponding index $b.
@@ -476,17 +483,15 @@ sub tricky {
 		if($showdot) {
 			if(++$dotcount >= 100) {
 				$dotcount = 0;
-				print STDERR ',';
+				&printdot(',');
 				$wasdot = 1
 			}
 		}
 		if(($i = &binsearch) >= 0) {
-			unless($double[$index[$i]]>0) {
-				$double[$index[$i]] = $b
-			}
+			$double[$index[$i]] = $b unless($double[$index[$i]] > 0)
 		}
 	}
-	&flushdot;
+	&flushdot();
 
 	# It now remains to step once through the sorted list:
 	# We only have to check whether successive files are double or
@@ -500,38 +505,33 @@ sub tricky {
 			if(&compare == 0) {
 				unless($foundpair) {
 					$foundpair = 1;
-					print "Double: $ARGV[$a]"
+					print('Double: ', $ARGV[$a])
 				}
-				print " $ARGV[$b]"
+				print(' ', $ARGV[$b])
 			} elsif($foundpair) {
 				$foundpair = '';
-				print "\n"
+				print("\n")
 			}
 		}
-		if($double[$b]>0) { # If we have a match with SECONDLIST:
+		if($double[$b] > 0) { # If we have a match with SECONDLIST:
 			unless($foundpair) {
-				print "Match:	$ARGV[$b]"
+				print("Match:\t", $ARGV[$b])
 			} else {
-				print " and"
+				print(' and')
 			}
-			print " matches with $ARGV[$double[$b]]\n";
+			print(' matches with ', $ARGV[$double[$b]], "\n");
 			# Since this is the highest index that matches,
 			# we do not need to compare with current index in the next loop:
-			$a = -1; $foundpair = ''
+			$a = -1;
+			$foundpair = ''
 		} else {
 			$a = $b
 		}
 	}
-	if($foundpair) {
-		print "\n"
-	}
+	print("\n") if($foundpair)
 }
 
 # Now the "main" program:
 # We call either &bubble or &tricky, depending on the arguments.
 
-if($bubble) {
-	&bubble()
-} else {
-	&tricky()
-}
+$bubble ? &bubble() : &tricky();

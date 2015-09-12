@@ -6,8 +6,8 @@ _arguments -C -s -S -A '-*' : \
 '(1 * -)'{'--man','-\\?'}'[show extended help as a manpage]' \
 '(1 * -)'{'--version','-V'}'[print version]' \
 {'(--quiet)-q','(-q)--quiet'}'[quiet]' \
-{'(--file)-f+','(-f)--file='}'[read in addition from file]:file:_files' \
-{'(--files)-i+','(-i)--files='}'[read in addition from files]:*:file:_files' \
+{'*-f+','*--file='}'[read in addition from file]:file:_files' \
+{'*-i+','*--files='}'[read in addition from files]:*:file:_files' \
 {'(--sum-cmds)-S+','(-s)--sum-cmds='}'[commands for summing separated by ";"]:sum-commands:(.)' \
 {'(--strip)-p+','(-p)--strip='}'[cut first num "/" levels]:strip-num:(0)' \
 {'(--output-strip)-P+','(-P)--output-strip='}'[cut first num "/" levels for output]:output-strip-num:(0)' \
