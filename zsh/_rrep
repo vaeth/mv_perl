@@ -16,6 +16,6 @@ _arguments -S -A '-*' : \
 '-f+[Read "Search" and "Replace" from FILE]:file containing search/replace:_files' \
 '-w[Print warning if "Search" or "Replace" have been modified]' \
 '-V[Be verbose (implies -w)]' \
-'1:search: ' \
-'2:replace: ' \
+'1:search:_files' \
+'2:replace:_files' \
 '*:files:_files'

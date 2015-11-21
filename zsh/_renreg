@@ -15,6 +15,6 @@ _arguments -S -A '-*' : \
 '-v[be verbose]' \
 '-V[be very verbose]' \
 '-@[define magic filename]:magic-filename:(@)' \
-'1:from: ' \
-'2:to: ' \
+'1:from:_files' \
+'2:to:_files' \
 '*:files:_files'

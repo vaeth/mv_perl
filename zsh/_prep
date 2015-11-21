@@ -23,5 +23,5 @@ _arguments -S -A '-*' : \
 '-w[print only lines where the match is a complete word]' \
 '-x[print only lines where the match is a whole line]' \
 {'(-Z)-z','(-z)-Z'}'[ignore/do not list z .Z .gz .tar ...]' \
-'1:search: ' \
+'1:search:_files' \
 '*:files:_files'

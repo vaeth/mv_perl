@@ -25,6 +25,6 @@ _arguments -s -S -A '-*' : \
 {'(--keeptimestamp)-k','(-k)--keeptimestamp'}'[keep filestamps]' \
 {'(--truncate)-t+','(-t)--truncate='}'[truncate to NUM symbols]:truncate-number:(+78)' \
 {'(--Truncate --shift)-T+','(--shift -T)--Truncate=','(--Truncate -T)--shift='}'[show at least NUM symbols from b/e]:number of symbols to show from b/e:(b40 e40)' \
-'1:search: ' \
-'2:replace: ' \
+'1:search:_files' \
+'2:replace:_files' \
 '*:files:_files'
