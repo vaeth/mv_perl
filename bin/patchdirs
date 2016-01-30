@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Patchdirs v2.0.4;
+package Patchdirs v2.0.5;
 
 use warnings;
 use strict;
@@ -1206,15 +1206,17 @@ sub printdoubles {
 	my @finallist = ();
 	my @doubles = ();
 	my $prevc = 'dir';
-	while(my ($i, $c) = each(@A)) {
-		if(($c eq $prevc) && (&isordinary($c))) {
-			push(@doubles, &thename($A[$i - 1])) unless(@doubles);
-			push(@doubles, &thename($A[$i]))
+	my $prevn = undef;
+	for my $f (@A) {
+		my ($c, $n) = (&thechecksum($f), &thename($f));
+		if(($c eq $prevc) && (&isordinary($f))) {
+			push(@doubles, $prevn) unless(@doubles);
+			push(@doubles, $n)
 		} elsif(@doubles) {
 			&pushsorted(\@finallist, \@doubles);
 			@doubles = ()
 		}
-		$prevc = $c
+		($prevc, $prevn) = ($c, $n)
 	}
 	&pushsorted(\@finallist, \@doubles) if(@doubles);
 	for my $doublist (sort { $a->[0] cmp $b->[0] } @finallist) {
