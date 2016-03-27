@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Touchdirs v4.0.3;
+package Touchdirs v4.1.0;
 
 use warnings;
 use strict;
@@ -80,6 +80,10 @@ Ignore .* dirs. Equivalent to B<--ignore=/\..+/>
 
 Ignore .* files. Equivalent to B<--ignore=/\.[^/]+\z>
 
+=item B<--empty-ignore>, B<--empty> or B<-e>
+
+Ignore empty directories
+
 =item B<--dot>
 
 Ignore .* files/dirs. Equivalent to B<--ignore=/\.> or to B<-dD>
@@ -142,6 +146,7 @@ my $rounding = '';
 my $roundread = '';
 my $show = '';
 my $follow = '';
+my $emptyignore = '';
 my $quiet = 0;
 my @exclude = ();
 my @iexclude = ();
@@ -290,8 +295,9 @@ sub my_amtime {
 }}
 
 sub dotouch {
-	if(-d $_) {
-		return if($follow || !(-l $_));
+	if((-d $_) && ($follow || !(-l $_))) {
+		return if($emptyignore || exists($DIR{$_}));
+		&printcomment('empty directory:', $_) unless($quiet)
 	}
 	if(&exclude($_)) {
 		&printcomment('ignored:', $_) unless($quiet);
@@ -417,6 +423,9 @@ Getopt::Long::GetOptions(
 	'show|dry-run|s|n', \$show,
 	'quiet|q+', \$quiet,
 	'check|c', \$check,
+	'empty|empty-ignore|e', \$emptyignore,
+	'noempty|no-empty|noempty-ignore|no-emptyignore',
+		sub { $emptyignore = '' },
 	'follow-link|F', \$follow,
 	'nofollow-link|no-follow-link', sub { $follow = '' }
 ) or &pod2usage(2);
@@ -507,8 +516,7 @@ for my $currdir (@ARGV) {
 		wanted => \&dotouch
 	}, $topdir);
 	my @DIR = sort {
-		my $x = $DIR{$a};
-		my $y = $DIR{$b};
+		my ($x, $y) = ($DIR{$a}, $DIR{$b});
 		($y->[2] cmp $x->[2]) || ($y->[3] cmp $x->[3])
 	} keys(%DIR);
 	for my $dir (@DIR) {
