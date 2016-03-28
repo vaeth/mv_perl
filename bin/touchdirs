@@ -157,6 +157,7 @@ our $VERSION;
 my $name = 'touchdirs';
 my $hires_write;
 my %DIR;
+my %PARENT;
 my $count;
 my @topdirs;
 my $lutimes = undef;
@@ -295,8 +296,11 @@ sub my_amtime {
 }}
 
 sub dotouch {
+	if(defined($File::Find::dir) && ($File::Find::dir ne $_)) {
+		$PARENT{$File::Find::dir} = 1
+	}
 	if((-d $_) && ($follow || !(-l $_))) {
-		return if($emptyignore || exists($DIR{$_}));
+		return if($emptyignore || exists($PARENT{$_}));
 		&printcomment('empty directory:', $_) unless($quiet)
 	}
 	if(&exclude($_)) {
@@ -507,6 +511,7 @@ for my $currdir (@ARGV) {
 		&dotouch();
 		next
 	}
+	%PARENT = ();
 	File::Find::find({
 		bydepth => 1,
 		follow => $follow,
