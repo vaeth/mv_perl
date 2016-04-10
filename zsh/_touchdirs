@@ -5,7 +5,8 @@ _arguments -s -S : \
 '(* -)'{'--version','-V'}'[print version]' \
 {'--ignore=','-i+'}'[ignore regexp path]:regexp:(/ "/[^/]*\$")' \
 {'--ignore-case=','-I+'}'[ignore regexp path, ignoring case]:regexp:(/ "/[^/]*\$")' \
-'*-q[quiet for ignored files/and commands]' \
+'*'{'--quiet','-q'}'[quiet for ignored files/and commands]' \
+{'(-v)--verbose','(--verbose)-v'}'[inform about empty dirs]' \
 {'(-A)--access','(--access)-A'}'[let access time equal mtime]' \
 '(-a --all '{'-f)--force','--force)-f'}'[force touching dirs]' \
 '(-r --round -R --roundread)--rounding[round dir timestamps to seconds]' \

@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Touchdirs v4.2.0;
+package Touchdirs v4.2.1;
 
 use warnings;
 use strict;
@@ -111,6 +111,10 @@ If combined with B<--quiet> do not output anything.
 
 Only show what would be done, do not alter anything.
 
+=item B<--verbose> or B<-v>
+
+Inform about empty directories.
+
 =item B<--version> or B<-V>
 
 Print version number
@@ -148,6 +152,7 @@ my $show = '';
 my $follow = '';
 my $emptyignore = '';
 my $quiet = 0;
+my $verbose = 0;
 my @exclude = ();
 my @iexclude = ();
 
@@ -301,7 +306,7 @@ sub dotouch {
 	}
 	if((-d $_) && ($follow || !(-l $_))) {
 		return if($emptyignore || exists($PARENT{$_}));
-		&printcomment('empty directory:', $_) unless($quiet)
+		&printcomment('empty directory:', $_) if($verbose)
 	}
 	if(&exclude($_)) {
 		&printcomment('ignored:', $_) unless($quiet);
@@ -425,6 +430,7 @@ Getopt::Long::GetOptions(
 	'dot', sub { push(@exclude, qr{/\.}) },
 	'git|g', sub { push(@exclude, qr{/\.git/}) },
 	'show|dry-run|s|n', \$show,
+	'verbose|v', \$verbose,
 	'quiet|q+', \$quiet,
 	'check|c', \$check,
 	'empty|empty-ignore|e', \$emptyignore,
@@ -475,12 +481,11 @@ unless($roundread) {
 			($atime, $mtime) = &my_amtime(File::Spec->curdir());
 			&fatal('stat() appears to be corrupted by Time::Hires',
 				'You might want to retry with option -R')
-				if(($atime < 1000000) ||
+				if((int($atime) < 1000000) ||
 					(int($mtime) < 1000000));
 			&warning(@err, 'Forcing option -R')
 		} elsif($check) {
-			&info('Time::Hires appears to work')
-				unless($quiet);
+			&info('Time::Hires appears to work') unless($quiet);
 			exit(0)
 		}
 	}
