@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Touchdirs v4.1.0;
+package Touchdirs v4.2.0;
 
 use warnings;
 use strict;
@@ -423,7 +423,7 @@ Getopt::Long::GetOptions(
 	'dotdir|d', sub { push(@exclude, qr{/\..+/}m) },
 	'dotfile|D', sub { push(@exclude, qr{/\.[^/]+\z}m) },
 	'dot', sub { push(@exclude, qr{/\.}) },
-	'git|g', sub { push(@exclude, qr'{\.git}') },
+	'git|g', sub { push(@exclude, qr{/\.git/}) },
 	'show|dry-run|s|n', \$show,
 	'quiet|q+', \$quiet,
 	'check|c', \$check,
