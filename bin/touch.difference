@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package TouchDifference v2.0.1;
+package TouchDifference v2.0.2;
 
 use strict;
 use integer;
@@ -127,7 +127,7 @@ sub version {
 
 sub pod2usage {
 	require Pod::Usage;;
-	Pod::Usage::pod2usage(@_)
+	&Pod::Usage::pod2usage
 }
 
 sub check_lutimes {

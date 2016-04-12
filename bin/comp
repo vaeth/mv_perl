@@ -1,15 +1,12 @@
 #!/usr/bin/env perl
+require 5.012;
+package Comp v2.6.1;
+
+use warnings;
 use strict;
 use integer;
-use Getopt::Long;
-use Pod::Usage;
-
-sub version {
-	'$Revision: 2.6 $ '=~ m{Revision:\s([^\s]*)};
-	print("comp v$1 by Martin Väth\n"
-	.    "martin\@mvath.de\n");
-	exit(0)
-}
+use Getopt::Long 2.24 ();
+#use Pod::Usage ();
 
 =head1 NAME
 
@@ -124,6 +121,9 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 =cut
 
+# Global Variables
+
+our $VERSION;
 my $blocksize = 512 * 1024;
 my $sepstring = '';
 my $sepstringdefault = ': ';
@@ -152,10 +152,10 @@ my $verbose = '';
 
 # Parse Options:
 
-$Getopt::Long::bundling = 1;
-GetOptions(
-	'help|h', sub { pod2usage(1) },
-	'man|?', sub { pod2usage(-verbose=>2) },
+Getopt::Long::Configure(qw(gnu_getopt));
+Getopt::Long::GetOptions(
+	'help|h', sub { &pod2usage(0) },
+	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
 	'version|V', \&version,
 	'down|d', \$nohighdir,
 	'norecurse|r', \$norecurse,
@@ -175,8 +175,8 @@ GetOptions(
 	'tex|x', \$texmode,
 	'debug|D', \$debug,
 	'verbose|v', \$verbose,
-) or pod2usage(2);
-pod2usage(2) unless(@ARGV);
+) or &pod2usage(2);
+&pod2usage(2) unless(@ARGV);
 
 $nodirtime = 1 if($notime);
 $pedantic = 1 if($toopedantic);
@@ -626,4 +626,14 @@ sub error {
 
 sub warn {
 	print('warning: ', @_, "\n")
+}
+
+sub version {
+	print('comp ', $VERSION, "\n");
+	exit(0)
+}
+
+sub pod2usage {
+	require Pod::Usage;;
+	&Pod::Usage::pod2usage
 }

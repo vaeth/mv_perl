@@ -1,14 +1,12 @@
 #!/usr/bin/env perl
+require 5.012;
+package SshConfig v1.7.1;
+
+use warnings;
 use strict;
 use integer;
-use Pod::Usage;
-use Getopt::Long;
-
-sub version { '$Revision: 1.7 $ ' =~ m{Revision:\s([^\s]*)};
-	print("sshconfig v$1 by Martin Väth\n"
-	 .    "martin\@mvath.de\n");
-	 exit(0)
-}
+use Getopt::Long 2.24 ();
+#use Pod::Usage ();
 
 =head1 NAME
 
@@ -112,6 +110,10 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 =cut
 
+# Global Variables
+
+our $VERSION;
+
 # Default for the Options:
 
 my $TrueHost = undef;
@@ -121,28 +123,28 @@ my $show = '';
 
 # Parse Options:
 
-$Getopt::Long::bundling = 1;
-GetOptions(
-	'help', sub { pod2usage(1) },
-	'man|?', sub { pod2usage(-verbose => 2) },
+Getopt::Long::Configure(qw(gnu_getopt));
+Getopt::Long::GetOptions(
+	'help|h', sub { &pod2usage(0) },
+	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
 	'version|V|v', \&version,
 	'ip|i=s', sub { $IPAddress = $_[1] },
 	'host|h=s', sub { $TrueHost = $_[1] },
 	'delete|uninstall|d|u', \$uninstall,
 	'show|debug|n|s', \$show
-) or pod2usage(2);
+) or &pod2usage(2);
 
 # Parse Main argument:
 
-pod2usage('No hostname given') unless(@ARGV);
-my $hostname=shift(@ARGV);
-pod2usage('Only one hostname may be given') if(@ARGV);
+&pod2usage('no hostname given') unless(@ARGV);
+my $hostname = shift(@ARGV);
+&pod2usage('only one hostname can be given') if(@ARGV);
 
 # Set Variables according to all options:
 
 $TrueHost = $hostname unless defined($TrueHost);
 unless(defined($IPAddress)) {
-	print "Enter IP Address: " if(-t STDIN && -t STDOUT);
+	print('Enter IP Address: ') if(-t STDIN && -t STDOUT);
 	$IPAddress = <STDIN>;
 	chomp($IPAddress)
 }
@@ -262,4 +264,14 @@ if($show) {
 	open(my $fh, '>', $file) || die("cannot open $file for writing\nStopped");
 	print($fh $data)
 }
-exit 0
+exit(0);
+
+sub version {
+	print('sshconfig ', $VERSION, "\n");
+	exit(0)
+}
+
+sub pod2usage {
+	require Pod::Usage;;
+	&Pod::Usage::pod2usage
+}

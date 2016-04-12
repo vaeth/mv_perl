@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Touchdirs v4.2.1;
+package Touchdirs v4.2.2;
 
 use warnings;
 use strict;
@@ -381,7 +381,7 @@ sub shdash {
 }
 
 sub shprint {
-	print(&shdash(@_), "\n")
+	print(&shdash, "\n")
 }
 
 sub info {
@@ -407,7 +407,7 @@ sub version {
 
 sub pod2usage {
 	require Pod::Usage;;
-	Pod::Usage::pod2usage(@_)
+	&Pod::Usage::pod2usage
 }
 
 # Parse Options:

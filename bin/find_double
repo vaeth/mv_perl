@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# double $Revision: 1.7 $ by Martin Väth
+# double $Revision: 1.8 $ by Martin Väth
 # martin@mvath.de
 
 # If the Environment-Variable PATH contains a '/', we assume that we are
@@ -22,11 +22,11 @@ sub error {
 }
 
 sub printdot {
-	print(STDERR @_);
+	print(STDERR @_)
 }
 
 sub fatal {
-	&error(@_);
+	&error;
 	exit(1)
 }
 
@@ -178,7 +178,7 @@ if((!$nolength) || $timetest || $ignorebad) {
 				if(++$dotcount >= 100) {
 					$dotcount = 0;
 					&printdot('-');
-					$wasdot = 1;
+					$wasdot = 1
 				}
 			}
 		}

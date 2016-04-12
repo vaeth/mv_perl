@@ -1,18 +1,12 @@
 #!/usr/bin/env perl
+require 5.012;
+package RenDirs v5.8.1;
+
 use warnings;
 use strict;
 use integer;
-use Getopt::Long;
-use Pod::Usage;
-
-sub version { '$Revision: 5.8 $ ' =~ m{Revision:\s([^\s]*)};
-	print("RenDirs v$1 by Martin Väth\n"
-	 .    "martin\@mvath.de\n");
-	exit(0)
-}
-
-$0 =~ m{([^\/]*)$};
-my $script = $1;
+use Getopt::Long 2.24 ();
+#use Pod::Usage ();
 
 =head1 NAME
 
@@ -350,6 +344,10 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 =cut
 
+# Global variables:
+
+our $VERSION;
+
 # Default for the Options:
 
 my $original = '';
@@ -369,10 +367,10 @@ my $magicdots = '';
 
 # Parse Options:
 
-$Getopt::Long::bundling = 1;
-GetOptions(
-	'help|h', sub { pod2usage(1) },
-	'man|?', sub { pod2usage(-verbose => 2) },
+Getopt::Long::Configure(qw(gnu_getopt));
+Getopt::Long::GetOptions(
+	'help|h', sub { &pod2usage(0) },
+	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
 	'long!', \$original,
 	'l', \$original,
 	'nol', sub { $original = '' },
@@ -409,8 +407,8 @@ GetOptions(
 	'quiet!', \$quiet,
 	'q', \$quiet,
 	'version|V', \&version
-) or pod2usage(2);
-pod2usage(2) unless(@ARGV);
+) or &pod2usage(2);
+&pod2usage(2) unless(@ARGV);
 
 $showonly = 1 if($dryrun);
 
@@ -420,8 +418,7 @@ if($original) {
 } elsif($short) {
 	$mode = 1
 } elsif($lowercase || $uppercase) {
-	die "the options --uppercase or --lowercase must not be specified\n"
-	.   "unless also one of the options --short or --long is used.\nStopped"
+	&fatal('--uppercase or --lowercase invalid without --short or --long')
 }
 
 my @REVERSEACTION = ();
@@ -493,7 +490,7 @@ sub analyzelink {
 	if($n =~ m{\A(.*)\-\>(.*)\z}m) {
 		my($n, $l) = ($1, $2);
 		return($n, $l) unless($n eq '.');
-		print(STDERR "warning: magic name '.' must not be a link; ignoring ->$l\n")
+		&warn("magic name '.' must not be a link; ignoring ->$l")
 	}
 	($n, undef)
 }
@@ -663,21 +660,16 @@ sub action {
 	if($isdir) {
 		if(($deste < 0) || ($dryrun)) {
 			&setdirs($smyce, $smycef)
-		}
-		else {
+		} else {
 			&setdirs($dest, $destf)
 		}
 	}
 
 	# If required, we are now ready to return
 
-	if($isdir && $same && ($s eq '')) {
-		return
-	}
+	return if($isdir && $same && ($s eq ''));
 	if($dotonly) {
-		if(($smycee >= 0) && ($deste >= 0)) {
-			return
-		}
+		return if(($smycee >= 0) && ($deste >= 0))
 	}
 
 	# Now the action:
@@ -692,11 +684,9 @@ sub action {
 						&mylink($destl, $dest)
 					}
 				} else {
-					die("file/directory $dest already exists\nStopped")
-						unless($continue);
-					print(STDERR "warning: file/directory $dest already exists; not renaming\n")
+					&warn_or_fatal("file/directory $dest already exists");
 				}
-			} elsif($deste < 0) { # Destination is magic (then Smyce is nonmagic)
+			} elsif($deste < 0) {  # Destination is magic (then Smyce is nonmagic)
 				if($isdir) {
 					if($link && (-l $smyce)) {
 						push(@REVERSEACTION, [\&myunlink, $smyce])
@@ -705,18 +695,14 @@ sub action {
 					}
 				} elsif((-z $smyce) || ($link && (-l $smyce))) {
 					&myunlink($smyce)
+				} elsif($delete) {
+					&warn("deleting nonempty file $smyce");
+					&myunlink($smyce)
 				} else {
-					if($delete) {
-						print(STDERR "warning: deleting nonempty file $smyce\n");
-						&myunlink($smyce)
-					} else {
-						die("$script: nonempty file $smyce is not deleted\nStopped")
-							unless($continue);
-						print(STDERR "warning: nonempty file $smyce is not deleted\n")
-					}
+					&warn_or_fatal("nonempty file $smyce is not deleted")
 				}
-			} else { # Destination does not exist
-				if($smycee > 0) { # Smyce is nonmagic
+			} else {  # Destination does not exist
+				if($smycee > 0) {  # Smyce is nonmagic
 					if((!$link) || $samelink) {
 						&myrename($smyce, $dest)
 					} else {
@@ -724,61 +710,35 @@ sub action {
 							&myunlink($smyce);
 							&mylink($destl, $dest);
 						} else {
-							die "$script: File $smyce cannot be renamed into link $dest->$destl\nStopped"
-								unless($continue);
-							if($dest eq $smyce) {
-								print STDERR "warning: file $smyce is not turned into a link to $destl\n"
-							} else {
-								print STDERR "warning: file $smyce cannot be renamed into link $dest->$destl"
-							}
+							&warn_or_fatal(($dest eq $smyce) ?
+								"file $smyce is not turned into a link to $destl" :
+								"file $smyce cannot be renamed into link $dest->$destl")
 						}
 					}
-				} else { # Smyce is magic
+				} else {  # Smyce is magic
 					unless($link) {
 						if($isdir) {
 							&mymkdir($dest)
-						}
-						else {
+						} else {
 							&mytouch($dest)
 						}
-					}
-					else {
+					} else {
 						&mylink($destl, $dest)
 					}
 				}
 			}
 		}
-	} else { # Smyce does not exist (and is nonmagic):
-		my $msg;
-		if($mode) {
-			$msg = "File/Directory $smyce does not exist"
-		}
-		else {
-			$msg = "Neither $dest nor $smyce exists"
-		}
-		if($paranoia) {
-			die "$msg\nStopped"
-		}
-		print STDERR "warning: $msg\n"
+	} else {  # Smyce does not exist (and is nonmagic):
+		&fatal_or_warn($paranoia, $mode ?
+			"File/Directory $smyce does not exist" :
+			"Neither $dest nor $smyce exists")
 	}
 }
 
 sub errorunlessmode {
-	my($a) = @_;
-	if($mode) {
-		return
-	}
-	if($a) {
-		print STDERR "error"
-	}
-	else {
-		print STDERR "warning"
-	}
-	print STDERR " in line $.: "
-		. "none of the options --short -s --long -l is specified.\n";
-	if($a) {
-		die "Stopped"
-	}
+	return if($mode);
+	&fatal_or_warn($_[0], " line $.: ",
+		"none of the options --short -s --long -l is specified")
 }
 
 my $commentdepth = 0;
@@ -790,7 +750,7 @@ while(<>) {
 		next
 	}
 	if(m{^\s*\#\@\}}i) {
-		die "error in line $.: Closing comment without opening one\nStopped"
+		&fatal("line $.: ", 'closing comment without opening one')
 			unless($commentdepth);
 		--$commentdepth;
 		next
@@ -805,8 +765,7 @@ while(<>) {
 		next
 	}
 	if(m{^\s*\#\@requiremode}i) {
-		&errorunlessmode(1);
-		next
+		&errorunlessmode(1)
 	}
 	if(m{^\s*\#\@magicdots}i) {
 		$magicdots = 1;
@@ -859,15 +818,15 @@ while(<>) {
 			&action($A[0], $A[1])
 		}
 	} elsif($#A > 0) {
-		die "error in line $.: "
-		 . "more than two words are not allowed\n$currline\nStopped"
+		&fatal("line $.: ", 'more than two words are not allowed',
+			"\n", $currline)
 	}
 }
 while(@REVERSEACTION) {
 	my ($func, $arg) = @{pop(@REVERSEACTION)};
 	&$func($arg);
 }
-print(STDERR "warning: file ends with unclosed comment\n") if($commentdepth);
+&warn("file ends with unclosed comment") if($commentdepth);
 
 sub shq {
 	my ($a) = (@_);
@@ -891,5 +850,37 @@ sub shdash {
 }
 
 sub shprint {
-	print(&shdash(@_), "\n")
+	print(&shdash, "\n")
+}
+
+sub error {
+	print(STDERR 'rendirs: ', @_, "\n")
+}
+
+sub fatal {
+	&error;
+	exit(1)
+}
+
+sub warn {
+	print(STDERR 'warning: ', @_, "\n")
+}
+
+sub version {
+	print('rendirs ', $VERSION, "\n");
+	exit(0)
+}
+
+sub pod2usage {
+	require Pod::Usage;;
+	&Pod::Usage::pod2usage
+}
+
+sub warn_or_fatal {
+	$continue ? &warn : &fatal
+}
+
+sub fatal_or_warn {
+	my $a = shift();
+	$a ? &fatal : &warn
 }

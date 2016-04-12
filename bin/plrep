@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Plrep v2.13.6;
+package Plrep v2.13.7;
 
 use warnings;
 use strict;
@@ -536,7 +536,7 @@ sub version {
 
 sub pod2usage {
 	require Pod::Usage;;
-	Pod::Usage::pod2usage(@_)
+	&Pod::Usage::pod2usage
 }
 
 sub NormalExit {
@@ -898,23 +898,19 @@ sub ProcessSingleline {
 					$WillPrint = $After
 				}
 			} else {
-				if(&ChangeString($i)) {
-					$Changed = 1
-				}
-				if($AskForReplace<0) {
-					last
-				}
+				$Changed = 1 if(&ChangeString($i));
+				last if($AskForReplace < 0)
 			}
 		} elsif($WillPrint > 0) {
 			$LastPrinted = $i if($i > $LastPrinted);
 			--$WillPrint;
 			&PrintLine(0, $i, $Line)
 		} elsif(($Before > 0) && $GrepOnly) {
-			$A[$i%$Before] = $Line
+			$A[$i % $Before] = $Line
 		}
 	}
 	if($CountOnly && $FileMatches) {
-		print("$FileName: $FileMatches\n")
+		print($FileName, ': ', $FileMatches, "\n")
 	}
 	$TotalMatches += $FileMatches;
 	$Changed
@@ -999,7 +995,8 @@ sub ProcessMultiline {
 				push(@Substrings, $curr);
 				next
 			}
-			push(@Substrings, substr($curr, 0, $d) . substr($curr, $c))
+			push(@Substrings, substr($curr, 0, $d) .
+				substr($curr, $c))
 		}
 		&PrintLine(1, '');
 		return ''
@@ -1089,7 +1086,7 @@ sub FindNewline {
 
 sub ProcessFile {
 	$AskForReplace = ($AlwaysReplace ? 0 : 1);
-	$Multiline ? &ProcessMultiline(@_) : &ProcessSingleline(@_)
+	$Multiline ? &ProcessMultiline : &ProcessSingleline
 }
 
 # Parse Options:
@@ -1330,28 +1327,24 @@ for my $fn (@Files) {
 			} elsif($key =~ m{^w}i) {
 				$key = $AlwaysWrite = 1
 			} elsif($key =~ m{^s}i) {
-				&NormalExit
+				&NormalExit()
 			} else {
 				$key = ''
 			}
 		}
 		next unless($key)
 	}
-	# We start a new block to define local variables
-	{
-		my $WrittenOK = 1;
-		my ($atime, $mtime);
-		($atime, $mtime) = ((stat($FileName))[8, 9]) if($KeepTimestamp);
-		open(my $fh, '>', $FileName) or
-			die("could not open $FileName for writing.\nStopped");
-		binmode($fh) if($Binary);
-		for my $i (@A) {
-			$WrittenOK = '' unless(print($fh $i))
-		}
-		$WrittenOK = '' unless(close($fh));
-		die("error writing to $FileName.\nStopped") unless($WrittenOK);
-		utime($atime, $mtime, $FileName) if($KeepTimestamp)
+	my $WrittenOK = 1;
+	my ($atime, $mtime);
+	($atime, $mtime) = ((stat($FileName))[8, 9]) if($KeepTimestamp);
+	open($fh, '>', $FileName) or
+		die("could not open $FileName for writing.\nStopped");
+	binmode($fh) if($Binary);
+	for my $i (@A) {
+		$WrittenOK = '' unless(print($fh $i))
 	}
+	$WrittenOK = '' unless(close($fh));
+	die("error writing to $FileName.\nStopped") unless($WrittenOK);
+	utime($atime, $mtime, $FileName) if($KeepTimestamp)
 }
-&NormalExit
-
+&NormalExit()
