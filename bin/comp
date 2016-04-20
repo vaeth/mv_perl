@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Comp v2.6.1;
+package Comp v2.6.2;
 
 use warnings;
 use strict;
@@ -191,6 +191,14 @@ my $mask = '';
 my $differ = 0;
 my (@A, @Adepth, @Afull, @Aprint, %Ahash);
 my (@B, @Bdepth, @Bfull, @Bprint, %Bhash);
+my ($i, $j);
+my ($describe, $serious);
+my ($diffcont, $toread, $readnow, $ablock, $bblock);
+my ($Alink, $Blink);
+my @Stat;
+my ($dev, $ino, $blksize, $blocks);
+my ($Amode, $Ahlink, $Auid, $Agid, $Ardev, $Asize, $Aatime, $Amtime, $Actime);
+my ($Bmode, $Bhlink, $Buid, $Bgid, $Brdev, $Bsize, $Batime, $Bmtime, $Bctime);
 
 # Translate pathnames into regular expressions.
 # FIXME: Currently, it is impossible to quote the magic characters * ? [ ] -
@@ -355,8 +363,6 @@ sub AddIfMatch {
 	}
 }
 
-my $i;
-my $j;
 
 if($[ < $#ARGV) {
 	for($i = $[; $i < $#ARGV; ++$i) {
@@ -392,7 +398,7 @@ for($i = $[; $i <= $#A; ++$i) {
 	$name = $A[$i];
 	$isdir = ($name =~ m{\/$});
 	$j = $Bhash{$name};
-	if($j ne '') {
+	if(defined($j)) {
 		&comparepair()
 	} else {
 		if($isdir) {# If we deal with a directory and have no match:
@@ -421,7 +427,7 @@ for($j = $[; $j <= $#B; ++$j) {
 	$name = $B[$j];
 	$isdir = ($name =~ m{\/$});
 	$i = $Ahash{$name};
-	if($i eq '') {
+	if(defined($i)) {
 		if($isdir) { # If we deal with a directory and have no match:
 			unless($notforlast) {
 				++$differ;
@@ -448,14 +454,6 @@ if($differ > 127) {
 	$differ = 127
 }
 exit($differ);
-
-my ($describe, $serious);
-my ($diffcont, $toread, $readnow, $ablock, $bblock);
-my ($Alink, $Blink);
-my @Stat;
-my ($dev, $ino, $blksize, $blocks);
-my ($Amode, $Ahlink, $Auid, $Agid, $Ardev, $Asize, $Aatime, $Amtime, $Actime);
-my ($Bmode, $Bhlink, $Buid, $Bgid, $Brdev, $Bsize, $Batime, $Bmtime, $Bctime);
 
 
 # $i and $j must contain the indices of the files to compare.
@@ -597,16 +595,16 @@ sub comparefile {
 	}
 	return if($toread <= 0);
 	return if($nocompare);
-	open(AFILE, '<', $Afull[$i]) || &error('cannot open ', $Afull[$i]);
-	binmode(AFILE);
-	open(BFILE, '<', $Bfull[$j]) || &error('cannot open ', $Bfull[$j]);
-	binmode(BFILE);
+	open(my $afile, '<', $Afull[$i]) or &error('cannot open ', $Afull[$i]);
+	binmode($afile);
+	open(my $bfile, '<', $Bfull[$j]) or &error('cannot open ', $Bfull[$j]);
+	binmode($bfile);
 	while($toread > 0) {
 		$readnow = (($toread < $blocksize) ? $toread : $blocksize);
-		if((read(AFILE, $ablock, $readnow)) != $readnow) {
+		if((read($afile, $ablock, $readnow)) != $readnow) {
 			&error('read error for file ', $Afull[$i])
 		}
-		if((read(BFILE, $bblock, $readnow)) != $readnow) {
+		if((read($bfile, $bblock, $readnow)) != $readnow) {
 			&error('read error for file ', $Bfull[$j])
 		}
 		if($ablock ne $bblock) {
@@ -616,8 +614,8 @@ sub comparefile {
 			$toread -= $readnow
 		}
 	}
-	close(BFILE);
-	close(AFILE)
+	close($bfile);
+	close($afile)
 }
 
 sub error {
