@@ -208,10 +208,10 @@ sub ProcessMask {
 
 	# Replace multiple occurences of / by single ones, and chop / at the end:
 	while($mask =~ s{//+}{/}go) {}
-	$mask =~ s{^\~/}{$home/} if(defined($home) && ($home ne ''));
+	$mask =~ s{^\~/}{$home/} if(($home // '') ne '');
 	$mask =~ s{/$}{} if($mask ne '/');
 	$dorecurse = 1;
-	if($mask =~ m{[\*\?\[]}) { # If the mask contains wildcard:
+	if($mask =~ m{[\*\?\[]}) {  # If the mask contains wildcard:
 		if($mask =~ m{\A(.*\/)([^\/]*[\*\?\[].*)\z}m) {
 			# If $mask consists of leading directory(ies) $1 and remaining mask with
 			# wildcards, then we recurse, starting from $1.
@@ -227,19 +227,19 @@ sub ProcessMask {
 		# Now replace * and ? by [^\/]* and [^\/] respectively.
 		$mask =~ s{\*}{[^\/]*}go;
 		$mask =~ s{\?}{[^\/]}g
-	} else { # Otherwise (i.e. mask is actually a dir/filename):
+	} else {  # Otherwise (i.e. mask is actually a dir/filename):
 		if($mask eq '') {
 			$prepend = './';
 			$printprepend = ''
 		} else {
-			if(-d $mask) { # If we consider directories:
+			if(-d $mask) {  # If we consider directories:
 				$prepend = $mask;
 				if($prepend ne '/') {
 					$prepend = $prepend . '/'
 				}
 				$printprepend = $prepend . $sepstring;
 				$mask = ''
-			} else { # For a single file, we isolate the path before, if it exists
+			} else {  # For a single file, we isolate the path before, if it exists
 				$dorecurse = '';
 				if($mask =~ m{\A(.*\/)([^\/]*)\z}m) {
 					$prepend = $1;
@@ -401,7 +401,7 @@ for($i = $[; $i <= $#A; ++$i) {
 	if(defined($j)) {
 		&comparepair()
 	} else {
-		if($isdir) {# If we deal with a directory and have no match:
+		if($isdir) {  # If we deal with a directory and have no match:
 			unless($notforfirst) {
 				++$differ;
 				print('DIR  without matching  last arg: ', $Aprint[$i], "\n")
@@ -427,25 +427,24 @@ for($j = $[; $j <= $#B; ++$j) {
 	$name = $B[$j];
 	$isdir = ($name =~ m{\/$});
 	$i = $Ahash{$name};
-	if(defined($i)) {
-		if($isdir) { # If we deal with a directory and have no match:
-			unless($notforlast) {
-				++$differ;
-				print('DIR  without matching first arg: ',  $Bprint[$j], "\n")
+	next if(defined($i));
+	if($isdir) {  # If we deal with a directory and have no match:
+		unless($notforlast) {
+			++$differ;
+			print('DIR  without matching first arg: ',  $Bprint[$j], "\n")
+		}
+		# We skip until we are at the current depth again.
+		$depth = $Bdepth[$j];
+		while(++$j <= $#B) {
+			if($Bdepth[$j] == $depth) {
+				$j--;
+				last
 			}
-			# We skip until we are at the current depth again.
-			$depth = $Bdepth[$j];
-			while(++$j <= $#B) {
-				if($Bdepth[$j] == $depth) {
-					$j--;
-					last
-				}
-			}
-		} else {
-			unless($notforlast) {
-				++$differ;
-				print('File without matching first arg: ', $Bprint[$j], "\n")
-			}
+		}
+	} else {
+		unless($notforlast) {
+			++$differ;
+			print('File without matching first arg: ', $Bprint[$j], "\n")
 		}
 	}
 }
@@ -468,15 +467,13 @@ sub comparepair {
 			unless($nowarn) {
 				&warn($Aprint[$i], ' and ', $Bprint[$j], ' are symbolic links')
 			}
-		}
-		else {
+		} else {
 			$serious = 1;
 			&adderror('link-status');
 			unless($nowarn) {
 				if($Alink) {
 					&warn($Aprint[$i], ' is a symbolic link')
-				}
-				else {
+				} else {
 					&warn($Bprint[$j], ' is a symbolic link')
 				}
 			}
