@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
-require 5.012;
-package RenDirs v5.8.1;
+require 5.022;
+package RenDirs v5.8.2;
 
 use warnings;
 use strict;
@@ -742,7 +742,7 @@ sub errorunlessmode {
 }
 
 my $commentdepth = 0;
-while(<>) {
+while(<<>>) {
 	chomp();
 	my $currline = $_;
 	if(m{^\s*\#\@\{}i) {

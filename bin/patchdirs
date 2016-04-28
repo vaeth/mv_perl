@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
-require 5.012;
-package Patchdirs v2.0.6;
+require 5.022;
+package Patchdirs v2.1.0;
 
 use warnings;
 use strict;
@@ -561,7 +561,7 @@ if($mode eq 'store') {
 	&printlist(\@A);
 } elsif($mode eq 'restore') {
 	if(@FILES) {
-		{ # Dirty Perl trick: We fake arguments for while(<>) ...
+		{  # Dirty Perl trick: We fake arguments for while(<<>>) ...
 			local (@ARGV) = @FILES;
 			&readlist(\@B, \@Adirs, \%Bfullname)
 		}
@@ -587,7 +587,7 @@ sub standardlist {
 	@ARGV = ($mdot) unless(@ARGV || @FILES);
 	@A = ();
 	%Afullname = ();
-	if(@FILES) {  # Dirty Perl trick: We fake arguments for while(<>) ...
+	if(@FILES) {  # Dirty Perl trick: We fake arguments for while(<<>>) ...
 		local (@ARGV) = @FILES;
 		&readlist(\@A, \@Adirs, \%Afullname)
 	}
@@ -680,7 +680,7 @@ sub readlist {
 	my %hashdir = ();
 	my $repeat = undef;
 	my $err;
-	while(<>) {
+	while(<<>>) {
 		chomp();
 		if(defined($repeat)) {
 			$repeat .= "\n" . $_;

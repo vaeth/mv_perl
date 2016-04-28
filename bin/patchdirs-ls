@@ -1,63 +1,132 @@
 #!/usr/bin/env perl
+require 5.022;
+package PatchdirsLs v1.6.0;
+
+use warnings;
+use strict;
 use integer;
-use Getopt::Long;
-use File::Find;
+use File::Find ();
+use Getopt::Long 2.24 ();
+#use Pod::Usage ();
+#use String::ShellQuote (); # not mandatory but recommended; there are fallbacks
 
-sub version { '$Revision: 1.5 $ ' =~ /Revision:\s([^\s]*)/;
-	print "Patchdirs-ls v$1 by Martin Väth\n"
-	 .    "martin\@mvath.de\n";
-	exit(0)
-}
+=head1 NAME
 
-$0 =~ /([^\/]*)$/;
-$script=$1;
+patchdirs-ls - Move/delete/copy files to get a directory structure
 
-sub usage {
-	my($exitstatus)=@_;
-	print STDERR <<"EOUSAGE";
-Usage: $script [options] DESTLIST
-Moves/deletes/copies files such that after the operatations the directories
-listed in the file(s) DESTLIST contain *precisely* the files listed in DESTLIST.
-The format of DESTLIST is simple: The name of the first directory, followed
+=head1 SYNOPSIS
+
+B<patchdirs-ls> [options] I<DESTLIST>
+
+To get an extended help, type B<patchdirs-ls --man> or B<patchdirs-ls -?>
+
+=head1 DESCRIPTION
+
+Move/delete/copy files such that after the operatations the directories
+listed in the file(s) I<DESTLIST> contain B<precisely> the files listed
+in I<DESTLIST>.
+
+The format of I<DESTLIST> is simple: The name of the first directory, followed
 by the files it should contain, the name of the second directory, followed by
 its files etc; to distinguish directories from files, the directory names
-*must* end with : or \/  and the filenames must *not*.
-Lines starting with '#' are ignored.
-Options:
---strip=NUM  -p NUM Cut the first NUM '/' from the directory names.
---show       -s     Only show what would be done, do not alter anything.
---verbose=x  -v x   Be verbose (level x; x<0 suppresses warnings; 0 is default)
---nodelete   -D     Do not delete any files
---delete     -d     Override previous --nodelete
---twins=NUM  -t NUM Continue even if there are doubts about double sourcenames.
-                    Depending on NUM, the following leads to an error:
-                    0: Names are double (even if on the right place)
-                    1: Names are double, but all exist in right directory
-                    2: Names are double, but precisely one needs to be moved
-                    3: Names are double and it is unclear which to move/copy
-                    4: - (double names are always OK)
---ignorevoid -e     Continue even if a required file does not exist
---ignore     -i     Same as --twins=4 --ignorevoid
---version    -V     Print version number
-EOUSAGE
-	exit($exitstatus)
-}
+B<must> end with <:> or B</> and the filenames must B<not>.
+Lines starting with B<#> are ignored.
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<--help> or B<-h>
+
+Display brief help.
+
+=item B<--man> or B<-?>
+
+Display extended help as a manpage.
+
+=item B<--strip=>I<num> or B<-p> I<num>
+
+Cut the first I<NUM> B</> from the directory names
+
+=item B<--show> or B<-s>
+
+Only show what would be done, do not alter anything
+
+=item B<--verbose=>I<x> or B<-v> I<x>
+
+be verbose (level I<x>; negative value suppresses warnings; 0 is default)
+
+=item B<--nodelete> or B<-D>
+
+Do not delete any files
+
+=item B<--delete> or B<-d>
+
+Override previous B<--nodelete>
+
+=item B<--twins=>I<num> or B<-t> I<num>
+
+Continue even if there are doubts about double sourcenames
+
+Depending on I<num>, the following leads to an error:
+
+=over 16
+
+=item B<0> Names are double (even if on the right place)
+
+=item B<1> Names are double, but all exist in right directory
+
+=item B<2> Names are double, but precisely one needs to be moved
+
+=item B<3> Names are double and it is unclear which to move/copy
+
+=item B<4> - (double names are always OK)
+
+=back
+
+=item B<--ignorevoid> or B<-e>
+
+Continue even if a required file does not exist
+
+=item B<--ignore> or B<-i>
+
+Same as --twins=4 --ignorevoid
+
+=item B<--version> or B<-V>
+
+Print version number
+
+=item B<-->
+
+Last option
+
+=back
+
+=head1 AUTHOR
+
+Martin VE<auml>th E<lt>martin@mvath.deE<gt>
+
+=cut
+
+# Global Variables:
+
+our $VERSION;
 
 # Default for the Options:
 
-$dodelete = 1;
-$strip = 0;
-$verbose = 0;
-$twins = 0;
-$ignorevoid = '';
-$show = '';
+my $dodelete = 1;
+my $strip = 0;
+my $verbose = 0;
+my $twins = 0;
+my $ignorevoid = '';
+my $show = '';
 
 # Parse Options:
 
-$Getopt::Long::bundling = 1;
-GetOptions(
-	'help|h|?', sub { usage(0) },
-	'version|V', \&version,
+Getopt::Long::Configure(qw(gnu_getopt));
+Getopt::Long::GetOptions(
+	'help|h', sub { &pod2usage(0) },
+	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
 	'show|s', \$show,
 	'delete|d', \$dodelete,
 	'nodelete|D', sub { $dodelete = '' },
@@ -65,52 +134,109 @@ GetOptions(
 	'twins|t=i', \$twins,
 	'ignorevoid|e', \$ignorevoid,
 	'ignore|i', sub { $twins = 4; $ignorevoid = 1 },
-	'verbose|v:i', \$verbose
-) or usage(-1);
+	'verbose|v:i', \$verbose,
+	'version|V', \&version
+) or &pod2usage(2);
+
+# Functions
+
+sub error {
+	print(STDERR 'patchdirs-ls', @_, "\n")
+}
+
+sub fatal {
+	&error;
+	exit(1)
+}
+
+sub warn {
+	print(STDERR 'warning: ', @_, "\n")
+}
+
+
+sub version {
+	print('patchdirs-ls ', $VERSION, "\n");
+	exit(0)
+}
+
+sub pod2usage {
+	require Pod::Usage;;
+	&Pod::Usage::pod2usage
+}
+
+sub shdash {
+	my $c = shift();
+	$c = [$c] unless(ref($c) eq 'ARRAY');
+	for my $i (@_) {
+		if($i =~ m{^[-+]}o) {
+			push(@$c, '--');
+			last
+		}
+	}
+	(@$c, @_)
+}
+
+# use String::ShellQuote ()
+
+{	my $shellquote = undef;  # A static closure
+sub load_shellquote {
+	return $shellquote if(defined($shellquote));
+	eval {
+		require String::ShellQuote
+	};
+	$shellquote = ($@ ? '' : 1)
+}}
+
+sub shell_quote_best_effort {
+	(&load_shellquote() ? &String::ShellQuote::shell_quote_best_effort : join(' ', @_))
+}
 
 # Read DESTLIST and create the corresponding array @destcont of arrays.
 
-@desthash = ();
-while(<>) {
-	chomp;
-	if(s/[\:\/]\s*$//o) { # We are parsing a directory name
+my @dirnames = ();
+my %desthash = ();
+my @destconts = ();
+while(<<>>) {
+	chomp();
+	if(s{[\:\/]\s*$}{}o) {  # We are parsing a directory name
 		if($strip > 0) {
-			unless(s/^([^\/]*\/){$strip}//o) {
-				die "error: directory name contains less / than you want to strip\nStopped";
+			unless(s/^(?:[^\/]*\/){$strip}//o) {
+				&fatal('directory name contains less / than you want to strip');
 			}
 		}
 		unless(-d $_) {
-			die "error: directory $_ does not exist\nStopped"
+			&fatal("directory $_ does not exist")
 		}
 		push(@dirnames, $_);
-		push(@destconts, []);
+		push(@destconts, [])
 	}
-	elsif((!/^\s*\r?\n?$/) && (!/^\s*\#/)) {
-		($#destconts >= 0) or \
-			die "error: first entry in DESTLIST must be a directory\nStopped";
+	elsif((! m{^\s*\r?\n?$}) && ! m{^\s*\#}) {
+		(@destconts > 0) or
+			&fatal('first entry in DESTLIST must be a directory');
 		push(@{$destconts[$#destconts]}, $_);
 		unless(defined($desthash{$_})) {
 			$desthash{$_} = ()
 		}
-		$desthash{$_}->{$#destconts} = 1;
+		$desthash{$_}->{$#destconts} = 1
 	}
 }
 if($verbose >= 2) {
-	print "Desired directory structure\n";
-	for(my $dirnr = 0; $dirnr <= $#destconts; ++$dirnr) {
-		print "$dirnames[$dirnr]\n";
-		for(my $filenr = 0; $filenr <= $#{$destconts[$dirnr]}; ++$filenr) {
-			print "\t$destconts[$dirnr]->[$filenr]\n"
+	CORE::say('Desired directory structure');
+	for(my $dirnr = 0; $dirnr < @destconts; ++$dirnr) {
+		CORE::say($dirnames[$dirnr]);
+		for(my $filenr = 0; $filenr < @{$destconts[$dirnr]}; ++$filenr) {
+			CORE::say("\t", $destconts[$dirnr]->[$filenr])
 		}
 	}
 }
 
 # Read directories and create the corresponding array @destcont of arrays.
 
-@sourcehash = ();
-for(my $dirnr = 0; $dirnr <= $#dirnames; ++$dirnr) {
-	opendir(DIR, $dirnames[$dirnr]);
-	while($_ = readdir(DIR), defined) {
+my %sourcehash = ();
+my @sourceconts = ();
+for(my $dirnr = 0; $dirnr < @dirnames; ++$dirnr) {
+	opendir(my $dh, $dirnames[$dirnr]);
+	while($_ = readdir($dh), defined) {
 		if(($_ ne '.') && ($_ ne '..')) {
 			push(@{$sourceconts[$dirnr]}, $_);
 			unless(defined($sourcehash{$_})) {
@@ -119,34 +245,31 @@ for(my $dirnr = 0; $dirnr <= $#dirnames; ++$dirnr) {
 			$sourcehash{$_}->{$dirnr} = 1;
 		}
 	}
-	closedir(DIR);
+	closedir($dh);
 }
 
-sub printdirs { my($name, $error) = @_;
-	foreach my $dirnr (keys(%{$sourcehash{$name}})) {
+sub printdirs {
+	my ($name, $error) = @_;
+	for my $dirnr (keys(%{$sourcehash{$name}})) {
 		if($error) {
-			print STDERR " $dirnames[$dirnr]"
-		}
-		else {
-			print " $dirnames[$dirnr]"
+			print(STDERR ' ', $dirnames[$dirnr])
+		} else {
+			print(' ',$dirnames[$dirnr])
 		}
 	}
 	if($error) {
-		die "\nStopped"
+		print(STDERR "\n");
+		exit(2);
 	}
-	else {
-		print "\n"
-	}
+	print("\n")
 }
 
 # Test whether all destination names exist.
 
 foreach my $name (keys %desthash) {
 	unless(defined($sourcehash{$name})) {
-		$ignorevoid or die "error: $name does not exist\nStopped";
-		if($verbose >= 0) {
-			print STDERR "warning: $name does not exist\n";
-		}
+		$ignorevoid or &fatal("$name does not exist");
+		&warn("$name does not exist") if($verbose >= 0)
 	}
 }
 
@@ -155,8 +278,8 @@ foreach my $name (keys %desthash) {
 if($twins <= 0) {
 	for my $name (keys %sourcehash) {
 		if(keys(%{$sourcehash{$name}}) > 1) {
-			print STDERR "error: $name occurs in several directories, namely in";
-			printdirs($name,1);
+			&error("$name occurs in several directories, namely in");
+			&printdirs($name,1)
 		}
 	}
 }
@@ -167,9 +290,9 @@ if($twins <= 0) {
 # moreover, we delete our name from sourcehash and sourcecont in case of
 # moving.
 
-@A = ();
-for(my $destnr = 0; $destnr <= $#dirnames; ++$destnr) {
-	for(my $filenr = 0; $filenr <= $#{$destconts[$destnr]}; ++$filenr) {
+my @A = ();
+for(my $destnr = 0; $destnr < @dirnames; ++$destnr) {
+	for(my $filenr = 0; $filenr < @{$destconts[$destnr]}; ++$filenr) {
 		my $name = $destconts[$destnr]->[$filenr];
 		if(defined($sourcehash{$name})) {
 			my $count = keys(%{$sourcehash{$name}});
@@ -180,10 +303,10 @@ for(my $destnr = 0; $destnr <= $#dirnames; ++$destnr) {
 			if(defined($sourcehash{$name}->{$destnr})) {
 				if($count > 1) {
 					if($twins <= 1) {
-						print STDERR "error: $name occurs in several directories, namely in";
-						printdirs($name, 1);
+						&error("$name occurs in several directories, namely in");
+						&printdirs($name, 1)
 					} else {
-						print "warning: $name occurs in several directories, but on the right place in $dirnames[$destnr]\n";
+						&warn("$name occurs in several directories, but on the right place in " . $dirnames[$destnr])
 					}
 				}
 			} else {
@@ -192,7 +315,7 @@ for(my $destnr = 0; $destnr <= $#dirnames; ++$destnr) {
 				if($count > 1) {
 					my $movefrom = -1;
 					my $preciselyone = '';
-					foreach my $dirtmp (@sources) {
+					for my $dirtmp (@sources) {
 						unless(defined($dests->{$dirtmp})) {
 							# $name occurs in some directory $dirtmp where it should not
 							if($preciselyone) {
@@ -206,20 +329,20 @@ for(my $destnr = 0; $destnr <= $#dirnames; ++$destnr) {
 					}
 					if($preciselyone) {
 						if($twins <= 2) {
-							print STDERR "error: $name occurs in several directories and must be moved/copied\nThe directory names are";
-							printdirs($name, 1)
+							&error("$name occurs in several directories and must be moved/copied\nThe directory names are");
+							&printdirs($name, 1)
 						}
 						if($verbose >= 0) {
-							 print "warning: $name occurs in several directories and must be moved precisely once from $dirnames[$movefrom] to $dirnames[$destnr]\n"
+							 &warning("$name occurs in several directories and must be moved precisely once from ", $dirnames[$movefrom], " to ", $dirnames[$destnr])
 						}
 					} else {
 						if($twins <= 3) {
-							print STDERR "error: $name occurs in several directories, and it is unclear which one to move/copy into $dirnames[$destnr]\nThe possible directory names are";
-							printdirs($name, 1)
+							&error("$name occurs in several directories, and it is unclear which one to move/copy into ", $dirnames[$destnr], "\nThe possible directory names are");
+							&printdirs($name, 1)
 						}
 						if($verbose >= 0) {
-							print "warning: $name occurs in several directories, and it is unclear which one to move/copy into $dirnames[$destnr];\nthe accidental choice is from $dirnames[$sourcenr]\n";
-							printdirs($name, 0)
+							&warn("$name occurs in several directories, and it is unclear which one to move/copy into ", $dirnames[$destnr], ";\nthe accidental choice is from ", $dirnames[$sourcenr]);
+							&printdirs($name, 0)
 						}
 					}
 				}
@@ -227,10 +350,10 @@ for(my $destnr = 0; $destnr <= $#dirnames; ++$destnr) {
 				# Now we `execute' the moving/copying from directory $sourcenr
 
 				if(defined($desthash{$name}->{$sourcenr})) {
-					push(@A, "cp -a -i $dirnames[$sourcenr]/$name $dirnames[$destnr]")
+					push(@A, [&shdash(['cp', '-a', '-i'], $dirnames[$sourcenr] . '/' . $name, $dirnames[$destnr])])
 				} else {
-					push(@A, "mv -i $dirnames[$sourcenr]/$name $dirnames[$destnr]");
-					for(my $i = 0;$i <= $#{$sourceconts[$sourcenr]}; ++$i) {
+					push(@A, [&shdash(['mv', '-i'], $dirnames[$sourcenr] . '/' . $name, $dirnames[$destnr])]);
+					for(my $i = 0; $i < @{$sourceconts[$sourcenr]}; ++$i) {
 						if($sourceconts[$sourcenr]->[$i] eq $name) {
 							$sourceconts[$sourcenr]->[$i] = ''; last
 						}
@@ -245,13 +368,13 @@ for(my $destnr = 0; $destnr <= $#dirnames; ++$destnr) {
 # Now we delete the remainder:
 
 if($dodelete) {
-	for(my $dirnr = 0; $dirnr <= $#dirnames; ++$dirnr) {
+	for(my $dirnr = 0; $dirnr < @dirnames; ++$dirnr) {
 		my $conts = $sourceconts[$dirnr];
-		for(my $filenr = 0; $filenr <= $#{$conts}; ++$filenr) {
+		for(my $filenr = 0; $filenr < @$conts; ++$filenr) {
 			my $name = $conts->[$filenr];
 			if($name ne '') {
 				unless(defined($desthash{$name}->{$dirnr})) {
-					push(@A, "rm -- $dirnames[$dirnr]/$name")
+					push(@A, [&shdash('rm', $dirnames[$dirnr] . '/' . $name)])
 				}
 			}
 		}
@@ -259,10 +382,10 @@ if($dodelete) {
 }
 
 for my $cmd (@A) {
-	if(($verbose >= 1) || show) {
-		print "$cmd\n"
+	if(($verbose >= 1) || $show) {
+		Core::say(&shell_quote_best_effort(@$cmd))
 	}
 	unless($show) {
-		system($cmd)
+		system(@$cmd)
 	}
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
-require 5.012;
-package Commmlist v2.0.5;
+require 5.022;
+package Commmlist v2.1.0;
 
 use warnings;
 use strict;
@@ -132,13 +132,13 @@ exit(0) unless(@fileA);
 my %B = ();
 if(@fileB) {
 	@ARGV = @fileB;
-	while(<>) {
+	while(<<>>) {
 		chomp();
 		$B{$_} = undef
 	}
 }
 @ARGV = @fileA;
-while(<>) {
+while(<<>>) {
 	my $c = $_;
 	chomp($c);
 	if(exists($B{$c})) {
