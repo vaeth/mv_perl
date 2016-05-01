@@ -1,12 +1,13 @@
 #!/usr/bin/env perl
 require 5.022;
-package RenDirs v5.8.2;
+package RenDirs v5.9.0;
 
 use warnings;
 use strict;
 use integer;
 use Getopt::Long 2.24 ();
 #use Pod::Usage ();
+#use String::ShellQuote ();  # not mandatory but recommended: poor fallback
 
 =head1 NAME
 
@@ -467,9 +468,9 @@ sub analyzedir {
 				last
 			}
 		}
-		$n =~ s{^\/+}{}; # special beginning but directory starts with /: Ignore /
+		$n =~ s{^\/+}{}  # special beginning but directory starts with /: Ignore /
 	}
-	return($n, $p, [$follow, $willpush])
+	($n, $p, [$follow, $willpush])
 }
 
 sub setdirs {
@@ -480,16 +481,14 @@ sub setdirs {
 	} else {
 		$currdir = $p . '/'
 	}
-	if($f) {
-		push(@$followdir, $currdir)
-	}
+	push(@$followdir, $currdir) if($f)
 }
 
 sub analyzelink {
 	my ($n) = @_;
 	if($n =~ m{\A(.*)\-\>(.*)\z}m) {
 		my($n, $l) = ($1, $2);
-		return($n, $l) unless($n eq '.');
+		return ($n, $l) unless($n eq '.');
 		&warn("magic name '.' must not be a link; ignoring ->$l")
 	}
 	($n, undef)
@@ -498,7 +497,7 @@ sub analyzelink {
 sub casetest {
 	my ($p, $n, $s) = @_;
 	my $c = $p . $n;
-	return ($c, 1, $s) if((-e $c)||(-d $c)||(-l $c));
+	return ($c, 1, $s) if((-e $c) || (-d $c) || (-l $c));
 	if($uppercase) {
 		my $d = $p . uc($n);
 		return ($d, 1, '') if((-e $d) || (-d $d) || (-l $d))
@@ -512,63 +511,44 @@ sub casetest {
 
 sub myunlink {
 	my ($n) = @_;
-	unless($quiet) {
-		&shprint('rm', $n)
-	}
-	unless($showonly) {
-		unlink($n)
-	}
+	&shprint('rm', $n) unless($quiet);
+	unlink($n) unless($showonly)
 }
 
 sub myrmdir {
 	my ($n) = @_;
-	unless($quiet) {
-		&shprint('rmdir -p', $n)
-	}
-	unless($showonly) {
-		system('rmdir', '-p', '--', $n)
-	}
+	my @cmd = &shdash(['rmdir', '-p'], $n);
+	&shprintraw(@cmd) unless($quiet);
+	system(@cmd) unless($showonly)
 }
 
 sub mytouch {
 	my ($n) = @_;
-	unless($quiet) {
-		&shprint('touch', $n)
-	}
+	&shprintraw('touch', $n) unless($quiet);
 	unless($showonly) {
-		open(FH, '>', $n);
-		close(FH)
+		open(my $fh, '>', $n);
+		close($fh)
 	}
 }
 
 sub mymkdir {
 	my($n) = @_;
-	unless($quiet) {
-		&printfdash('mkdir -p', $n)
-	}
-	unless($showonly) {
-		system('mkdir', '-p', '--', $n)
-	}
+	my @cmd = &shdash(['mkdir', '-p'], $n);
+	&shprintraw(@cmd) unless($quiet);
+	system(@cmd) unless($showonly)
 }
 
 sub mylink {
 	my ($a, $b) = @_;
-	unless($quiet) {
-		&shprint('ln -s', $a, $b)
-	}
-	unless($showonly) {
-		system('ln', '-s', '--', $a, $b)
-	}
+	my @cmd = &shdash(['ln', '-s'], $a, $b);
+	&shprintraw(@cmd) unless($quiet);
+	system(@cmd) unless($showonly)
 }
 
 sub myrename {
 	my ($a, $b) = @_;
-	unless($quiet) {
-		&shprint('mv', $a, $b)
-	}
-	unless($showonly) {
-		rename($a, $b)
-	}
+	&shprint('mv', $a, $b) unless($quiet);
+	rename($a, $b) unless($showonly)
 }
 
 sub action {
@@ -591,8 +571,7 @@ sub action {
 	if($isdir) {
 		($s, $sp, $sf) = &analyzedir($s);
 		($o, $op, $of) = &analyzedir($o);
-	}
-	else {
+	} else {
 		$sp = (($s =~ m{^\/}) ? '' : $currdir);
 		$op = (($o =~ m{^\/}) ? '' : $currdir);
 		$sf = $of = ''
@@ -604,12 +583,7 @@ sub action {
 	my $samelink = undef;
 	if(defined($sl) || defined($ol)) {
 		$link = 1;
-		if((!defined($sl)) || (!defined($ol)) || ($sl eq $ol)) {
-			$samelink = 1
-		}
-		else {
-			$samelink = ''
-		}
+		$samelink = ((!defined($sl)) || (!defined($ol)) || ($sl eq $ol))
 	}
 	my $same = '';
 	$same = 1 if(($s eq $o) && ((!$link) || $samelink));
@@ -627,29 +601,28 @@ sub action {
 			$s = "$sp$s";
 			$se = 1 if((!$se) && ((-e $s) || (-d $s)) || (-l $s));
 			($o, $oe, $same) = &casetest($op, $o, $same) if(!$oe);
-		}
-		elsif($mode < 0) {
+		} elsif($mode < 0) {
 			$o = "$op$o";
 			$oe = 1 if((!$oe) && ((-e $o) || (-d $o) || (-l $o)));
 			($s, $se, $same) = &casetest($sp, $s, $same) if(!$se);
-		}
-		else {
+		} else {
 			$s = "$sp$s"; $o = "$op$o";
 			$oe = 1 if((!$oe) && ((-e $o) || (-d $o) || (-l $o)));
-			if($same) {$se = $oe; if($oe < 0) { return }}
+			if($same) {
+				$se = $oe;
+				return if($oe < 0)
+			}
 			$se = 1 if((!$se) && ((-e $s) || (-d $s)) || (-l $s));
 			if($se < 0) {
 				$currmode = ($oe ? 1 : -1)
-			}
-			else {
+			} else {
 				$currmode = ($se ? -1 : 1)
 			}
 		}
 		if($currmode > 0) {
 			$smyce = $o; $smycee = $oe; $smycef = $of;
 			$dest = $s;   $deste = $se;   $destf = $sf;  $destl = $sl
-		}
-		else {
+		} else {
 			$smyce = $s; $smycee = $se; $smycef = $sf;
 			$dest = $o;   $deste = $oe;   $destf = $of;  $destl = $ol
 		}
@@ -658,7 +631,7 @@ sub action {
 	# Set new directory paths:
 
 	if($isdir) {
-		if(($deste < 0) || ($dryrun)) {
+		if(($deste < 0) || $dryrun) {
 			&setdirs($smyce, $smycef)
 		} else {
 			&setdirs($dest, $destf)
@@ -760,12 +733,13 @@ while(<<>>) {
 		$shortfirst = 1;
 		next
 	}
-	if(m{^\s*\#\@((original)|(long))namesfirst}i) {
+	if(m{^\s*\#\@((original)|(long))namesfirst}ni) {
 		$shortfirst = '';
 		next
 	}
 	if(m{^\s*\#\@requiremode}i) {
-		&errorunlessmode(1)
+		&errorunlessmode(1);
+		next
 	}
 	if(m{^\s*\#\@magicdots}i) {
 		$magicdots = 1;
@@ -801,23 +775,21 @@ while(<<>>) {
 		$quiet = '';
 		next
 	}
-	s{\#(.*)$}{};
+	s{\#.*$}{};
 	my @A = split();
-	if($#A == 0) {
+	if(@A == 1) {
 		if($magicdots) {
 			&action($A[0], '.')
-		}
-		else {
+		} else {
 			&action($A[0], $A[0])
 		}
-	} elsif($#A == 1) {
+	} elsif(@A == 2) {
 		if($shortfirst) {
 			&action($A[1], $A[0])
-		}
-		else {
+		} else {
 			&action($A[0], $A[1])
 		}
-	} elsif($#A > 0) {
+	} elsif(@A) {
 		&fatal("line $.: ", 'more than two words are not allowed',
 			"\n", $currline)
 	}
@@ -826,31 +798,56 @@ while(@REVERSEACTION) {
 	my ($func, $arg) = @{pop(@REVERSEACTION)};
 	&$func($arg);
 }
-&warn("file ends with unclosed comment") if($commentdepth);
-
-sub shq {
-	my ($a) = (@_);
-	$a =~ s{\'}{\'\\\'\'}g;
-	$a = "'$a'";
-	$a =~ s{(\A|[^\\])\'([\w\-\,\.\:\/]*)\'}{$1$2}gm;
-	(($a ne '') ? $a : "''")
-}
-
-sub shqs {
-	' ' . &shq($_[0])
-}
+&warn('file ends with unclosed comment') if($commentdepth);
 
 sub shdash {
-	my ($s, $r, $t) = (shift, '', '');
+	my $c = shift();
+	$c = [$c] unless(ref($c) eq 'ARRAY');
 	for my $i (@_) {
-		$t = 1 if($i =~ m{^[-+]});
-		$r .= &shqs($i)
+		if($i =~ m{^[-+]}o) {
+			push(@$c, '--');
+			last
+		}
 	}
-	($t) ? ($s . ' --' . $r) : ($s . $r)
+	(@$c, @_)
+}
+
+# use String::ShellQuote () and return whether successful
+
+{ my $shellquote = undef;  # A closure static variable
+sub use_shellquote {
+	return $shellquote if(defined($shellquote));
+	eval {
+		require String::ShellQuote
+	};
+	$shellquote = !$@
+}}
+
+# like join(' ', @_), but shell-quote arguments
+
+sub join_quoted {
+	my @r;
+	for my $i (@_) {
+		my $a = $i;
+		$a =~ s{\'}{\'\\\'\'}g;
+		$a = "'$a'";
+		$a =~ s{(\A|[^\\])\'([\w\-\,\.\:\/]*)\'}{$1$2}gm;
+		push(@r, ($a ne '') ? $a : "''")
+	}
+	join(' ', @r)
+}
+
+sub shell_quote_best_effort {
+	(&use_shellquote() ?
+		&String::ShellQuote::shell_quote_best_effort : &join_quoted)
+}
+
+sub shprintraw {
+	print(&shell_quote_best_effort, "\n")
 }
 
 sub shprint {
-	print(&shdash, "\n")
+	&shprintraw(&shdash)
 }
 
 sub error {

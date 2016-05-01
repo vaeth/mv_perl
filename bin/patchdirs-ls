@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.022;
-package PatchdirsLs v1.6.0;
+package PatchdirsLs v1.6.1;
 
 use warnings;
 use strict;
@@ -8,7 +8,7 @@ use integer;
 use File::Find ();
 use Getopt::Long 2.24 ();
 #use Pod::Usage ();
-#use String::ShellQuote (); # not mandatory but recommended; there are fallbacks
+#use String::ShellQuote ();  # not mandatory but recommended: poor fallback
 
 =head1 NAME
 
@@ -176,19 +176,34 @@ sub shdash {
 	(@$c, @_)
 }
 
-# use String::ShellQuote ()
+# use String::ShellQuote () and return whether successful
 
-{	my $shellquote = undef;  # A static closure
-sub load_shellquote {
+{ my $shellquote = undef;  # A closure static variable
+sub use_shellquote {
 	return $shellquote if(defined($shellquote));
 	eval {
 		require String::ShellQuote
 	};
-	$shellquote = ($@ ? '' : 1)
+	$shellquote = !$@
 }}
 
+# like join(' ', @_), but shell-quote arguments
+
+sub join_quoted {
+	my @r;
+	for my $i (@_) {
+		my $a = $i;
+		$a =~ s{\'}{\'\\\'\'}g;
+		$a = "'$a'";
+		$a =~ s{(\A|[^\\])\'([\w\-\,\.\:\/]*)\'}{$1$2}gm;
+		push(@r, ($a ne '') ? $a : "''")
+	}
+	join(' ', @r)
+}
+
 sub shell_quote_best_effort {
-	(&load_shellquote() ? &String::ShellQuote::shell_quote_best_effort : join(' ', @_))
+	(&use_shellquote() ?
+		&String::ShellQuote::shell_quote_best_effort : &join_quoted)
 }
 
 # Read DESTLIST and create the corresponding array @destcont of arrays.
