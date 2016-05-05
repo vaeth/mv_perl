@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
-require 5.022;
-package RenDirs v5.9.0;
+require 5.012;
+package RenDirs v5.10.0;
 
 use warnings;
 use strict;
@@ -715,65 +715,65 @@ sub errorunlessmode {
 }
 
 my $commentdepth = 0;
-while(<<>>) {
+sub handleline {
 	chomp();
 	my $currline = $_;
 	if(m{^\s*\#\@\{}i) {
 		++$commentdepth;
-		next
+		return
 	}
 	if(m{^\s*\#\@\}}i) {
 		&fatal("line $.: ", 'closing comment without opening one')
 			unless($commentdepth);
 		--$commentdepth;
-		next
+		return
 	}
-	next if($commentdepth);
+	return if($commentdepth);
 	if(m{^\s*\#\@shortnamesfirst}i) {
 		$shortfirst = 1;
-		next
+		return
 	}
-	if(m{^\s*\#\@((original)|(long))namesfirst}ni) {
+	if(m{^\s*\#\@(?:(?:original)|(?:long))namesfirst}i) {
 		$shortfirst = '';
-		next
+		return
 	}
 	if(m{^\s*\#\@requiremode}i) {
 		&errorunlessmode(1);
-		next
+		return
 	}
 	if(m{^\s*\#\@magicdots}i) {
 		$magicdots = 1;
-		next
+		return
 	}
 	if(m{^\s*\#\@nomagicdots}i) {
 		$magicdots = '';
-		next
+		return
 	}
 	if(m{^\s*\#\@uppercase}i) {
 		$uppercase = 1;
 		&errorunlessmode('');
-		next
+		return
 	}
 	if(m{^\s*\#\@lowercase}i) {
 		$lowercase = 1;
 		&errorunlessmode('');
-		next
+		return
 	}
 	if(m{^\s*\#\@nouppercase}i) {
 		$uppercase = '';
-		next
+		return
 	}
 	if(m{^\s*\#\@nolowercase}i) {
 		$lowercase = '';
-		next
+		return
 	}
 	if(m{^\s*\#\@quiet}i) {
 		$quiet = 1;
-		next
+		return
 	}
 	if(m{^\s*\#\@noquiet}i) {
 		$quiet = '';
-		next
+		return
 	}
 	s{\#.*$}{};
 	my @A = split();
@@ -794,9 +794,19 @@ while(<<>>) {
 			"\n", $currline)
 	}
 }
+
+for my $file (@ARGV) {
+	my $fh;
+	(($file eq '-') ? open($fh, '<-') : open($fh, '<', $file)) or next;
+	while(<$fh>) {
+		&handleline()
+	}
+	close($fh)
+}
+
 while(@REVERSEACTION) {
 	my ($func, $arg) = @{pop(@REVERSEACTION)};
-	&$func($arg);
+	$func->($arg)
 }
 &warn('file ends with unclosed comment') if($commentdepth);
 

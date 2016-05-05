@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
-require 5.022;
-package Patchdirs v2.1.0;
+require 5.012;
+package Patchdirs v2.2.0;
 
 use warnings;
 use strict;
@@ -561,18 +561,15 @@ if($mode eq 'store') {
 	&printlist(\@A);
 } elsif($mode eq 'restore') {
 	if(@FILES) {
-		{  # Dirty Perl trick: We fake arguments for while(<<>>) ...
-			local (@ARGV) = @FILES;
-			&readlist(\@B, \@Adirs, \%Bfullname)
-		}
-		&readlist(\@A, \@Adirs, \%Afullname);
+		&readlist(\@FILES, \@B, \@Adirs, \%Bfullname)
+		&readlist(\@ARGV, \@A, \@Adirs, \%Afullname)
 	} else {
-		&readlist(\@A, \@Adirs, \%Afullname);
+		&readlist(\@ARGV, \@A, \@Adirs, \%Afullname);
 		if($strip > 0) {
 			@Adirs = ('.');
 			$strip = 0
 		}
-		&makelist(\@B, \%Bfullname, \@Adirs);
+		&makelist(\@B, \%Bfullname, \@Adirs)
 	}
 	&make_check(\@B, \%Bcheck);
 	&patchlist()
@@ -587,10 +584,7 @@ sub standardlist {
 	@ARGV = ($mdot) unless(@ARGV || @FILES);
 	@A = ();
 	%Afullname = ();
-	if(@FILES) {  # Dirty Perl trick: We fake arguments for while(<<>>) ...
-		local (@ARGV) = @FILES;
-		&readlist(\@A, \@Adirs, \%Afullname)
-	}
+	&readlist(\@FILES, \@A, \@Adirs, \%Afullname) if(@FILES);
 	&makelist(\@A, \%Afullname, \@ARGV) if(@ARGV)
 }
 
@@ -676,48 +670,53 @@ sub printlist {
 }
 
 sub readlist {
-	my ($A, $alldirs, $fullhash) = @_;
+	my ($files, $A, $alldirs, $fullhash) = @_;
 	my %hashdir = ();
 	my $repeat = undef;
 	my $err;
-	while(<<>>) {
-		chomp();
-		if(defined($repeat)) {
-			$repeat .= "\n" . $_;
-		} elsif((m{^\s*$}) || (m{^\s*[\#\;]})) {
-			next
+	for my $file (@$files) {
+		my $fh;
+		(($file eq '-') ? open($fh, '<-') : open($fh, '<', $file)) or next;
+		while(<$fh>) {
+			chomp();
+			if(defined($repeat)) {
+				$repeat .= "\n" . $_;
+			} elsif((m{^\s*$}) || (m{^\s*[\#\;]})) {
+				next
+			}
+			my ($name, $checksum, $mode, $owner, $time) =
+				&split_quoted($repeat // $_, $err);
+			if($err ne '') {
+				$repeat //= $_;
+				next
+			}
+			$repeat = undef;
+			$name = &unify_name($name);
+			next unless(&strip_dirs($strip, $name));
+			&fatal("no checksum for $name") unless(defined($checksum));
+			($owner, $time) = ($mode, $owner) unless($modattrib);
+			$time = $owner unless($modowner);
+			unless($quiet) {
+				&warning("-T assumed for $name") if($modtime && !defined($time));
+				&warning("-A assumed for $name") if($modattrib && !defined($mode));
+				&warning("-O assumed for $name") if($modowner && !defined($owner))
+			}
+			my ($vol, @dirs) = &split_dir($name);
+			my $file = pop(@dirs);
+			unless(@dirs) {
+				@dirs = ($mdot);
+				$name = &cat_dir(@dirs, $file)
+			}
+			my $currdir = &cat_dir($vol, @dirs);
+			if(defined($fullhash->{$name})) {
+				&warning("ignoring second occurence of $name");
+				next
+			}
+			$hashdir{$currdir} = '';
+			push(@$A, [ $name, $checksum, $mode, $owner, $time ]);
+			$fullhash->{$name} = $#$A
 		}
-		my ($name, $checksum, $mode, $owner, $time) =
-			&split_quoted($repeat // $_, $err);
-		if($err ne '') {
-			$repeat //= $_;
-			next
-		}
-		$repeat = undef;
-		$name = &unify_name($name);
-		next unless(&strip_dirs($strip, $name));
-		&fatal("no checksum for $name") unless(defined($checksum));
-		($owner, $time) = ($mode, $owner) unless($modattrib);
-		$time = $owner unless($modowner);
-		unless($quiet) {
-			&warning("-T assumed for $name") if($modtime && !defined($time));
-			&warning("-A assumed for $name") if($modattrib && !defined($mode));
-			&warning("-O assumed for $name") if($modowner && !defined($owner))
-		}
-		my ($vol, @dirs) = &split_dir($name);
-		my $file = pop(@dirs);
-		unless(@dirs) {
-			@dirs = ($mdot);
-			$name = &cat_dir(@dirs, $file)
-		}
-		my $currdir = &cat_dir($vol, @dirs);
-		if(defined($fullhash->{$name})) {
-			&warning("ignoring second occurence of $name");
-			next
-		}
-		$hashdir{$currdir} = '';
-		push(@$A, [ $name, $checksum, $mode, $owner, $time ]);
-		$fullhash->{$name} = $#$A
+		close($fh)
 	}
 	@$alldirs = keys(%hashdir)
 }

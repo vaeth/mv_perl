@@ -7,13 +7,6 @@ This project is under a BSD type license, meaning that you can do practically
 everything with it except removing my name.
 
 This is a loose collection of some useful and less useful perl scripts.
-Most scripts are rather old and have not been maintained for a long time
-except for minor bugfixes or cosmetical issues (naturally, these older
-scripts are not coded in a modern perl style).
-With some specified exceptions, all scripts run with Perl 4 without
-requiring any modules. All other scripts run with Perl 5.12 (which is
-sometimes required because of //) with the exception of those using
-the safe operator <<>> (which requires Perl 5.22).
 
 For installation just put the content of bin somewhere into your $PATH.
 Also put the files of the subdirectory zsh into your $fpath to obtain
@@ -38,9 +31,9 @@ Here is a brief overview of the scripts:
 
   With plrep --man you get a detailed help as a manpage (new since v2.1).
 
-  This script requires Perl 5.12 (together with some modules).
-  If you really must use Perl 4, you can use the scripts prep and
-  rrep below which together have almost the same functionality.
+  This script requires Perl 5.12.
+  If you must use Perl 4, see the scripts prep and rrep below which together
+  provide similar functionality with less convenience.
 
 - patchdirs. This script serves two purposes:
   1. It allows to keep directory trees in sync for computers which have no
@@ -61,15 +54,15 @@ Here is a brief overview of the scripts:
      against a given directory tree. (If you want more reliable information
      than only a checksum comparison, use the "find_double" perl script of this
      collection).
-  This script requires Perl 5.22 (because of the safe <<>> operator)
+  This script requires Perl 5.12
 
 - patchdirs-ls. This is somewhat similar to patchdirs but can only
   reconstruct from an "ls --recursive" output exclusively on the base
   of names. This is very fast and requires no checksum module/utility.
   However, circular renamings can of course not be recognized.
-  This script is rather old and hardly tested.
-  However, it was slightly updated and uses the safe <<>> operator. therefore,
-  this script requires Perl 5.22.
+  Although this script is rather old and hardly tested, it has been recently
+  rewritten to a more modern perl style.
+  This script requires Perl 5.12.
   For improved output, the String::ShellQuote module is recommended.
 
 - rendirs. The "very standard" ISO9660 CD-Rom format only allows names
@@ -78,13 +71,13 @@ Here is a brief overview of the scripts:
   additionally a list containing the original filenames (and perhaps
   with a small description of the files). This script renames the
   files corresponding to such a list.
-  This script requires perl-5.22 (because of <<>> and the qr{...}n feature).
+  This script requires perl-5.12.
   For improved output, the String::ShellQuote module is recommended.
 
 - commlist. Print lines common to two list of file resp. contained in
   only one of these lists. This is similar to the standard unix comm utility,
   but deals with unsorted input/output.
-  This script requires perl-5.22 (because of the safe <<>> operator)
+  This script requires perl-5.12
 
 - sshconfig. If you frequently ssh/scp/sftp/rsync to computers with a
   dynamic IP address, you will find this script very useful.
@@ -99,22 +92,33 @@ Here is a brief overview of the scripts:
 - prep (Perl regular expression). Similar to the well-known grep but
   with perl regular expressions and possibility to recurse into
   subdirectories.
+  This is an old script which should work with perl 4 without any modules.
+  It is hardly maintained.
+  If you have a current perl version, it is better to use plrep, instead.
 
 - rrep (Replace regular expression). As prep above, but in addition,
   it is possible to replace the regular expressions in the files
-  (interactively or non-interactively). Very flexible. You should
-  also have a look at the script plrep.
+  (interactively or non-interactively). Very flexible.
+  This is an old script which should work with perl 4 without any modules.
+  It is hardly maintained.
+  If you have a current perl version, it is better to use plrep, instead.
 
 - find_double. Looks for double files (the user may decide whether equal
   names and/or equal content count as double). Needs only O(n log(n))
   comparisons in the mean.
   See also the "patchdirs" script of this collection.
+  This is an old script which should work with perl 4 without any modules.
+  It is hardly maintained.
 
 - renreg. Rename and/or number a set of files using regular expressions.
+  This is an old script which should work with perl 4 without any modules.
+  It is hardly maintained.
 
 - changecase. A very simple script which allows to change filenames
   to upper or lower case (including directory names, recursively).
   Very useful in connection with DOS partitions or archives.
+  This is an old script which should work with perl 4 without any modules.
+  It is hardly maintained.
 
 - comp. Similar to diff -r -q, but compares also metadata like
   attributes, time, owner, ...
@@ -128,7 +132,7 @@ Here is a brief overview of the scripts:
   However, for the latter you can also use touchdirs.
   This script requires perl-5.12
 
-- touchdirs. Touch directories according to their newest file.
-  This script can also be used to "round" file/directpry timestamps
+- touchdirs. Touch directories according to their newest file (recursively).
+  This script can also be used to "round" file/directory timestamps
   to a full second.
   This script requires perl-5.12

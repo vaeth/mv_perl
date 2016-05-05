@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
-require 5.022;
-package Commmlist v2.1.0;
+require 5.012;
+package Commmlist v2.2.0;
 
 use warnings;
 use strict;
@@ -130,20 +130,26 @@ foreach (@ARGV) {
 exit(0) unless(@fileA);
 
 my %B = ();
-if(@fileB) {
-	@ARGV = @fileB;
-	while(<<>>) {
+for my $file (@fileB) {
+	my $fh;
+	(($file eq '-') ? open($fh, '<-') : open($fh, '<', $file)) or next;
+	while(<$fh>) {
 		chomp();
 		$B{$_} = undef
 	}
+	close($fh)
 }
-@ARGV = @fileA;
-while(<<>>) {
-	my $c = $_;
-	chomp($c);
-	if(exists($B{$c})) {
-		print($common, $_) unless($suppress1)
-	} else {
-		print($only, $_) unless($suppress2)
+for my $file (@fileA) {
+	my $fh;
+	(($file eq '-') ? open($fh, '<-') : open($fh, '<', $file)) or next;
+	while(<$fh>) {
+		my $c = $_;
+		chomp($c);
+		if(exists($B{$c})) {
+			print($common, $_) unless($suppress1)
+		} else {
+			print($only, $_) unless($suppress2)
+		}
 	}
+	close($fh)
 }

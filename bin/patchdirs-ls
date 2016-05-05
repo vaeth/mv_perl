@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
-require 5.022;
-package PatchdirsLs v1.6.1;
+require 5.012;
+package PatchdirsLs v1.7.0;
 
 use warnings;
 use strict;
@@ -211,30 +211,36 @@ sub shell_quote_best_effort {
 my @dirnames = ();
 my %desthash = ();
 my @destconts = ();
-while(<<>>) {
+
+sub handeline {
 	chomp();
 	if(s{[\:\/]\s*$}{}o) {  # We are parsing a directory name
 		if($strip > 0) {
 			unless(s/^(?:[^\/]*\/){$strip}//o) {
-				&fatal('directory name contains less / than you want to strip');
+				&fatal('directory name contains less / than you want to strip')
 			}
 		}
-		unless(-d $_) {
-			&fatal("directory $_ does not exist")
-		}
+		&fatal("directory $_ does not exist") unless(-d $_);
 		push(@dirnames, $_);
 		push(@destconts, [])
-	}
-	elsif((! m{^\s*\r?\n?$}) && ! m{^\s*\#}) {
-		(@destconts > 0) or
-			&fatal('first entry in DESTLIST must be a directory');
+	} elsif((! m{^\s*\r?\n?$}) && ! m{^\s*\#}) {
+		&fatal('first entry in DESTLIST must be a directory')
+			unless(@destconts > 0);
 		push(@{$destconts[$#destconts]}, $_);
-		unless(defined($desthash{$_})) {
-			$desthash{$_} = ()
-		}
+		$desthash{$_} = () unless(defined($desthash{$_}));
 		$desthash{$_}->{$#destconts} = 1
 	}
 }
+
+for my $file (@ARGV) {
+	my $fh;
+	(($file eq '-') ? open($fh, '<-') : open($fh, '<', $file)) or next;
+	while(<$fh>) {
+		&handleline()
+	}
+	close($fh)
+}
+
 if($verbose >= 2) {
 	CORE::say('Desired directory structure');
 	for(my $dirnr = 0; $dirnr < @destconts; ++$dirnr) {
