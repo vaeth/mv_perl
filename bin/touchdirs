@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Touchdirs v4.2.2;
+package Touchdirs v4.3.0;
 
 use warnings;
 use strict;
@@ -10,9 +10,10 @@ use Getopt::Long 2.24 ();
 use File::Find ();
 use File::Spec ();
 use Time::localtime ();
-#use File::lchown 0.02 (); # used for lutimes if available; fallback to system
+#use File::lchown 0.02 ();  # used for lutimes if available; fallback to system
 #use Pod::Usage ();  # needed for --man, --help, some errors
-#use Time::HiRes (); # needed unless -R is used
+#use String::ShellQuote ();  # not mandatory but recommended: poor fallback
+#use Time::HiRes ();  # needed unless -R is used
 
 =head1 NAME
 
@@ -22,7 +23,7 @@ touchdirs - Touch directories according to their newest file
 
 B<touchdirs> [options] [I<dirs or files>]
 
-To get an extended help, type B<plrep --man> or B<plrep -?>
+To get an extended help, type B<touchdirs --man> or B<touchdirs -?>
 
 =head1 DESCRIPTION
 
@@ -210,17 +211,6 @@ sub myctime {
 		$time->hour(), $time->min(), $dot, $time->sec(), $rest))
 }
 
-sub printtouch {
-	return unless($quiet < 2);
-	my @touch = @_;
-	my $file = pop(@touch);
-	while(@touch < 6) {
-		splice(@touch, 1, 0, '  ')
-	}
-	$touch[$#touch] = &shq($touch[$#touch]);
-	&shprint(join(' ', @touch), $file)
-}
-
 sub check_lutimes {
 	eval {
 		require File::lchown
@@ -245,24 +235,26 @@ sub touchit {
 		&check_lutimes() unless(defined($lutimes));
 		$system = 1 unless($lutimes)
 	}
-	if(!defined($ca)) {
-		&printtouch(@touch, $cmarg, $cmtime, $file);
-		system(@touch, $cmarg, $cmtime, '--', $file)
-			if($system && !$show);
-	} else {
-		&printtouch(@touch, '-m', $cmarg, $cmtime, $file);
-		system(@touch, '-m', $cmarg, $cmtime, '--', $file)
-			if($system && !$show);
-		&printtouch(@touch, '-a', $caarg, $catime, $file);
-		system(@touch, '-a', $caarg, $catime, '--', $file)
-			if($system && !$show)
+	my $shellexec = ($system && !$show);
+	my $shellprint = ($quiet < 2);
+	if($shellprint || $shellexec) {
+		if(!defined($ca)) {
+			&printexec($shellprint, $shellexec,
+				[@touch, $cmarg, $cmtime], $file)
+		} else {
+			&printexec($shellprint, $shellexec,
+				[@touch, '-m', $cmarg, $cmtime], $file);
+			&printexec($shellprint, $shellexec,
+				[@touch, '-a', $caarg, $catime], $file)
+		}
 	}
-	return if($system || $show);
-	unless($symlink) {
-		utime($atime, $mtime, $file);
-		return
+	unless($system || $show) {
+		if($symlink) {
+			File::lchown::lutimes($atime, $mtime, $file)
+		} else {
+			utime($atime, $mtime, $file)
+		}
 	}
-	File::lchown::lutimes($atime, $mtime, $file)
 }
 
 sub exclude {
@@ -273,12 +265,6 @@ sub exclude {
 		}
 	}
 	''
-}
-
-sub printcomment {
-	my ($text, $dir) = @_;
-	$dir =~ s{\n}{\n\#\ }gm;
-	printf("%s%-29s%s\n", '# ', $text, $dir)
 }
 
 sub my_split {
@@ -306,17 +292,17 @@ sub dotouch {
 	}
 	if((-d $_) && ($follow || !(-l $_))) {
 		return if($emptyignore || exists($PARENT{$_}));
-		&printcomment('empty directory:', $_) if($verbose)
+		&printcomment('empty directory', $_) if($verbose)
 	}
 	if(&exclude($_)) {
-		&printcomment('ignored:', $_) unless($quiet);
+		&printcomment('ignored', $_) unless($quiet);
 		return
 	}
 	my @dirs;
 	&my_split(\@dirs, $_);
 	for my $i (@topdirs) {
 		if((!@dirs) || ($i ne shift(@dirs))) {
-			&printcomment('prune:', $_);
+			&printcomment('prune', $_);
 			$File::Find::prune = 1;
 			return
 		}
@@ -324,7 +310,7 @@ sub dotouch {
 	my $filename = &my_cat(@topdirs, @dirs);
 	my ($atime, $mtime) = &my_amtime($filename);
 	unless(defined($atime) && defined($mtime)) {
-		&printcomment('cannot stat:', $filename);
+		&printcomment('cannot stat', $filename);
 		return
 	}
 	my $write = $all;
@@ -359,44 +345,97 @@ sub dotouch {
 	}
 }
 
-sub shq {
-	my ($a) = (@_);
-	$a =~ s{\'}{\'\\\'\'}g;
-	$a = "'$a'";
-	$a =~ s{(\A|[^\\])\'([\w\-\,\.\:\/]*)\'}{$1$2}gm;
-	(($a ne '') ? $a : "''")
+sub printcomment {
+	print('# ', &shell_comment_quote(join(' ', @_)), "\n")
 }
 
-sub shqs {
-	' ' . &shq($_[0])
+sub printexec {
+	my $shellprint = shift();
+	my $shellexec = shift();
+	# The following shortcut-check is done at a higher level:
+	# return unless($shellprint || $shellexec);
+	my @cmd = &shdash;
+	&shprintraw(@cmd) if($shellprint);
+	system(@cmd) if($shellexec)
 }
 
 sub shdash {
-	my ($s, $r, $t) = (shift, '', '');
+	my $c = shift();
+	$c = [$c] unless(ref($c) eq 'ARRAY');
 	for my $i (@_) {
-		$t = 1 if($i =~ m{^[-+]});
-		$r .= &shqs($i)
+		if($i =~ m{^[-+]}o) {
+			push(@$c, '--');
+			last
+		}
 	}
-	($t) ? ($s . ' --' . $r) : ($s . $r)
+	(@$c, @_)
 }
 
-sub shprint {
-	print(&shdash, "\n")
+# use String::ShellQuote () and return whether successful
+
+{ my $shellquote = undef;  # A closure static variable
+sub use_shellquote {
+	return $shellquote if(defined($shellquote));
+	eval {
+		require String::ShellQuote
+	};
+	$shellquote = !$@
+}}
+
+# like join(' ', @_), but shell-quote arguments
+
+sub join_quoted {
+	my @r;
+	for my $i (@_) {
+		my $a = $i;
+		$a =~ s{\'}{\'\\\'\'}g;
+		$a = "'$a'";
+		$a =~ s{(\A|[^\\])\'([\w\-\,\.\:\/]*)\'}{$1$2}gm;
+		push(@r, ($a ne '') ? $a : "''")
+	}
+	join(' ', @r)
+}
+
+sub shell_quote_best_effort {
+	(&use_shellquote() ?
+		&String::ShellQuote::shell_quote_best_effort : &join_quoted)
+}
+
+sub shprintraw {
+	print(&shell_quote_best_effort, "\n")
+}
+
+#sub shprint {
+#	&shprintraw(&shdash)
+#}
+
+sub my_shell_comment_quote {
+	my ($arg) = @_;
+	$arg =~ s{\n}{\n\#}gm;
+	$arg
+}
+
+sub shell_comment_quote {
+	(&use_shellquote() ? &String::ShellQuote::shell_comment_quote :
+		&my_shell_comment_quote)
 }
 
 sub info {
-	print("$name: ",
-		join("\n" . (' ' x (length($name) + 2)), @_), "\n")
+	my $add = ': ';
+	print($name, $add,
+		join("\n" . (' ' x (length($name) + length($add))), @_), "\n")
 }
 
 sub warning {
-	print(STDERR "$name: warning: ",
-		join("\n" . (' ' x (length($name) + 11)), @_), "\n")
+	my $add = ': warning: ';
+	print(STDERR $name, $add,
+		join("\n" . (' ' x (length($name) + length($add))), @_), "\n")
 }
 
 sub fatal {
-	print(STDERR "$name: fatal: ",
-		join("\n" . (' ' x (length($name) + 9)), @_), "\n");
+	my $add = ': fatal: ';
+	print(STDERR $name, ': fatal: ',
+		join("\n" . (' ' x (length($name) + length($add))), @_), "\n");
 	exit(1)
 }
 

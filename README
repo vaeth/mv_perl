@@ -135,4 +135,10 @@ Here is a brief overview of the scripts:
 - touchdirs. Touch directories according to their newest file (recursively).
   This script can also be used to "round" file/directory timestamps
   to a full second.
-  This script requires perl-5.12
+  This script requires perl-5.12.
+  For improved output, the String::ShellQuote module is recommended.
+  For improved handling of symlinks, the File::lchown module (0.02 or newer)
+  is strongly recommended.
+  Note that the Time::HiRes module (used by the script if available)
+  is buggy in some perl implementations; the script takes care of this
+  by some heuristics. Type touchdirs --man for more details.
