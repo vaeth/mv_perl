@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Patchdirs v2.2.0;
+package Patchdirs v2.2.1;
 
 use warnings;
 use strict;
@@ -457,23 +457,27 @@ sub strip_dirs {
 }
 
 sub info {
-	print(STDERR "$name: ",
-		join("\n" . (' ' x (length($name) + 2)), @_), "\n")
+	my $add = ': ';
+	print(STDERR $name, $add,
+		join("\n" . (' ' x (length($name) + length($add))), @_), "\n")
 }
 
 sub warning {
-	print(STDERR "$name: warning: ",
-		join("\n" . (' ' x (length($name) + 11)), @_), "\n")
+	my $add = ': warning: ';
+	print(STDERR $name, $add,
+		join("\n" . (' ' x (length($name) + length($add))), @_), "\n")
 }
 
 sub error {
-	print(STDERR "$name: error: ",
-		join("\n" . (' ' x (length($name) + 9)), @_), "\n")
+	my $add = ': error: ';
+	print(STDERR $name, $add,
+		join("\n" . (' ' x (length($name) + length($add))), @_), "\n")
 }
 
 sub fatal {
-	print(STDERR "$name: fatal: ",
-		join("\n" . (' ' x (length($name) + 9)), @_), "\n");
+	my $add = ': fatal: ';
+	print(STDERR $name, ': fatal: ',
+		join("\n" . (' ' x (length($name) + length($add))), @_), "\n");
 	exit(1)
 }
 
@@ -561,7 +565,7 @@ if($mode eq 'store') {
 	&printlist(\@A);
 } elsif($mode eq 'restore') {
 	if(@FILES) {
-		&readlist(\@FILES, \@B, \@Adirs, \%Bfullname)
+		&readlist(\@FILES, \@B, \@Adirs, \%Bfullname);
 		&readlist(\@ARGV, \@A, \@Adirs, \%Afullname)
 	} else {
 		&readlist(\@ARGV, \@A, \@Adirs, \%Afullname);
@@ -675,8 +679,17 @@ sub readlist {
 	my $repeat = undef;
 	my $err;
 	for my $file (@$files) {
-		my $fh;
-		(($file eq '-') ? open($fh, '<-') : open($fh, '<', $file)) or next;
+		my ($fh, $close);
+		if($file eq '-') {
+			$fh = \*STDIN;
+			$close = ''
+		} else {
+			unless(open($fh, '<', $file)) {
+				&warning("cannot open $file");
+				next
+			}
+			$close = 1
+		}
 		while(<$fh>) {
 			chomp();
 			if(defined($repeat)) {
@@ -716,7 +729,7 @@ sub readlist {
 			push(@$A, [ $name, $checksum, $mode, $owner, $time ]);
 			$fullhash->{$name} = $#$A
 		}
-		close($fh)
+		close($fh) if($close)
 	}
 	@$alldirs = keys(%hashdir)
 }

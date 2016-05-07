@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Commmlist v2.2.0;
+package Commmlist v2.2.1;
 
 use warnings;
 use strict;
@@ -86,6 +86,10 @@ my $common = '';
 
 # Functions
 
+sub warn {
+	print(STDERR $name, ': warning: ', @_, "\n")
+}
+
 sub version {
 	print($name, ' ', $VERSION, "\n");
 	exit(0)
@@ -131,17 +135,35 @@ exit(0) unless(@fileA);
 
 my %B = ();
 for my $file (@fileB) {
-	my $fh;
-	(($file eq '-') ? open($fh, '<-') : open($fh, '<', $file)) or next;
+	my ($fh, $close);
+	if($file eq '-') {
+		$fh = \*STDIN;
+		$close = ''
+	} else {
+		unless(open($fh, '<', $file)) {
+			&warn('cannot open ', $file);
+			next
+		}
+		$close = 1
+	}
 	while(<$fh>) {
 		chomp();
 		$B{$_} = undef
 	}
-	close($fh)
+	close($fh) if($close)
 }
 for my $file (@fileA) {
-	my $fh;
-	(($file eq '-') ? open($fh, '<-') : open($fh, '<', $file)) or next;
+	my ($fh, $close);
+	if($file eq '-') {
+		$fh = \*STDIN;
+		$close = ''
+	} else {
+		unless(open($fh, '<', $file)) {
+			&warn('cannot open ', $file);
+			next
+		}
+		$close = 1
+	}
 	while(<$fh>) {
 		my $c = $_;
 		chomp($c);
@@ -151,5 +173,5 @@ for my $file (@fileA) {
 			print($only, $_) unless($suppress2)
 		}
 	}
-	close($fh)
+	close($fh) if($close)
 }
