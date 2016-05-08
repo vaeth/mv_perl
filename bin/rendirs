@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package RenDirs v5.10.1;
+package RenDirs v5.10.2;
 
 use warnings;
 use strict;
@@ -888,7 +888,7 @@ sub version {
 }
 
 sub pod2usage {
-	require Pod::Usage;;
+	require Pod::Usage;
 	&Pod::Usage::pod2usage
 }
 

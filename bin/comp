@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Comp v2.6.2;
+package Comp v2.6.3;
 
 use warnings;
 use strict;
@@ -629,6 +629,6 @@ sub version {
 }
 
 sub pod2usage {
-	require Pod::Usage;;
+	require Pod::Usage;
 	&Pod::Usage::pod2usage
 }

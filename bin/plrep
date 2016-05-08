@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Plrep v2.13.7;
+package Plrep v2.13.8;
 
 use warnings;
 use strict;
@@ -535,7 +535,7 @@ sub version {
 }
 
 sub pod2usage {
-	require Pod::Usage;;
+	require Pod::Usage;
 	&Pod::Usage::pod2usage
 }
 

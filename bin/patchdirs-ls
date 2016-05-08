@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package PatchdirsLs v1.7.1;
+package PatchdirsLs v1.7.2;
 
 use warnings;
 use strict;
@@ -160,7 +160,7 @@ sub version {
 }
 
 sub pod2usage {
-	require Pod::Usage;;
+	require Pod::Usage;
 	&Pod::Usage::pod2usage
 }
 

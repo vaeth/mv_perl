@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Commmlist v2.2.1;
+package Commmlist v2.2.2;
 
 use warnings;
 use strict;
@@ -96,7 +96,7 @@ sub version {
 }
 
 sub pod2usage {
-	require Pod::Usage;;
+	require Pod::Usage;
 	&Pod::Usage::pod2usage
 }
 

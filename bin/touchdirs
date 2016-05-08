@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Touchdirs v4.3.0;
+package Touchdirs v4.3.1;
 
 use warnings;
 use strict;
@@ -434,7 +434,7 @@ sub warning {
 
 sub fatal {
 	my $add = ': fatal: ';
-	print(STDERR $name, ': fatal: ',
+	print(STDERR $name, $add,
 		join("\n" . (' ' x (length($name) + length($add))), @_), "\n");
 	exit(1)
 }
@@ -445,7 +445,7 @@ sub version {
 }
 
 sub pod2usage {
-	require Pod::Usage;;
+	require Pod::Usage;
 	&Pod::Usage::pod2usage
 }
 
