@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Comp v2.6.3;
+package Comp v3.0.0;
 
 use warnings;
 use strict;
@@ -70,7 +70,7 @@ Compare also access/status-change time, hardlink number, and device attributes
 
 =item B<--too-pedantic> or B<-P>
 
-As B<-p>, but compare also device identifiers.
+As B<-p>, but compare also device identifiers and warn about zero size
 
 =item B<--only-first> or B<-1>
 
@@ -78,7 +78,7 @@ Do not complain if LastDir contains an unmatched file
 
 =item B<--only-last> or B<-2>
 
-Do not complain if LastDir does not contain a required file.
+Do not complain if LastDir does not contain a required file
 
 =item B<--tex> or B<-x>
 
@@ -186,19 +186,13 @@ $nowarn = $noowner = $notime = $nodirtime = $noattrib = 1 if($sloppy);
 my ($dorecurse, $prepend, $printprepend);
 my ($currpath, $isdir, $fullpath, $comparepath);
 my ($printpath, $nextpath, $domatch);
-my ($depth,$makelast,$name);
+my ($depth, $makelast);
 my $mask = '';
 my $differ = 0;
 my (@A, @Adepth, @Afull, @Aprint, %Ahash);
 my (@B, @Bdepth, @Bfull, @Bprint, %Bhash);
 my ($i, $j);
 my ($describe, $serious);
-my ($diffcont, $toread, $readnow, $ablock, $bblock);
-my ($Alink, $Blink);
-my @Stat;
-my ($dev, $ino, $blksize, $blocks);
-my ($Amode, $Ahlink, $Auid, $Agid, $Ardev, $Asize, $Aatime, $Amtime, $Actime);
-my ($Bmode, $Bhlink, $Buid, $Bgid, $Brdev, $Bsize, $Batime, $Bmtime, $Bctime);
 
 # Translate pathnames into regular expressions.
 # FIXME: Currently, it is impossible to quote the magic characters * ? [ ] -
@@ -384,7 +378,7 @@ if($[ < $#ARGV) {
 
 $i = $j = $[;
 if(($#A == $i) && ($#B == $j)) {
-	$name = $A[$i];
+	my $name = $A[$i];
 	$isdir = ($name =~ m{\/$});
 	# We have this special treatment only if $A and $B are both directories
 	# or both files:
@@ -395,7 +389,7 @@ if(($#A == $i) && ($#B == $j)) {
 }
 
 for($i = $[; $i <= $#A; ++$i) {
-	$name = $A[$i];
+	my $name = $A[$i];
 	$isdir = ($name =~ m{\/$});
 	$j = $Bhash{$name};
 	if(defined($j)) {
@@ -424,7 +418,7 @@ for($i = $[; $i <= $#A; ++$i) {
 }
 
 for($j = $[; $j <= $#B; ++$j) {
-	$name = $B[$j];
+	my $name = $B[$j];
 	$isdir = ($name =~ m{\/$});
 	$i = $Ahash{$name};
 	next if(defined($i));
@@ -449,10 +443,7 @@ for($j = $[; $j <= $#B; ++$j) {
 	}
 }
 
-if($differ > 127) {
-	$differ = 127
-}
-exit($differ);
+exit($differ ? 1 : 0);
 
 
 # $i and $j must contain the indices of the files to compare.
@@ -460,14 +451,11 @@ exit($differ);
 sub comparepair {
 	$describe = '';
 	$serious = '';
-	$Alink = (-l $Afull[$i]);
-	$Blink = (-l $Bfull[$j]);
+	my ($a, $b) = ($Afull[$i], $Bfull[$j]);
+	my $Alink = (-l $a);
+	my $Blink = (-l $b);
 	if(($Alink) || ($Blink)) {
-		if(($Alink) && ($Blink)) {
-			unless($nowarn) {
-				&warn($Aprint[$i], ' and ', $Bprint[$j], ' are symbolic links')
-			}
-		} else {
+		unless($Alink && $Blink) {
 			$serious = 1;
 			&adderror('link-status');
 			unless($nowarn) {
@@ -479,33 +467,33 @@ sub comparepair {
 			}
 		}
 	}
-	if(($Alink) && ($noresolve)) {
-		@Stat = lstat($Afull[$i])
-	} else {
-		@Stat = stat($Afull[$i])
+	my @Stat = (($Alink && $noresolve) ? lstat($a) : stat($a));
+	my $Astat = ($#Stat >= 8);
+	my ($Adev, $Aino, $Amode, $Ahlink, $Auid, $Agid, $Ardev, $Asize, $Aatime, $Amtime, $Actime, $blksize, $blocks) = @Stat;
+	@Stat = (($Blink && $noresolve) ? lstat($b) : stat($b));
+	my $Bstat = ($#Stat >= 8);
+	my ($Bdev, $Bino, $Bmode, $Bhlink, $Buid, $Bgid, $Brdev, $Bsize, $Batime, $Bmtime, $Bctime) = @Stat;
+	unless($Astat && $Bstat) {
+		unless($Astat) {
+			&error('cannot get stat of ', $a)
+		}
+		unless($Bstat) {
+			&error('cannot get stat of ', $b)
+		}
+		if($Astat) {
+			print('File without statable  last arg: ', $Aprint[$i], "\n")
+		}
+		if($Bstat) {
+			print('File without statable first arg: ', $Bprint[$j], "\n")
+		}
+		return
 	}
-	if($#Stat <= 8) {
-		$serious = 1;
-		&error('cannot get stat of ', $Afull[$i]);
-	}
-	($dev, $ino, $Amode, $Ahlink, $Auid, $Agid, $Ardev, $Asize, $Aatime, $Amtime, $Actime, $blksize, $blocks) = @Stat;
-	if(($Blink) && ($noresolve)) {
-		@Stat = lstat($Bfull[$j])
-	} else {
-		@Stat = stat($Bfull[$j])
-	}
-	if($#Stat <= 8) {
-		$serious = 1;
-		&error('cannot get stat of ', $Bfull[$j]);
-	}
-	($dev, $ino, $Bmode, $Bhlink, $Buid, $Bgid, $Brdev, $Bsize, $Batime, $Bmtime, $Bctime, $blksize, $blocks) = @Stat;
 	my $diffother = '';
 	if($toopedantic) {
 		if(($Ardev) || ($Brdev)) {
 			if(($Ardev) && ($Brdev)) {
-				unless($nowarn) {
-					&warn($Aprint[$i], ' and ', $Bprint[$j], ' have unusual attributes')
-				}
+				&warn($Aprint[$i], ' and ', $Bprint[$j], ' have unusual attributes')
+					unless($nowarn)
 			} else {
 				$diffother = 1;
 				unless($nowarn) {
@@ -519,7 +507,7 @@ sub comparepair {
 		}
 	}
 	unless($noattrib) {
-		&adderror('attributes') if(($Amode != $Bmode) || ($diffother))
+		&adderror('attributes') if(($Amode != $Bmode) || $diffother)
 	}
 	if($pedantic) {
 		&adderror('hardlink-nr') if($Ahlink != $Bhlink)
@@ -527,11 +515,15 @@ sub comparepair {
 	unless($noowner) {
 		&adderror('uid/gid') if(($Auid != $Buid) || ($Agid != $Bgid ))
 	}
-	if($isdir) {
-		&comparetime() unless($nodirtime);
-	} else {
-		&comparetime() unless($notime);
-		unless($nowarn || (($Asize > 0) && ($Bsize > 0))) {
+	unless($isdir ? $nodirtime : $notime) {
+		&adderror('modify time') if($Amtime != $Bmtime);
+		if($pedantic) {
+			&adderror('status time') if($Actime != $Bctime);
+			&adderror('access time') if($Aatime != $Batime)
+		}
+	}
+	unless($isdir) {
+		if($toopedantic && !(($Asize > 0) && ($Bsize > 0))) {
 			if(($Asize <= 0) && ($Bsize <= 0)) {
 				&warn($Aprint[$i], ' and ', $Bprint[$j], ' have size 0')
 			} else {
@@ -542,10 +534,24 @@ sub comparepair {
 			$serious = 1;
 			&adderror('length')
 		}
-		&comparefile();
-		if($diffcont) {
-			$serious = 1;
-			&adderror('content')
+		if($noresolve && ($Alink || $Blink)) {
+			if($Alink && $Blink) {
+				my $al = readlink($a);
+				&error('cannot read link ' . $a) unless(defined($al));
+				my $bl = readlink($b);
+				&error('cannot read link ' . $b) unless(defined($bl));
+				if(defined($al) && defined($bl) && ($al ne $bl)) {
+					$serious = 1;
+					&adderror('symlink destinations')
+				}
+			}
+		} else {
+			unless((((!defined($Adev) && !defined($Bdev)) || ($Adev eq $Bdev)) &&
+				(defined($Aino) && defined($Bino)) && ($Aino eq $Bino)) ||
+				&comparefile($a, $b, $Asize, $Bsize)) {
+				$serious = 1;
+				&adderror('content')
+			}
 		}
 	}
 	if($describe ne '') {
@@ -553,66 +559,57 @@ sub comparepair {
 			++$differ;
 			print($Aprint[$i], ' and ', $Bprint[$j], " have different $describe\n")
 		} else {
-			unless($sloppy) {
-				&warn($Aprint[$i], ' and ', $Bprint[$j], " have different $describe")
-			}
-		}
-	}
-}
-
-sub comparetime {
-	if($Amtime != $Bmtime) {
-		&adderror('time')
-	}
-	if($pedantic) {
-		if($Actime != $Bctime) {
-			&adderror('status time')
-		}
-		if($Aatime != $Batime) {
-			&adderror('access time')
+			&warn($Aprint[$i], ' and ', $Bprint[$j], " have different $describe")
+				unless($sloppy)
 		}
 	}
 }
 
 sub adderror {
-	my($addstring) = @_;
 	if($describe ne '') {
-		$describe = "$describe, $addstring"
+		$describe .= ', ' . $_[0]
 	} else {
-		$describe = $addstring
+		$describe = $_[0]
 	}
 }
 
 sub comparefile {
-	$diffcont = '';
-	if($Asize < $Bsize) {
-		$toread = $Asize
+	my ($a, $b, $toread) = @_;
+	return 1 if(($toread <= 0) || $nocompare);
+	return 1 unless((-f $a) && (-f $b));
+	my $result = 1;
+	my ($afile, $bfile);
+	if(open($afile, '<', $a)) {
+		binmode($afile)
 	} else {
-		$toread = $Bsize
+		&error('cannot open ', $a);
+		$result = ''
 	}
-	return if($toread <= 0);
-	return if($nocompare);
-	open(my $afile, '<', $Afull[$i]) or &error('cannot open ', $Afull[$i]);
-	binmode($afile);
-	open(my $bfile, '<', $Bfull[$j]) or &error('cannot open ', $Bfull[$j]);
-	binmode($bfile);
-	while($toread > 0) {
-		$readnow = (($toread < $blocksize) ? $toread : $blocksize);
+	if(open($bfile, '<', $b)) {
+		binmode($bfile)
+	} else {
+		&error('cannot open ', $b);
+		$result = ''
+	}
+	while($result && ($toread > 0)) {
+		my $readnow = (($toread < $blocksize) ? $toread : $blocksize);
+		my ($ablock, $bblock);
 		if((read($afile, $ablock, $readnow)) != $readnow) {
-			&error('read error for file ', $Afull[$i])
+			&error('read error for file ', $Afull[$i]);
+			$result = ''
 		}
 		if((read($bfile, $bblock, $readnow)) != $readnow) {
-			&error('read error for file ', $Bfull[$j])
+			&error('read error for file ', $Bfull[$j]);
+			$result = ''
 		}
-		if($ablock ne $bblock) {
-			$diffcont = 1;
-			$toread = 0
-		} else {
-			$toread -= $readnow
+		if($result && ($ablock ne $bblock)) {
+			$result = ''
 		}
+		$toread -= $readnow if($result)
 	}
 	close($bfile);
-	close($afile)
+	close($afile);
+	$result
 }
 
 sub error {
