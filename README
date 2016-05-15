@@ -120,10 +120,14 @@ Here is a brief overview of the scripts:
   This is an old script which should work with perl 4 without any modules.
   It is hardly maintained.
 
-- comp. Similar to diff -r -q, but compares also metadata like
+- comp-old. Similar to diff -r -q, but compares also metadata like
   attributes, time, owner, ...
-  Also calls like comp *.tex DIR are admissible.
-  This script requires perl-5.12
+  Also calls like comp-old *.tex DIR are admissible.
+  This script requires perl-5.12.
+  This script is renamed: It was previously called "comp".
+  A ground-up rewrite of comp-old is splitted from this project and
+  maintained as a separate project under
+  https://github.com/vaeth/comp/
 
 - touch.difference. Correct times of files
   (e.g. by a daylight saving offset). The script can also be used to "round"

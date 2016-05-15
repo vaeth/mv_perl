@@ -1,4 +1,4 @@
-#compdef comp
+#compdef comp-old
 _arguments -s -S : \
 '(1 * -)'{'--help','-h'}'[print a brief help]' \
 '(1 * -)'{'--man','-\\?'}'[show extended help as a manpage]' \

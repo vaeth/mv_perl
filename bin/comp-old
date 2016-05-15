@@ -10,15 +10,15 @@ use Getopt::Long 2.24 ();
 
 =head1 NAME
 
-comp - compare directories/files recursively
+comp-old - compare directories/files recursively
 
 =head1 SYNOPSIS
 
 =over 8
 
-=item B<comp> [options] Dir/Mask Dir/Mask ... LastDir/Mask
+=item B<comp-old> [options] Dir/Mask Dir/Mask ... LastDir/Mask
 
-=item B<comp> [options] Dir/Mask
+=item B<comp-old> [options] Dir/Mask
 
 =back
 
@@ -613,7 +613,7 @@ sub comparefile {
 }
 
 sub error {
-	print(STDERR 'comp: ', @_, "\n")
+	print(STDERR 'comp-old: ', @_, "\n")
 }
 
 sub warn {
@@ -621,7 +621,7 @@ sub warn {
 }
 
 sub version {
-	print('comp ', $VERSION, "\n");
+	print('comp-old ', $VERSION, "\n");
 	exit(0)
 }
 
