@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Touchdirs v4.3.1;
+package Touchdirs v4.4.0;
 
 use warnings;
 use strict;
@@ -63,6 +63,11 @@ As B<--force> but additionally touch all files
 =item B<--access> or B<-A>
 
 Let access time be the same as modification time.
+
+=item B<--mtime> or B<-m>
+
+Do not drop non-integer seconds for atime if this is the only reason
+why the file/dir would need to be touched.
 
 =item B<--ignore=>I<regexp> or B<-i> I<regexp>
 
@@ -149,13 +154,13 @@ my $all = '';
 my $round = '';
 my $rounding = '';
 my $roundread = '';
+my $round_atime_write = '';
 my $show = '';
 my $follow = '';
 my $emptyignore = '';
 my $quiet = 0;
 my $verbose = 0;
 my @exclude = ();
-my @iexclude = ();
 
 # Global Variables:
 
@@ -281,8 +286,8 @@ sub my_amtime {
 	my ($file) = @_;
 	(((!$follow) && (-l $file)) ?
 		(($roundread ||
-			!($have_hires_lstat //= defined(&Time::HiRes::lstat))) ?
-			lstat($file) : Time::HiRes::lstat($file)) :
+			!($have_hires_lstat //= defined(&Time::HiRes::lstat)))
+			? lstat($file) : Time::HiRes::lstat($file)) :
 		($roundread ? stat($file) : Time::HiRes::stat($file)))[8, 9]
 }}
 
@@ -292,7 +297,7 @@ sub dotouch {
 	}
 	if((-d $_) && ($follow || !(-l $_))) {
 		return if($emptyignore || exists($PARENT{$_}));
-		&printcomment('empty directory', $_) if($verbose)
+		&printcomment('empty', $_) if($verbose)
 	}
 	if(&exclude($_)) {
 		&printcomment('ignored', $_) unless($quiet);
@@ -310,7 +315,7 @@ sub dotouch {
 	my $filename = &my_cat(@topdirs, @dirs);
 	my ($atime, $mtime) = &my_amtime($filename);
 	unless(defined($atime) && defined($mtime)) {
-		&printcomment('cannot stat', $filename);
+		&printcomment('non-statable', $filename);
 		return
 	}
 	my $write = $all;
@@ -318,7 +323,9 @@ sub dotouch {
 		my ($oldatime, $oldmtime) = ($atime, $mtime);
 		($atime, $mtime) = (int($atime), int($mtime));
 		if($round) {
-			$write = 1 if(&not_equal($oldatime, $atime) || &not_equal($oldmtime, $mtime))
+			$write = 1 if(&not_equal($oldmtime, $mtime) ||
+				($round_atime_write &&
+					&not_equal($oldatime, $atime)))
 		}
 	}
 	if($access && &not_equal($atime, $mtime)) {
@@ -340,13 +347,17 @@ sub dotouch {
 				$array->[1] = $mtime
 			}
 		} else {
-			$DIR{$dirname} = [ $atime, $mtime, scalar(@dirs), $count++ ]
+			$DIR{$dirname} = [ $atime, $mtime,
+				scalar(@dirs), $count++ ]
 		}
 	}
 }
 
 sub printcomment {
-	print('# ', &shell_comment_quote(join(' ', @_)), "\n")
+	my $comment = shift();
+	my $text = &shell_comment_quote(&shell_quote_best_effort('x', @_));
+	$text =~ s{^[^ ]*}{};
+	print('# ', $comment, $text, "\n")
 }
 
 sub printexec {
@@ -451,6 +462,9 @@ sub pod2usage {
 
 # Parse Options:
 
+{
+my @iexclude = ();
+my $opt_mtime;
 Getopt::Long::Configure(qw(gnu_getopt));
 Getopt::Long::GetOptions(
 	'help|h', sub { &pod2usage(0) },
@@ -459,6 +473,7 @@ Getopt::Long::GetOptions(
 	'round|r', \$round,
 	'rounding', \$rounding,
 	'roundread|R', \$roundread,
+	'mtime|m', \$opt_mtime,
 	'force|f', \$force,
 	'all|a', \$all,
 	'access|A', \$access,
@@ -484,6 +499,9 @@ for my $i (@ARGV) {
 @ARGV = (File::Spec->curdir()) unless($check || @ARGV);
 
 # Set dependent options
+
+$round_atime_write = !$opt_mtime;
+
 $rounding = 1 if($round || $roundread);
 if($all) {
 	$force = 1;
@@ -542,7 +560,8 @@ for my $i (@iexclude) {
 	$i = qr{$i}im if(ref($i) ne 'Regexp');
 	Push(@exclude, $i)
 }
-@iexclude = undef;
+
+}  # End of option parsing
 
 # Main Loop
 for my $currdir (@ARGV) {

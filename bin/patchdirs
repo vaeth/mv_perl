@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Patchdirs v2.2.2;
+package Patchdirs v2.3.0;
 
 use warnings;
 use strict;
@@ -12,6 +12,8 @@ use File::stat ();
 use Fcntl ();
 use Time::localtime ();
 #use Digest::MD5 ();
+#use String::Escape ();  # not mandatory but strongly recommended: poor fallback
+#use String::ShellQuote ();  # not mandatory but recommended: poor fallback
 #use Pod::Usage ();  # needed for --man, --help, some errors
 
 =head1 NAME
@@ -353,29 +355,65 @@ my $subseconds = 0;
 
 # Functions:
 
-sub shq {
-	my ($a) = (@_);
-	$a =~ s{\'}{\'\\\'\'}g;
-	$a = "'$a'";
-	$a =~ s{(\A|[^\\])\'([\w\+\-\,\.\:\/]*)\'}{$1$2}gm;
-	(($a ne '') ? $a : "''")
-}
-
-sub shqs {
-	' ' . &shq($_[0])
-}
-
 sub shdash {
-	my ($s, $r, $t) = (shift, '', '');
+	my $c = shift();
+	$c = [$c] unless(ref($c) eq 'ARRAY');
 	for my $i (@_) {
-		$t = 1 if($i =~ m{^[-+]});
-		$r .= &shqs($i)
+		if($i =~ m{^[-+]}o) {
+			push(@$c, '--');
+			last
+		}
 	}
-	($t) ? ($s . ' --' . $r) : ($s . $r)
+	(@$c, @_)
 }
+
+# use String::ShellQuote () and return whether successful
+
+{ my $shellquote = undef;  # A closure static variable
+sub use_shellquote {
+	return $shellquote if(defined($shellquote));
+	eval {
+		require String::ShellQuote
+	};
+	$shellquote = !$@
+}}
+
+# use String::Escape () and return whether successful
+
+{ my $escape = undef;  # A closure static variable
+sub use_escape {
+	return $escape if(defined($escape));
+	eval {
+		require String::Escape
+	};
+	$escape = !$@
+}}
+
+# like join(' ', @_), but shell-quote arguments
 
 sub join_quoted {
-	join(' ', map { &shq($_) } @_)
+	my @r;
+	for my $i (@_) {
+		my $a = $i;
+		$a =~ s{\'}{\'\\\'\'}g;
+		$a = "'$a'";
+		$a =~ s{(\A|[^\\])\'([\w\-\,\.\:\/]*)\'}{$1$2}gm;
+		push(@r, ($a ne '') ? $a : "''")
+	}
+	join(' ', @r)
+}
+
+sub shell_quote_best_effort {
+	(&use_shellquote() ?
+		&String::ShellQuote::shell_quote_best_effort : &join_quoted)
+}
+
+sub shell_dash {
+	&shell_quote_best_effort(&shdash)
+}
+
+sub list2string {
+	(&use_escape() ? &String::Escape::list2string : &join_quoted)
 }
 
 sub split_quoted {
@@ -420,6 +458,11 @@ sub split_quoted {
 	push(@res, $word) if(defined($word));
 	@res
 }
+
+sub string2list {
+	(&use_escape() ? &String::Escape::string2list : &split_quoted)
+}
+
 
 # split dir into volume and directory components
 
@@ -628,7 +671,7 @@ sub makelist {
 						$checksum .= ':' . Digest::MD5->new->addfile($file)->b64digest();
 						close($file)
 					} elsif($cmd ne '') {
-						my $c = &shdash($cmd, $_);
+						my $c = &shell_dash($cmd, $_);
 						my @C = split(' ', `$c`);
 						$checksum .= ':' . $C[0]
 					}
@@ -639,7 +682,7 @@ sub makelist {
 		} else {
 			$checksum = sprintf("other:%x", Fcntl::S_IFMT($mode))
 		}
-		$mode = sprintf("%04o", Fcntl::S_IMODE($mode));#$mode & 07777
+		$mode = sprintf("%04o", Fcntl::S_IMODE($mode));  # $mode & 07777
 		my $time = Time::localtime::ctime($stat->mtime() + $addseconds);
 		my $owner = $stat->uid() . ':' . $stat->gid();
 		push(@$A, [ $name, $checksum, $mode, $owner, $time ]);
@@ -660,13 +703,12 @@ sub makelist {
 	}, @mydirs)
 }
 
-
 sub printlist {
 	my ($A) = @_;
 	for my $f (@$A) {
 		my ($name, $checksum, $mode, $owner, $time) = @$f;
 		next unless(&strip_dirs($outstrip, $name));
-		print(&join_quoted($name, $checksum,
+		print(&list2string($name, $checksum,
 			($modattrib ? $mode : ()),
 			($modowner ? $owner : ()),
 			($modtime ? $time : ())), "\n")
@@ -698,11 +740,7 @@ sub readlist {
 				next
 			}
 			my ($name, $checksum, $mode, $owner, $time) =
-				&split_quoted($repeat // $_, $err);
-			if($err ne '') {
-				$repeat //= $_;
-				next
-			}
+				&string2list($repeat // $_);
 			$repeat = undef;
 			$name = &unify_name($name);
 			next unless(&strip_dirs($strip, $name));
@@ -897,13 +935,13 @@ sub patchlist () {
 			} elsif(&isother($Achecksum)) {  # Other strange filetype:
 				my ($isnew, $j) = &make_dirs_for($Aname, $Achecksum);
 				if($isnew) {
-					push(@LinkCmds, &shdash('touch', $Aname));
+					push(@LinkCmds, &shell_dash('touch', $Aname));
 					&warning("special type file $Aname created as ordinary file")
 				}
 				&changemods($Aname, $Amode, $Aowner, $Atime, '', $isnew, $j)
 			} else {  # Link:
 				my ($isnew, $j) = &make_dirs_for($Aname, $Achecksum);
-				push(@LinkCmds, &shdash('ln -s', $tolinkRemember, $Aname)) if($isnew);
+				push(@LinkCmds, &shell_dash(['ln', '-s'], $tolinkRemember, $Aname)) if($isnew);
 				&changemods($Aname, $Amode, $Aowner, $Atime, 1, $isnew, $j)
 			}
 		}
@@ -919,7 +957,7 @@ sub patchlist () {
 		my $from = &thename($B[$a->[0]]);
 		my $froma = ($FromName{$from} // '');
 		$from = $froma if($froma ne '');
-		push(@CopyCmds, &shdash('cp -p -i', $from, $to));
+		push(@CopyCmds, &shell_dash(['cp', '-p', '-i'], $from, $to));
 	}
 
 	# Pass 2: We search for the existing files which have not already been moved.
@@ -930,14 +968,17 @@ sub patchlist () {
 			unless(defined($Afullname{$Bname})) {
 				if(&isdircheck($Bchecksum)) {
 					unless(defined($NeededDir{$Bname})) {
-						if($follow) { push(@RmDirCmds, 'test -h' . &shqs($Bname) .
-							&shdash(' && rm', $Bname) . &shdash(' || rmdir', $Bname))
-						} else {
-							push(@RmDirCmds, &shdash('rmdir', $Bname))
-						}
+						push(@RmDirCmds, ($follow ?
+							&shell_quote_best_effort('test', '-h', $Bname)
+							. ' && ' .
+							&shell_dash('rm', $Bname)
+							. ' || ' .
+							&shell_dash('rmdir', $Bname)
+							:
+							&shell_dash('rmdir', $Bname)))
 					}
 				} elsif($dodelete) {
-					push(@DelCmds, &shdash('rm', $Bname))
+					push(@DelCmds, &shell_dash('rm', $Bname))
 				}
 			}
 		}
@@ -949,7 +990,7 @@ sub patchlist () {
 	for my $p (keys(%FromName)) {
 		my $q = $FromName{$p};
 		delete($FromName{$p});
-		if(defined($q)) { # We have not moved $p yet.
+		if(defined($q)) {  # We have not moved $p yet.
 			my @T = ($p, $q);
 			my $loop = '';
 			while() {
@@ -981,16 +1022,17 @@ sub patchlist () {
 					if(&isdircheck($checksum)) {
 						# We should move a file onto a yet existing directory:
 						my $tempname = &mktempname($to);
-						push(@AfterRmDirCmds, &shdash('rmdir', $to));
-						push(@AfterRmDirCmds, &shdash('mv -i', $tempname, $to));
+						push(@AfterRmDirCmds, &shell_dash('rmdir', $to));
+						push(@AfterRmDirCmds, &shell_dash(['mv', '-i'], $tempname, $to));
 						$to = $tempname;
 					} elsif(&islinkcheck($checksum)) {
 						# We should move a file onto a symbolic link:
-						push(@MovCmds, 'test -h' . &shqs($to) . &shdash(' && rm', $to));
+						push(@MovCmds, &shell_quote_best_effort('test', '-h', $to) .
+							' && ' . &shell_dash('rm', $to))
 					} else {
 						# We should move a file onto a file/other which will not be moved:
 						if($dodelete) {
-							push(@MovCmds, &shdash('rm', $to))
+							push(@MovCmds, &shell_dash('rm', $to))
 						} elsif(!$force) {
 							my $from = $T[$#T - 1];
 							&error('you have chosen to not delete any file, but I should',
@@ -1012,7 +1054,7 @@ sub patchlist () {
 					'My logic would move a file to itself.',
 					'To be on the safe side, I do nothing at all.')
 					if($from eq $to);
-				push(@MovCmds, &shdash('mv -i', $from, $to));
+				push(@MovCmds, &shell_dash(['mv', '-i'], $from, $to));
 				$to = $from
 			}
 		}
@@ -1036,10 +1078,10 @@ sub patchlist () {
 	&doexec(\@AfterRmDirCmds);
 	&doexec(\@ModCmds);
 	if(@NotExist) {
-		print("\nThe following files could not be created by renaming:\n")
+		print("\n\# The following files could not be created by renaming:\n")
 			unless($quiet);
 		for my $f (@NotExist) {
-			print(&formatnice($f), "\n");
+			print(($quiet ? () : '# '), &formatnice($f), "\n");
 		}
 	}
 }
@@ -1068,11 +1110,15 @@ sub changemods {
 	if($islink) {
 		# chmod and touch have no --no-derefence option and thus are useless
 		# to modify a link.
-		push(@ModCmds, &shdash('chown -h', $owner, $name)) if(defined($owner))
+		push(@ModCmds, &shell_dash(['chown', '-h'], $owner, $name))
+			if(defined($owner))
 	} else {
-		push(@ModCmds, &shdash('chmod', $mode, $name)) if(defined($mode));
-		push(@ModCmds, &shdash('chown', $owner, $name)) if(defined($owner));
-		push(@ModCmds, &shdash('touch --date=' . &shq($time), $name)) if(defined($time))
+		push(@ModCmds, &shell_dash('chmod', $mode, $name))
+			if(defined($mode));
+		push(@ModCmds, &shell_dash('chown', $owner, $name))
+			if(defined($owner));
+		push(@ModCmds, &shell_dash(['touch', '--date=' . $time], $name))
+			if(defined($time))
 	}
 }
 
@@ -1122,7 +1168,7 @@ sub make_dirs_for {
 		# A directory must be created whose name is already be used by a file/link.
 		# We rename the file:
 		my $tempname = &mktempname($p);
-		push(@MkDirCmds, &shdash('mv -i', $Bname, $tempname));
+		push(@MkDirCmds, &shell_dash(['mv', '-i'], $Bname, $tempname));
 		# We remember the new name in our current list of filenames:
 		# Make sure that the index number does not change:
 		# We need it for $DeletedIndex and for @copylist.
@@ -1146,7 +1192,7 @@ sub make_dirs_for {
 	&make_dirs_for($p, '');
 	if($defact) {
 		$umask //= sprintf('%03o', (0777 ^ umask()));
-		push(@MkDirCmds, &shdash("mkdir -m $umask", $p))
+		push(@MkDirCmds, &shell_dash(['mkdir', '-m', $umask], $p))
 	}
 	(1, $j)
 }
@@ -1232,8 +1278,8 @@ sub printdoubles {
 	}
 	&pushsorted(\@finallist, \@doubles) if(@doubles);
 	for my $doublist (sort { $a->[0] cmp $b->[0] } @finallist) {
-		print('Same Checksum: ') unless($quiet);
-		print(&join_quoted(@$doublist), "\n")
+		print(($quiet ? () : '# Same Checksum: '),
+			&list2string(@$doublist), "\n")
 	}
 }
 
@@ -1254,6 +1300,6 @@ sub thechecksum {
 sub formatnice {
 	my ($f) = @_;
 	my ($name, $checksum, $mode, $owner, $time) = @$f;
-	join(' ', &shq($name),
-		$time // (), $owner // (), $mode // (), $checksum // ())
+	&list2string($name, $time // (), $owner // (),
+		$mode // (), $checksum // ())
 }

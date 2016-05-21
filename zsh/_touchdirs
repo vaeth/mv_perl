@@ -8,6 +8,7 @@ _arguments -s -S : \
 '*'{'--quiet','-q'}'[quiet for ignored files/and commands]' \
 {'(-v)--verbose','(--verbose)-v'}'[inform about empty dirs]' \
 {'(-A)--access','(--access)-A'}'[let access time equal mtime]' \
+{'(-m)--mtime','(--mtime)-m'}'[do not write atime only for rounding]' \
 '(-a --all '{'-f)--force','--force)-f'}'[force touching dirs]' \
 '(-r --round -R --roundread)--rounding[round dir timestamps to seconds]' \
 '(--rounding -r --round '{'-R)--roundread','--roundread)-R'}'[round timestamps when reading]' \
