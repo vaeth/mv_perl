@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Touchdirs v4.4.0;
+package Touchdirs v5.0.0;
 
 use warnings;
 use strict;
@@ -322,7 +322,7 @@ sub dotouch {
 	if($rounding) {
 		my ($oldatime, $oldmtime) = ($atime, $mtime);
 		($atime, $mtime) = (int($atime), int($mtime));
-		if($round) {
+		if($round && !$write) {
 			$write = 1 if(&not_equal($oldmtime, $mtime) ||
 				($round_atime_write &&
 					&not_equal($oldatime, $atime)))
@@ -592,7 +592,7 @@ for my $currdir (@ARGV) {
 		my ($newatime, $newmtime) = @{$DIR{$dir}};
 		if($force || &not_equal($atime, $newatime) ||
 			&not_equal($mtime, $newmtime)) {
-			&touchit($newmtime, $newatime, $dir)
+			&touchit($newatime, $newmtime, $dir)
 		}
 	}
 }
