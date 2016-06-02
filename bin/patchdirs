@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Patchdirs v2.3.0;
+package Patchdirs v2.4.0;
 
 use warnings;
 use strict;
@@ -8,7 +8,6 @@ use integer;
 use Getopt::Long 2.24 ();
 use File::Find ();
 use File::Spec ();
-use File::stat ();
 use Fcntl ();
 use Time::localtime ();
 #use Digest::MD5 ();
@@ -648,10 +647,14 @@ sub makelist {
 	my $makeentry = sub {
 		return if(($_ eq $mdot) || ($_ eq $ddot));
 		$File::Find::prune = 1 unless($recurse);
-		my $stat = (($follow) ? File::stat::stat($_) : File::stat::lstat($_));
-		my $mode = $stat->mode();
 		my $name = ($fullpath ? $_ :
 			&unify_name((&cat_dir(&split_dir($File::Find::dir), $_))));
+		my ($mode, $uid, $gid, $size, $mtime) =
+			($follow ? (stat($_)) : (lstat($_)))[2, 4, 5, 7, 9];
+		unless(defined($mtime)) {
+			&info("cannot stat $name");
+			return
+		}
 		return if(defined($fullhash->{$name}));
 		my $checksum;
 		if(Fcntl::S_ISLNK($mode)) {
@@ -662,7 +665,7 @@ sub makelist {
 		} elsif(Fcntl::S_ISREG($mode)) {
 			if($calccheck) {
 				&info("checksumming $name") unless($quiet);
-				$checksum = $stat->size();
+				$checksum = $size;
 				for my $cmd (@SUMCMDS) {
 					if($cmd eq '.') {
 						open(my $file, '<', $_) or
@@ -677,15 +680,14 @@ sub makelist {
 					}
 				}
 			} else {
-				$checksum = $stat->size()
+				$checksum = $size
 			}
 		} else {
 			$checksum = sprintf("other:%x", Fcntl::S_IFMT($mode))
 		}
 		$mode = sprintf("%04o", Fcntl::S_IMODE($mode));  # $mode & 07777
-		my $time = Time::localtime::ctime($stat->mtime() + $addseconds);
-		my $owner = $stat->uid() . ':' . $stat->gid();
-		push(@$A, [ $name, $checksum, $mode, $owner, $time ]);
+		my $time = Time::localtime::ctime($mtime + $addseconds);
+		push(@$A, [ $name, $checksum, $mode, $uid . ':' . $gid, $time ]);
 		$fullhash->{$name} = $#$A
 	};
 	for (@mydirs) {
