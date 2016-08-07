@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Patchdirs v3.0.0;
+package Patchdirs v3.1.0;
 
 use warnings;
 use strict;
@@ -681,13 +681,15 @@ sub standardlist {
 sub infocount {
 	return if($quiet);
 	my ($countref, $total, $size, $name, $action) = @_;
-	my $counter = ++($countref->[0]);
+	my $counter = (defined($size) ? (++($countref->[0])) : $countref->[0]);
 	my $info;
 	if($count) {
 		my $percent;
 		{
 			use bigint;
-			my $currsize = $countref->[1] += $size;
+			my $currsize = (($size // 0) ?
+				($countref->[1] += $size) :
+				$countref->[1]);
 			my $totalsize = $total->[1];
 			$percent = $totalsize ?
 				(((1005 * $currsize) / $totalsize) / 10) : 100
@@ -713,17 +715,10 @@ sub hintchecksum {
 
 sub makelist {
 	my ($A, $fullhash, $dirs) = @_;
-	my @mydirs = ();
-	for my $a (@$dirs) {
-		my $b = &unify_name($a);
-		push(@mydirs, $b) if(-d $b)
-	}
-	return unless(@mydirs);
-	@mydirs = sort(@mydirs);
 	my @total = (0, 0);
 	my @count  = (0, 0);
-	my $docount = ($calccheck && !$quiet);
 	my $fullpath;
+	my $estimate;
 	my $makeentry = sub {
 		return if(($_ eq $mdot) || ($_ eq $ddot));
 		$File::Find::prune = 1 unless($recurse);
@@ -738,15 +733,24 @@ sub makelist {
 		return if(defined($fullhash->{$name}));
 		my $checksum;
 		if(Fcntl::S_ISLNK($mode)) {
+			return if($estimate);
 			my $linkname = readlink();
 			$checksum = '->' . $linkname
 		} elsif(Fcntl::S_ISDIR($mode)) {
+			return if($estimate);
 			$checksum = 'dir'
 		} elsif(Fcntl::S_ISREG($mode)) {
 			$checksum = &hintchecksum($name, $size);
 			if(defined($checksum)) {
-				&infocount(\@count, \@total, $size, $name, 'Hint for')
+				return if($estimate);
+				&infocount(\@count, \@total, undef, $name, 'Hint for');
 			} elsif($calccheck) {
+				if($estimate) {
+					++$total[0];
+					use bigint;
+					$total[1] += $size;
+					return
+				}
 				&infocount(\@count, \@total, $size, $name, 'Checksum');
 				$checksum = $size;
 				for my $cmd (@sumcmds) {
@@ -763,9 +767,11 @@ sub makelist {
 					}
 				}
 			} else {
+				return if($estimate);
 				$checksum = $size
 			}
 		} else {
+			return if($estimate);
 			$checksum = sprintf("other:%x", Fcntl::S_IFMT($mode))
 		}
 		$mode = sprintf("%04o", Fcntl::S_IMODE($mode));  # $mode & 07777
@@ -774,31 +780,31 @@ sub makelist {
 		$fullhash->{$name} = $#$A
 	};
 
+	my @mydirs = ();
+	for my $a (@$dirs) {
+		my $b = &unify_name($a);
+		push(@mydirs, $b) if(-d $b)
+	}
+	return unless(@mydirs);
+	@mydirs = sort(@mydirs);
+
 	$fullpath = 1;
 	for (@mydirs) {
 		$makeentry->()
 	}
 	$fullpath = '';
 
-	if($docount) {
+	if($count) {
 		&info('estimating files/bytes ') unless($quiet);
+		$estimate = 1;
 		File::Find::find({
 			dangling_symlinks => '',
 			follow_fast => $follow,
-			wanted => sub {
-				return if(($_ eq $mdot) || ($_ eq $ddot));
-				$File::Find::prune = 1 unless($recurse);
-				if($follow) {
-					return unless(-f $_)
-				} else {
-					return unless(!(-l $_) && (-f $_))
-				}
-				++$total[0];
-				use bigint;
-				$total[1] += (-s $_)
-			}
+			wanted => $makeentry
 		}, @mydirs)
 	}
+	$estimate = '';
+
 	File::Find::find({
 		follow_fast => $follow,
 		preprocess => sub {
