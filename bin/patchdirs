@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Patchdirs v2.4.0;
+package Patchdirs v3.0.0;
 
 use warnings;
 use strict;
@@ -142,6 +142,17 @@ which has the usual magic meaning).
 As with B<--file>, the character B<,> is considered as a separation character
 for several names.
 
+=item B<--hint=>I<file> or B<-h> I<file>
+
+This is similar to B<--file=>I<file>, but the information of I<file> is only
+used to take the checksum if filename and filesize do match.
+In other words: In contrast to B<--file>, a file listed in I<file>
+is not treated as if it would exist.
+
+=item B<--hints=>I<file1> I<file2> ...  or B<-I> I<file1> I<file2> ...
+
+Synonymous to B<--hint> I<file1> B<--hint> I<file2> ...
+
 =item B<--sum-cmds=>I<cmds> or B<-S> I<cmds>
 
 You may list several checksum-commands in I<cmds>, separated by ";".
@@ -223,6 +234,12 @@ Calculate checksum (default) (only for store)
 
 Recurse (default)
 
+=item B<--count>
+
+Estimate the total number of files/bytes before calculating the checksum.
+This is the default.
+This option is ignored if B<--quiet> or <--nochecksum> is in effect.
+
 =item B<--follow-link> or B<-F>
 
 Follow symbolic links (loops are avoided)
@@ -270,6 +287,12 @@ Do not calculate checksum (only for B<store> mode)
 =item B<--norecurse> or B<-R>
 
 Do not recurse, i.e. use only the explicitly given dirs
+
+=item B<--nocount>
+
+Do not estimate the total number of files/bytes before processing.
+This speeds up the process slightly.
+This option is automatic if B<--quiet> or <--nochecksum> is in effect.
 
 =item B<--nofollow-link>
 
@@ -328,6 +351,8 @@ my @Adirs = ();
 my @B = ();
 my %Bfullname = ();
 my %Bcheck = ();
+my @H = ();
+my %Hfullname = ();
 
 # Default for the Options:
 
@@ -346,8 +371,10 @@ my $calccheck = 1;
 my $sumcmds = '.';
 my $upper = '';
 my $lower = '';
-my @FILES = ();
+my @files = ();
+my @hints = ();
 my $recurse = 1;
+my $count = 1;
 my $mode = '';
 my $addseconds = 0;
 my $subseconds = 0;
@@ -556,6 +583,8 @@ Getopt::Long::GetOptions(
 	'nochecksum|C', sub { $calccheck = '' },
 	'recurse|r', \$recurse,
 	'norecurse|R', sub { $recurse = '' },
+	'count', \$count,
+	'nocount', sub { $count = ''},
 	'follow-link|F', \$follow,
 	'nofollow-link', sub { $follow = '' },
 	'upper|u', \$upper,
@@ -565,9 +594,12 @@ Getopt::Long::GetOptions(
 	'output-strip|P=i', \$outstrip,
 	'strip|p=i', \$strip,
 	'sum-cmds|S=s', \$sumcmds,
-	'file|f=s', \@FILES,
-	'files|i=s', sub { push(@FILES, $_[1]);
-		push(@FILES, shift(@ARGV)) while(@ARGV && !($ARGV[0] =~ m{^-.})) },
+	'file|f=s', \@files,
+	'files|i=s', sub { push(@files, $_[1]);
+		push(@files, shift(@ARGV)) while(@ARGV && !($ARGV[0] =~ m{^-.})) },
+	'hint|h=s', \@hints,
+	'hints|I=s', sub { push(@hints, $_[1]);
+		push(@hints, shift(@ARGV)) while(@ARGV && !($ARGV[0] =~ m{^-.})) },
 	'force', \$force,
 	'quiet|q', \$quiet,
 	'addseconds=i', \$addseconds,
@@ -579,9 +611,12 @@ Getopt::Long::GetOptions(
 
 # Interpreting the parsed values:
 
-@FILES = split(qr{,}, join(',', @FILES));
+@files = split(qr{,}, join(',', @files));
+@hints = split(qr{,}, join(',', @hints));
 
 $addseconds -= $subseconds;
+
+$count = '' unless($calccheck && !$quiet);
 
 # Get mode unless this was specified as an option
 unless($mode) {
@@ -589,25 +624,34 @@ unless($mode) {
 	&pod2usage('mode must be specified') unless(defined($mode))
 }
 
-my @SUMCMDS = split(qr{;}, $sumcmds);
+my @sumcmds = split(qr{;}, $sumcmds);
 # We do 'use Digest::MD5' at run-time, only if it is needed:
 # In this way, the non-existence of this module does not give an error if
 # by the options only other checksum-programs are required.
 # Since 'use' is executed at compile-time, we have to use 'require' and do the
 # import()-initialization by hand.
-for my $i (@SUMCMDS) {
+for my $i (@sumcmds) {
 	if($i eq '.') {
 		require Digest::MD5;
 		last
 	}
 }
 
+if(@hints) {
+	my @store = ($modtime, $modowner, $modattrib);
+	$modtime = '';
+	$modowner = '';
+	$modattrib = '';
+	&readlist(\@hints, \@H, \my @dummy, \%Hfullname);
+	($modtime, $modowner, $modattrib) = @store
+}
+
 if($mode eq 'store') {
 	&standardlist();
 	&printlist(\@A);
 } elsif($mode eq 'restore') {
-	if(@FILES) {
-		&readlist(\@FILES, \@B, \@Adirs, \%Bfullname);
+	if(@files) {
+		&readlist(\@files, \@B, \@Adirs, \%Bfullname);
 		&readlist(\@ARGV, \@A, \@Adirs, \%Afullname)
 	} else {
 		&readlist(\@ARGV, \@A, \@Adirs, \%Afullname);
@@ -627,12 +671,45 @@ if($mode eq 'store') {
 }
 
 sub standardlist {
-	@ARGV = ($mdot) unless(@ARGV || @FILES);
+	@ARGV = ($mdot) unless(@ARGV || @files);
 	@A = ();
 	%Afullname = ();
-	&readlist(\@FILES, \@A, \@Adirs, \%Afullname) if(@FILES);
+	&readlist(\@files, \@A, \@Adirs, \%Afullname) if(@files);
 	&makelist(\@A, \%Afullname, \@ARGV) if(@ARGV)
 }
+
+sub infocount {
+	return if($quiet);
+	my ($countref, $total, $size, $name, $action) = @_;
+	my $counter = ++($countref->[0]);
+	my $info;
+	if($count) {
+		my $percent;
+		{
+			use bigint;
+			my $currsize = $countref->[1] += $size;
+			my $totalsize = $total->[1];
+			$percent = $totalsize ?
+				(((1005 * $currsize) / $totalsize) / 10) : 100
+		}
+		$info = $counter . '|' . $total->[0] . ' ' . $percent . '%'
+	} else {
+		$info = $counter
+	}
+	&info('[' . $info . '] ' . $action . ' ' . $name)
+}
+
+sub hintchecksum {
+	my ($name, $size) = @_;
+	my $hintindex = $Hfullname{$name};
+	return undef unless(defined($hintindex));
+	my $checksum = &thechecksum($H[$hintindex]);
+	if($checksum =~ m{^(\d+)}o) {
+		return $checksum if($size == $1)
+	}
+	undef
+}
+
 
 sub makelist {
 	my ($A, $fullhash, $dirs) = @_;
@@ -643,7 +720,10 @@ sub makelist {
 	}
 	return unless(@mydirs);
 	@mydirs = sort(@mydirs);
-	my $fullpath = 1;
+	my @total = (0, 0);
+	my @count  = (0, 0);
+	my $docount = ($calccheck && !$quiet);
+	my $fullpath;
 	my $makeentry = sub {
 		return if(($_ eq $mdot) || ($_ eq $ddot));
 		$File::Find::prune = 1 unless($recurse);
@@ -663,10 +743,13 @@ sub makelist {
 		} elsif(Fcntl::S_ISDIR($mode)) {
 			$checksum = 'dir'
 		} elsif(Fcntl::S_ISREG($mode)) {
-			if($calccheck) {
-				&info("checksumming $name") unless($quiet);
+			$checksum = &hintchecksum($name, $size);
+			if(defined($checksum)) {
+				&infocount(\@count, \@total, $size, $name, 'Hint for')
+			} elsif($calccheck) {
+				&infocount(\@count, \@total, $size, $name, 'Checksum');
 				$checksum = $size;
-				for my $cmd (@SUMCMDS) {
+				for my $cmd (@sumcmds) {
 					if($cmd eq '.') {
 						open(my $file, '<', $_) or
 							&fatal("cannot open $name", $!);
@@ -690,10 +773,32 @@ sub makelist {
 		push(@$A, [ $name, $checksum, $mode, $uid . ':' . $gid, $time ]);
 		$fullhash->{$name} = $#$A
 	};
+
+	$fullpath = 1;
 	for (@mydirs) {
 		$makeentry->()
 	}
 	$fullpath = '';
+
+	if($docount) {
+		&info('estimating files/bytes ') unless($quiet);
+		File::Find::find({
+			dangling_symlinks => '',
+			follow_fast => $follow,
+			wanted => sub {
+				return if(($_ eq $mdot) || ($_ eq $ddot));
+				$File::Find::prune = 1 unless($recurse);
+				if($follow) {
+					return unless(-f $_)
+				} else {
+					return unless(!(-l $_) && (-f $_))
+				}
+				++$total[0];
+				use bigint;
+				$total[1] += (-s $_)
+			}
+		}, @mydirs)
+	}
 	File::Find::find({
 		follow_fast => $follow,
 		preprocess => sub {
