@@ -5,7 +5,8 @@ _arguments -C -s -S -A '-*' : \
 '(1 * -)'{'--help','-h'}'[print a brief help]' \
 '(1 * -)'{'--man','-\\?'}'[show extended help as a manpage]' \
 '(1 * -)'{'--version','-V'}'[print version]' \
-{'(--quiet)-q','(-q)--quiet'}'[quiet]' \
+{'*-q','*--quiet'}'[be quiet]' \
+{'*-v','*--verbose'}'[be verbose]' \
 {'*-f+','*--file='}'[read in addition from file]:file:_files' \
 {'*-i+','*--files='}'[read in addition from files]:*:file:_files' \
 {'*-h+','*--hint='}'[read checksums from file]:file:_files' \
@@ -21,7 +22,7 @@ _arguments -C -s -S -A '-*' : \
 {'(--copy)-z','(-z)--copy'}'[duplicate files if appropriate (default)]' \
 {'(--checksum)-c','(-c)--checksum'}'[calculate checksum (default)]' \
 {'(--recurse)-r','(-r)--recurse'}'[recurse (default)]' \
-'--count[estimate total files/bytes (default)]' \
+{'(--justintime)-j','(-j)--justintime'}'[calculate checksums immediately]' \
 {'(--follow-link)-F','(-F)--follow-link'}'[follow symbolic links]' \
 '--addseconds=[add NUM seconds when reading time]:add-seconds:(0)' \
 '--subseconds=[sub NUM seconds when reading time]:sub-seconds:(0)' \
@@ -34,7 +35,6 @@ _arguments -C -s -S -A '-*' : \
 {'(--nocopy)-Z','(-Z)--nocopy'}'[do not duplicate files]' \
 {'(--nochecksum)-C','(-C)--nochecksum'}'[do not calculate checksum]' \
 {'(--norecurse)-R','(-R)--norecurse'}'[do not recurse]' \
-'--nocount[do not estimate total files/bytes]' \
 '--nofollow-link[do not follow symbolic links (default)]' \
 '--noupper[do not make names uppercase (default)]' \
 '--nolower[do not make names lowercase (default)]' \

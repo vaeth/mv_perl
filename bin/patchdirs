@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Patchdirs v3.1.0;
+package Patchdirs v3.2.0;
 
 use warnings;
 use strict;
@@ -228,17 +228,17 @@ Duplicate files if this appears appropriate (default)
 
 =item B<--checksum> or B<-c>
 
-Calculate checksum (default) (only for store)
+Calculate checksum (default).
 
 =item B<--recurse> or B<-r>
 
 Recurse (default)
 
-=item B<--count>
+=item B<--justintime> or B<-j>
 
-Estimate the total number of files/bytes before calculating the checksum.
-This is the default.
-This option is ignored if B<--quiet> or <--nochecksum> is in effect.
+Calculate checksums immediately during directory scanning.
+This is more safe if directories change during scanning.
+The disadvantage is that no total number of files or size percentage is output.
 
 =item B<--follow-link> or B<-F>
 
@@ -282,17 +282,12 @@ Do not duplicate files
 
 =item B<--nochecksum> or B<-C>
 
-Do not calculate checksum (only for B<store> mode)
+Do not calculate checksum.
+This makes sense only for B<store> mode and also then is not very useful...
 
 =item B<--norecurse> or B<-R>
 
 Do not recurse, i.e. use only the explicitly given dirs
-
-=item B<--nocount>
-
-Do not estimate the total number of files/bytes before processing.
-This speeds up the process slightly.
-This option is automatic if B<--quiet> or <--nochecksum> is in effect.
 
 =item B<--nofollow-link>
 
@@ -310,9 +305,13 @@ Do not make all names lowercase (default)
 
 If ambiguity occurs: Do not stop but instead move first candidate
 
+=item B<--verbose> or B<-v>
+
+Be verbose. This can be specified accumulatively
+
 =item B<--quiet> or B<-q>
 
-Be quiet
+Be quiet. This can be specified accumulatively
 
 =item B<--version> or B<-V>
 
@@ -359,7 +358,8 @@ my %Hfullname = ();
 my $outstrip = 0;
 my $strip = 0;
 my $force = '';
-my $quiet = '';
+my $quiet = 0;
+my $verbose = 0;
 my $show = '';
 my $follow = '';
 my $dodelete = 1;
@@ -369,12 +369,13 @@ my $modtime = 1;
 my $dupcopy = 1;
 my $calccheck = 1;
 my $sumcmds = '.';
+my @sumcmds;
 my $upper = '';
 my $lower = '';
 my @files = ();
 my @hints = ();
 my $recurse = 1;
-my $count = 1;
+my $justintime = '';
 my $mode = '';
 my $addseconds = 0;
 my $subseconds = 0;
@@ -561,115 +562,6 @@ sub pod2usage {
 }
 
 
-# Parse Options:
-
-Getopt::Long::Configure(qw(gnu_getopt));
-Getopt::Long::GetOptions(
-	'help|h', sub { &pod2usage(0) },
-	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
-	'version|V', \&version,
-	'show|dry-run|s|n', \$show,
-	'delete|d', \$dodelete,
-	'nodelete|D', sub { $dodelete = '' },
-	'owner|o', \$modowner,
-	'noowner|O', sub { $modowner = '' },
-	'attrib|a', \$modattrib,
-	'noattrib|A', sub { $modattrib = '' },
-	'time|t', \$modtime,
-	'notime|T', sub { $modtime = '' },
-	'copy|z', \$dupcopy,
-	'nocopy|Z', sub { $dupcopy = '' },
-	'checksum|c', \$calccheck,
-	'nochecksum|C', sub { $calccheck = '' },
-	'recurse|r', \$recurse,
-	'norecurse|R', sub { $recurse = '' },
-	'count', \$count,
-	'nocount', sub { $count = ''},
-	'follow-link|F', \$follow,
-	'nofollow-link', sub { $follow = '' },
-	'upper|u', \$upper,
-	'noupper|U', sub { $upper = '' },
-	'lower|l', \$lower,
-	'nolower|L', sub { $lower = '' },
-	'output-strip|P=i', \$outstrip,
-	'strip|p=i', \$strip,
-	'sum-cmds|S=s', \$sumcmds,
-	'file|f=s', \@files,
-	'files|i=s', sub { push(@files, $_[1]);
-		push(@files, shift(@ARGV)) while(@ARGV && !($ARGV[0] =~ m{^-.})) },
-	'hint|h=s', \@hints,
-	'hints|I=s', sub { push(@hints, $_[1]);
-		push(@hints, shift(@ARGV)) while(@ARGV && !($ARGV[0] =~ m{^-.})) },
-	'force', \$force,
-	'quiet|q', \$quiet,
-	'addseconds=i', \$addseconds,
-	'subseconds=i', \$subseconds,
-	'store', sub { $mode = "store" },
-	'restore', sub { $mode = "restore" },
-	'double', sub { $mode = "double" }
-) or &pod2usage(2);
-
-# Interpreting the parsed values:
-
-@files = split(qr{,}, join(',', @files));
-@hints = split(qr{,}, join(',', @hints));
-
-$addseconds -= $subseconds;
-
-$count = '' unless($calccheck && !$quiet);
-
-# Get mode unless this was specified as an option
-unless($mode) {
-	$mode = shift(@ARGV);
-	&pod2usage('mode must be specified') unless(defined($mode))
-}
-
-my @sumcmds = split(qr{;}, $sumcmds);
-# We do 'use Digest::MD5' at run-time, only if it is needed:
-# In this way, the non-existence of this module does not give an error if
-# by the options only other checksum-programs are required.
-# Since 'use' is executed at compile-time, we have to use 'require' and do the
-# import()-initialization by hand.
-for my $i (@sumcmds) {
-	if($i eq '.') {
-		require Digest::MD5;
-		last
-	}
-}
-
-if(@hints) {
-	my @store = ($modtime, $modowner, $modattrib);
-	$modtime = '';
-	$modowner = '';
-	$modattrib = '';
-	&readlist(\@hints, \@H, \my @dummy, \%Hfullname);
-	($modtime, $modowner, $modattrib) = @store
-}
-
-if($mode eq 'store') {
-	&standardlist();
-	&printlist(\@A);
-} elsif($mode eq 'restore') {
-	if(@files) {
-		&readlist(\@files, \@B, \@Adirs, \%Bfullname);
-		&readlist(\@ARGV, \@A, \@Adirs, \%Afullname)
-	} else {
-		&readlist(\@ARGV, \@A, \@Adirs, \%Afullname);
-		if($strip > 0) {
-			@Adirs = ('.');
-			$strip = 0
-		}
-		&makelist(\@B, \%Bfullname, \@Adirs)
-	}
-	&make_check(\@B, \%Bcheck);
-	&patchlist()
-} elsif($mode eq 'double') {
-	&standardlist();
-	&printdoubles()
-} else {
-	&pod2usage('no mode specified')
-}
-
 sub standardlist {
 	@ARGV = ($mdot) unless(@ARGV || @files);
 	@A = ();
@@ -678,28 +570,39 @@ sub standardlist {
 	&makelist(\@A, \%Afullname, \@ARGV) if(@ARGV)
 }
 
+{
+	my ($halfm, $fullm, $thousand5, $ten);
+{
+	use bigint;
+	$halfm = 512 * 1024;
+	$fullm = 1024 * 1024;
+	$thousand5 = 1005;
+	$ten = 10
+}
 sub infocount {
 	return if($quiet);
-	my ($countref, $total, $size, $name, $action) = @_;
-	my $counter = (defined($size) ? (++($countref->[0])) : $countref->[0]);
-	my $info;
-	if($count) {
-		my $percent;
-		{
-			use bigint;
-			my $currsize = (($size // 0) ?
-				($countref->[1] += $size) :
-				$countref->[1]);
+	my ($countref, $total, $size, $name) = @_;
+	my $counter = ++($countref->[0]);
+	my $info = (@$total ? $counter . '|' . $total->[0] . ' ' :
+		$counter . ': ');
+	my $printsize;
+	{
+		use bigint;
+		my $currsize = $countref->[1];
+		$printsize = (($currsize + $halfm) / $fullm) . 'M + ' .
+			(($size + $halfm) / $fullm) . 'M';
+		$countref->[1] += $size;
+		if(@$total) {
 			my $totalsize = $total->[1];
-			$percent = $totalsize ?
-				(((1005 * $currsize) / $totalsize) / 10) : 100
+			my $percent = ($totalsize ?
+				(($currsize * $thousand5) / $totalsize) / $ten
+				: 100);
+			$info .= sprintf((($percent >= 100) ? '%03u' : ' %02u'),
+				$percent) . '%: '
 		}
-		$info = $counter . '|' . $total->[0] . ' ' . $percent . '%'
-	} else {
-		$info = $counter
 	}
-	&info('[' . $info . '] ' . $action . ' ' . $name)
-}
+	&info('[' . $info . $printsize . '] Checksumming ' . $name)
+}}
 
 sub hintchecksum {
 	my ($name, $size) = @_;
@@ -712,13 +615,33 @@ sub hintchecksum {
 	undef
 }
 
+sub checksum {
+	my $name = shift();
+	my $errname = (shift() // $name);
+	my @checksum = ();
+	for my $cmd (@sumcmds) {
+		if($cmd eq '.') {
+			open(my $file, '<', $name) or
+				&fatal("cannot open $errname", $!);
+			binmode($file);
+			push(@checksum, Digest::MD5->new->addfile($file)->b64digest());
+			close($file)
+		} elsif($cmd ne '') {
+			my $c = &shell_dash($cmd, $_);
+			$c = `$c`;
+			$c =~ m{([^\s]+)*};
+			push(@checksum, $1)
+		}
+	}
+	(@checksum)
+}
 
 sub makelist {
-	my ($A, $fullhash, $dirs) = @_;
-	my @total = (0, 0);
+	my ($list, $fullhash, $dirs) = @_;
 	my @count  = (0, 0);
+	my @postpone = ();
+	my @total = $justintime ? () : (0, 0);
 	my $fullpath;
-	my $estimate;
 	my $makeentry = sub {
 		return if(($_ eq $mdot) || ($_ eq $ddot));
 		$File::Find::prune = 1 unless($recurse);
@@ -733,51 +656,35 @@ sub makelist {
 		return if(defined($fullhash->{$name}));
 		my $checksum;
 		if(Fcntl::S_ISLNK($mode)) {
-			return if($estimate);
 			my $linkname = readlink();
 			$checksum = '->' . $linkname
 		} elsif(Fcntl::S_ISDIR($mode)) {
-			return if($estimate);
 			$checksum = 'dir'
 		} elsif(Fcntl::S_ISREG($mode)) {
 			$checksum = &hintchecksum($name, $size);
 			if(defined($checksum)) {
-				return if($estimate);
-				&infocount(\@count, \@total, undef, $name, 'Hint for');
+				&info('hinted checksum for ' . $name)
+					if($verbose)
 			} elsif($calccheck) {
-				if($estimate) {
-					++$total[0];
+				if($justintime) {
+					&infocount(\@count, \@postpone, $size, $name);
+					$checksum = join(':', $size, &checksum($_, $name))
+				} else {
+					$checksum = $size;
+					push(@postpone, scalar(@$list));
 					use bigint;
 					$total[1] += $size;
-					return
-				}
-				&infocount(\@count, \@total, $size, $name, 'Checksum');
-				$checksum = $size;
-				for my $cmd (@sumcmds) {
-					if($cmd eq '.') {
-						open(my $file, '<', $_) or
-							&fatal("cannot open $name", $!);
-						binmode($file);
-						$checksum .= ':' . Digest::MD5->new->addfile($file)->b64digest();
-						close($file)
-					} elsif($cmd ne '') {
-						my $c = &shell_dash($cmd, $_);
-						my @C = split(' ', `$c`);
-						$checksum .= ':' . $C[0]
-					}
 				}
 			} else {
-				return if($estimate);
 				$checksum = $size
 			}
 		} else {
-			return if($estimate);
 			$checksum = sprintf("other:%x", Fcntl::S_IFMT($mode))
 		}
 		$mode = sprintf("%04o", Fcntl::S_IMODE($mode));  # $mode & 07777
 		my $time = Time::localtime::ctime($mtime + $addseconds);
-		push(@$A, [ $name, $checksum, $mode, $uid . ':' . $gid, $time ]);
-		$fullhash->{$name} = $#$A
+		$fullhash->{$name} = scalar(@$list);
+		push(@$list, [ $name, $checksum, $mode, $uid . ':' . $gid, $time ])
 	};
 
 	my @mydirs = ();
@@ -794,17 +701,6 @@ sub makelist {
 	}
 	$fullpath = '';
 
-	if($count) {
-		&info('estimating files/bytes ') unless($quiet);
-		$estimate = 1;
-		File::Find::find({
-			dangling_symlinks => '',
-			follow_fast => $follow,
-			wanted => $makeentry
-		}, @mydirs)
-	}
-	$estimate = '';
-
 	File::Find::find({
 		follow_fast => $follow,
 		preprocess => sub {
@@ -813,12 +709,21 @@ sub makelist {
 			(sort(@_))
 		},
 		wanted => $makeentry
-	}, @mydirs)
+	}, @mydirs);
+	return unless(@postpone);
+
+	$total[0] = scalar(@postpone);
+	for my $index (@postpone) {
+		my $curr = \@{$list->[$index]};
+		my ($name, $size) = @$curr;
+		&infocount(\@count, \@total, $size, $name);
+		$curr->[1] = join(':', $size, &checksum($name))
+	}
 }
 
 sub printlist {
-	my ($A) = @_;
-	for my $f (@$A) {
+	my ($list) = @_;
+	for my $f (@$list) {
 		my ($name, $checksum, $mode, $owner, $time) = @$f;
 		next unless(&strip_dirs($outstrip, $name));
 		print(&list2string($name, $checksum,
@@ -829,7 +734,7 @@ sub printlist {
 }
 
 sub readlist {
-	my ($files, $A, $alldirs, $fullhash) = @_;
+	my ($files, $list, $alldirs, $fullhash) = @_;
 	my %hashdir = ();
 	my $repeat = undef;
 	my $err;
@@ -877,8 +782,8 @@ sub readlist {
 				next
 			}
 			$hashdir{$currdir} = '';
-			push(@$A, [ $name, $checksum, $mode, $owner, $time ]);
-			$fullhash->{$name} = $#$A
+			$fullhash->{$name} = scalar(@$list);
+			push(@$list, [ $name, $checksum, $mode, $owner, $time ])
 		}
 		close($fh) if($close)
 	}
@@ -892,40 +797,42 @@ sub unify_name {
 }
 
 sub make_check {
-	my ($A, $check) = @_;
+	my ($list, $check) = @_;
 	%$check = ();
-	while(my ($j, $ref) = each(@$A)) {
+	while(my ($j, $ref) = each(@$list)) {
 		my ($name, $checksum, $mode, $owner, $time) = @$ref;
 		$check->{$checksum} = [] unless(defined($check->{$checksum}));
 		push(@{$check->{$checksum}}, $j);
 	}
 }
 
-my ($tolink, @NotExist, %FromName);
-my (@MkDirCmds, @LinkCmds, @MovCmds, @CopyCmds, @DelCmds, @RmDirCmds);
-my (@AfterRmDirCmds, @ModCmds);
-my (@copylist, %NeededDir, @DeletedIndex);
+{  # Patch
+
+my ($tolink, @not_exist, %from_name);
+my (@mkdir_cmds, @link_cmds, @mov_cmds, @copy_cmds, @del_cmds, @rmdir_cmds);
+my (@after_rmdir_cmds, @mod_cmds);
+my (@copy_list, %needed_dir, @deleted_index);
 sub patchlist () {
 	my $willdie = '';
-	@NotExist = ();# List of missing files
-	%FromName = ();# Index: File to move. Content: Where to move.
-	@MkDirCmds = ();
-	@LinkCmds = ();
-	@MovCmds = ();
-	@CopyCmds = ();
-	@DelCmds = ();
-	@RmDirCmds = ();
-	@AfterRmDirCmds = ();
-	@ModCmds = ();
-	@copylist = ();   # Content: Two-element-array(reference):
+	@not_exist = ();  # List of missing files
+	%from_name = ();  # Index: File to move. Content: Where to move.
+	@mkdir_cmds = ();
+	@link_cmds = ();
+	@mov_cmds = ();
+	@copy_cmds = ();
+	@del_cmds = ();
+	@rmdir_cmds = ();
+	@after_rmdir_cmds = ();
+	@mod_cmds = ();
+	@copy_list = ();  # Content: Two-element-array(reference):
 	                  #          From(as index), To(as name)
-	%NeededDir = ();  # Directories which implicitly exist in a pathname
-	@DeletedIndex = ();
-	$#DeletedIndex = $#B;  # Did we decide to move this file?
+	%needed_dir = ();  # Directories which implicitly exist in a pathname
+	@deleted_index = ();
+	$#deleted_index = $#B;  # Did we decide to move this file?
 
-	# Pass 1: We decide which files to move where (collect into %FromName).
-	#         Also build @ModCmds, @LinkCmd, @MkDirCmds, @copylist, @NotExist,
-	#         @DeletedIndex,%NeededDir.
+	# Pass 1: We decide which files to move where (collect into %from_name).
+	#         Also build @mod_cmds, @LinkCmd, @mkdir_cmds, @copy_list, @not_exist,
+	#         @deleted_index,%needed_dir.
 	while(my ($i, $f) = each(@A)) {
 		#if(($i % 50) == 0) { print STDERR "." }
 		my ($Aname, $Achecksum, $Amode, $Aowner, $Atime) = @$f;
@@ -936,7 +843,7 @@ sub patchlist () {
 				my @movecand = ();     # Optimal move candidates
 				my @movecandsub = ();  # Suboptimal move candidates
 				for my $j (@$sumarr) {  # For all existing files $g with this checksum
-					next if($DeletedIndex[$j]);  # (Only if this file has not been moved)
+					next if($deleted_index[$j]);  # (Only if this file has not been moved)
 					my $g = $B[$j];
 					my ($Baname, $Bchecksum) = @$g;
 					my $ia = $Afullname{$Baname};
@@ -966,11 +873,11 @@ sub patchlist () {
 						my ($isnew, $j) = &make_dirs_for($Aname, $Achecksum);
 						if($isnew) {
 							$j = $sumarr->[0];
-							push(@copylist, [$j, $Aname]);
+							push(@copy_list, [$j, $Aname]);
 						}
 						&changemods($Aname, $Amode, $Aowner, $Atime, '', $isnew, $j);
 					} else {
-						push(@NotExist, $f)
+						push(@not_exist, $f)
 					}
 				} else {
 					my $j;                # Index of chosen movecandidate
@@ -1030,15 +937,15 @@ sub patchlist () {
 						&fatal('this error should never occur.',
 							'My logic would move the same files several times.',
 							'To be on the safe side, I do nothing at all.')
-							if(defined($FromName{$Bname}));
-						$FromName{$Bname} = $Aname;
-						$DeletedIndex[$j] = 1;
+							if(defined($from_name{$Bname}));
+						$from_name{$Bname} = $Aname;
+						$deleted_index[$j] = 1;
 						&make_dirs_for($Aname, '')
 					}
 					&changemods($Aname, $Amode, $Aowner, $Atime, '', '', $j)
 				}
 			} else {  # No file with a checksum for $f exists -> No chance to copy it.
-				push(@NotExist, $f)
+				push(@not_exist, $f)
 			}
 		} else {  # directory, link, or other strange filetype:
 			my $tolinkRemember = $tolink; # $tolink is set by &isordinary as a side effect
@@ -1048,40 +955,40 @@ sub patchlist () {
 			} elsif(&isother($Achecksum)) {  # Other strange filetype:
 				my ($isnew, $j) = &make_dirs_for($Aname, $Achecksum);
 				if($isnew) {
-					push(@LinkCmds, &shell_dash('touch', $Aname));
+					push(@link_cmds, &shell_dash('touch', $Aname));
 					&warning("special type file $Aname created as ordinary file")
 				}
 				&changemods($Aname, $Amode, $Aowner, $Atime, '', $isnew, $j)
 			} else {  # Link:
 				my ($isnew, $j) = &make_dirs_for($Aname, $Achecksum);
-				push(@LinkCmds, &shell_dash(['ln', '-s'], $tolinkRemember, $Aname)) if($isnew);
+				push(@link_cmds, &shell_dash(['ln', '-s'], $tolinkRemember, $Aname)) if($isnew);
 				&changemods($Aname, $Amode, $Aowner, $Atime, 1, $isnew, $j)
 			}
 		}
 	}
 
-	# Pass 1.5: Create @CopyCmds
+	# Pass 1.5: Create @copy_cmds
 	# There are two reasons why the name could have been changed in the meantime:
 	# Either the original name (in $B) might have been changed by &make_dirs_for
 	# (in case of name collision), or the file should have been moved away.
 	# For the first reason, we had to collect the source only in index form.
-	for my $a (@copylist) {
+	for my $a (@copy_list) {
 		my $to = $a->[1];
 		my $from = &thename($B[$a->[0]]);
-		my $froma = ($FromName{$from} // '');
+		my $froma = ($from_name{$from} // '');
 		$from = $froma if($froma ne '');
-		push(@CopyCmds, &shell_dash(['cp', '-p', '-i'], $from, $to));
+		push(@copy_cmds, &shell_dash(['cp', '-p', '-i'], $from, $to));
 	}
 
 	# Pass 2: We search for the existing files which have not already been moved.
-	#         The corresponding delete commands are collected in @DelCmds.
+	#         The corresponding delete commands are collected in @del_cmds.
 	for my $g (@B) {
 		my ($Bname, $Bchecksum, $Bmode, $Bowner, $Btime) = @$g;
-		unless(defined($FromName{$Bname})) {
+		unless(defined($from_name{$Bname})) {
 			unless(defined($Afullname{$Bname})) {
 				if(&isdircheck($Bchecksum)) {
-					unless(defined($NeededDir{$Bname})) {
-						push(@RmDirCmds, ($follow ?
+					unless(defined($needed_dir{$Bname})) {
+						push(@rmdir_cmds, ($follow ?
 							&shell_quote_best_effort('test', '-h', $Bname)
 							. ' && ' .
 							&shell_dash('rm', $Bname)
@@ -1091,25 +998,25 @@ sub patchlist () {
 							&shell_dash('rmdir', $Bname)))
 					}
 				} elsif($dodelete) {
-					push(@DelCmds, &shell_dash('rm', $Bname))
+					push(@del_cmds, &shell_dash('rm', $Bname))
 				}
 			}
 		}
 	}
 
-	# Now we prepare the move action (from the index of %FromName to its content)
+	# Now we prepare the move action (from the index of %from_name to its content)
 	# We may not just collect the corresponding 'mv' commands, since loops are
 	# not excluded (e.g. if two filenames were swapped).
-	for my $p (keys(%FromName)) {
-		my $q = $FromName{$p};
-		delete($FromName{$p});
+	for my $p (keys(%from_name)) {
+		my $q = $from_name{$p};
+		delete($from_name{$p});
 		if(defined($q)) {  # We have not moved $p yet.
 			my @T = ($p, $q);
 			my $loop = '';
 			while() {
 				my $qold = $q;
-				$q = $FromName{$q};
-				delete $FromName{$qold};
+				$q = $from_name{$q};
+				delete $from_name{$qold};
 				last unless(defined($q));  # Our `loop' is no loop: It just has finished
 				if($q eq $p) {
 					# Our loop has reached the start:
@@ -1135,17 +1042,17 @@ sub patchlist () {
 					if(&isdircheck($checksum)) {
 						# We should move a file onto a yet existing directory:
 						my $tempname = &mktempname($to);
-						push(@AfterRmDirCmds, &shell_dash('rmdir', $to));
-						push(@AfterRmDirCmds, &shell_dash(['mv', '-i'], $tempname, $to));
+						push(@after_rmdir_cmds, &shell_dash('rmdir', $to));
+						push(@after_rmdir_cmds, &shell_dash(['mv', '-i'], $tempname, $to));
 						$to = $tempname;
 					} elsif(&islinkcheck($checksum)) {
 						# We should move a file onto a symbolic link:
-						push(@MovCmds, &shell_quote_best_effort('test', '-h', $to) .
+						push(@mov_cmds, &shell_quote_best_effort('test', '-h', $to) .
 							' && ' . &shell_dash('rm', $to))
 					} else {
 						# We should move a file onto a file/other which will not be moved:
 						if($dodelete) {
-							push(@MovCmds, &shell_dash('rm', $to))
+							push(@mov_cmds, &shell_dash('rm', $to))
 						} elsif(!$force) {
 							my $from = $T[$#T - 1];
 							&error('you have chosen to not delete any file, but I should',
@@ -1167,40 +1074,40 @@ sub patchlist () {
 					'My logic would move a file to itself.',
 					'To be on the safe side, I do nothing at all.')
 					if($from eq $to);
-				push(@MovCmds, &shell_dash(['mv', '-i'], $from, $to));
+				push(@mov_cmds, &shell_dash(['mv', '-i'], $from, $to));
 				$to = $from
 			}
 		}
 	}
 
 	# Now we are done and can actually execute the commands.
-	# Before we do so, we reverse the @ModCmds: In this way, the commands are
+	# Before we do so, we reverse the @mod_cmds: In this way, the commands are
 	# sorted depth first (more or less), and so the modification times of the
 	# directories are preserved as far as possible.
-	@ModCmds = reverse(@ModCmds);
-	# The same holds for the @RmDirCmds:
-	@RmDirCmds = reverse(sort(@RmDirCmds));
+	@mod_cmds = reverse(@mod_cmds);
+	# The same holds for the @rmdir_cmds:
+	@rmdir_cmds = reverse(sort(@rmdir_cmds));
 	# There might be reasons to do nothing:
 	$willdie and &fatal('due to earlier errors, I do nothing at all');
-	&doexec(\@MkDirCmds);
-	&doexec(\@MovCmds);
-	&doexec(\@CopyCmds);
-	&doexec(\@LinkCmds);
-	&doexec(\@DelCmds);
-	&doexec(\@RmDirCmds);
-	&doexec(\@AfterRmDirCmds);
-	&doexec(\@ModCmds);
-	if(@NotExist) {
+	&doexec(\@mkdir_cmds);
+	&doexec(\@mov_cmds);
+	&doexec(\@copy_cmds);
+	&doexec(\@link_cmds);
+	&doexec(\@del_cmds);
+	&doexec(\@rmdir_cmds);
+	&doexec(\@after_rmdir_cmds);
+	&doexec(\@mod_cmds);
+	if(@not_exist) {
 		print("\n\# The following files could not be created by renaming:\n")
 			unless($quiet);
-		for my $f (@NotExist) {
+		for my $f (@not_exist) {
 			print(($quiet ? () : '# '), &formatnice($f), "\n");
 		}
 	}
 }
 
 # This function sets $mode/$owner/$time for $name if appropriate
-# (the commands are collected in @ModCmds).
+# (the commands are collected in @mod_cmds).
 # Whether this is appropriate depends on the other flags.
 # $islink is true iff $name is a symbolic link (which needs other commands).
 # If $isnew is false, then only the values differing from $B[$j] are set.
@@ -1223,14 +1130,14 @@ sub changemods {
 	if($islink) {
 		# chmod and touch have no --no-derefence option and thus are useless
 		# to modify a link.
-		push(@ModCmds, &shell_dash(['chown', '-h'], $owner, $name))
+		push(@mod_cmds, &shell_dash(['chown', '-h'], $owner, $name))
 			if(defined($owner))
 	} else {
-		push(@ModCmds, &shell_dash('chmod', $mode, $name))
+		push(@mod_cmds, &shell_dash('chmod', $mode, $name))
 			if(defined($mode));
-		push(@ModCmds, &shell_dash('chown', $owner, $name))
+		push(@mod_cmds, &shell_dash('chown', $owner, $name))
 			if(defined($owner));
-		push(@ModCmds, &shell_dash(['touch', '--date=' . $time], $name))
+		push(@mod_cmds, &shell_dash(['touch', '--date=' . $time], $name))
 			if(defined($time))
 	}
 }
@@ -1238,7 +1145,7 @@ sub changemods {
 # This tricky function serves two purposes:
 # 1. If the checksum argument is empty, the directories contained
 #    in the path of $p are created (if they do not already exist),
-#    and these directories are marked in %NeededDir.
+#    and these directories are marked in %needed_dir.
 #    If the directories overlap with existing files, the original files are
 #    renamed to temporary names.
 #    All necessary side-effects are done during renaming, too (hopefully).
@@ -1281,17 +1188,17 @@ sub make_dirs_for {
 		# A directory must be created whose name is already be used by a file/link.
 		# We rename the file:
 		my $tempname = &mktempname($p);
-		push(@MkDirCmds, &shell_dash(['mv', '-i'], $Bname, $tempname));
+		push(@mkdir_cmds, &shell_dash(['mv', '-i'], $Bname, $tempname));
 		# We remember the new name in our current list of filenames:
 		# Make sure that the index number does not change:
-		# We need it for $DeletedIndex and for @copylist.
+		# We need it for $deleted_index and for @copy_list.
 		$g->[0] = $tempname;
 		$B[$j] = $g;
 		$Bfullname{$tempname} = $j; # Remember also in the hash-list.
 		# If we already decided to move this file, use the new filename:
-		if(defined($FromName{$p})) {
-			$FromName{$tempname} = $FromName{$p};
-			delete $FromName{$p};
+		if(defined($from_name{$p})) {
+			$from_name{$tempname} = $from_name{$p};
+			delete $from_name{$p};
 		}
 	} elsif($p eq $mdot) {  # The '.' directories need not be created
 		return ('', undef)
@@ -1300,12 +1207,12 @@ sub make_dirs_for {
 	push(@B, [$p, $checksum, undef, undef, undef]);
 	$j = $#B;
 	$Bfullname{$p} = $j;
-	$NeededDir{$p} = '' if($defact);
+	$needed_dir{$p} = '' if($defact);
 	# First create recursively all required directories, and then $p
 	&make_dirs_for($p, '');
 	if($defact) {
 		$umask //= sprintf('%03o', (0777 ^ umask()));
-		push(@MkDirCmds, &shell_dash(['mkdir', '-m', $umask], $p))
+		push(@mkdir_cmds, &shell_dash(['mkdir', '-m', $umask], $p))
 	}
 	(1, $j)
 }
@@ -1313,7 +1220,7 @@ sub make_dirs_for {
 # Mark the Directory and all its parents as needed:
 sub needed_dir_parents {
 	for(my ($vol, @dir) = &split_dir($_[0]); @dir; pop(@dir)) {
-		$NeededDir{&cat_dir($vol, @dir)} = ''
+		$needed_dir{&cat_dir($vol, @dir)} = ''
 	}
 }
 
@@ -1415,4 +1322,121 @@ sub formatnice {
 	my ($name, $checksum, $mode, $owner, $time) = @$f;
 	&list2string($name, $time // (), $owner // (),
 		$mode // (), $checksum // ())
+}
+
+}  # Patch
+
+# Parse Options:
+
+Getopt::Long::Configure(qw(gnu_getopt));
+Getopt::Long::GetOptions(
+	'help|h', sub { &pod2usage(0) },
+	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
+	'version|V', \&version,
+	'show|dry-run|s|n', \$show,
+	'delete|d', \$dodelete,
+	'nodelete|D', sub { $dodelete = '' },
+	'owner|o', \$modowner,
+	'noowner|O', sub { $modowner = '' },
+	'attrib|a', \$modattrib,
+	'noattrib|A', sub { $modattrib = '' },
+	'time|t', \$modtime,
+	'notime|T', sub { $modtime = '' },
+	'copy|z', \$dupcopy,
+	'nocopy|Z', sub { $dupcopy = '' },
+	'checksum|c', \$calccheck,
+	'nochecksum|C', sub { $calccheck = '' },
+	'recurse|r', \$recurse,
+	'norecurse|R', sub { $recurse = '' },
+	'justintime|j', \$justintime,
+	'follow-link|F', \$follow,
+	'nofollow-link', sub { $follow = '' },
+	'upper|u', \$upper,
+	'noupper|U', sub { $upper = '' },
+	'lower|l', \$lower,
+	'nolower|L', sub { $lower = '' },
+	'output-strip|P=i', \$outstrip,
+	'strip|p=i', \$strip,
+	'sum-cmds|S=s', \$sumcmds,
+	'file|f=s', \@files,
+	'files|i=s', sub { push(@files, $_[1]);
+		push(@files, shift(@ARGV)) while(@ARGV && !($ARGV[0] =~ m{^-.})) },
+	'hint|h=s', \@hints,
+	'hints|I=s', sub { push(@hints, $_[1]);
+		push(@hints, shift(@ARGV)) while(@ARGV && !($ARGV[0] =~ m{^-.})) },
+	'force', \$force,
+	'verbose|v+', \$verbose,
+	'quiet|q+', \$quiet,
+	'addseconds=i', \$addseconds,
+	'subseconds=i', \$subseconds,
+	'store', sub { $mode = "store" },
+	'restore', sub { $mode = "restore" },
+	'double', sub { $mode = "double" }
+) or &pod2usage(2);
+
+# Interpreting the parsed values:
+
+@files = split(qr{,}, join(',', @files));
+@hints = split(qr{,}, join(',', @hints));
+
+$addseconds -= $subseconds;
+
+if($quiet < $verbose) {
+	$verbose -= $quiet;
+	$quiet = 0
+} else {
+	$quiet -= $verbose;
+	$verbose = 0
+}
+
+# Get mode unless this was specified as an option
+unless($mode) {
+	$mode = shift(@ARGV);
+	&pod2usage('mode must be specified') unless(defined($mode))
+}
+
+@sumcmds = split(qr{;}, $sumcmds);
+# We do 'use Digest::MD5' at run-time, only if it is needed:
+# In this way, the non-existence of this module does not give an error if
+# by the options only other checksum-programs are required.
+# Since 'use' is executed at compile-time, we have to use 'require' and do the
+# import()-initialization by hand.
+for my $i (@sumcmds) {
+	if($i eq '.') {
+		require Digest::MD5;
+		last
+	}
+}
+
+if(@hints) {
+	my @store = ($modtime, $modowner, $modattrib);
+	$modtime = '';
+	$modowner = '';
+	$modattrib = '';
+	&readlist(\@hints, \@H, \my @dummy, \%Hfullname);
+	($modtime, $modowner, $modattrib) = @store
+}
+
+if($mode eq 'store') {
+	&standardlist();
+	&printlist(\@A);
+} elsif($mode eq 'restore') {
+	if(@files) {
+		&readlist(\@files, \@B, \@Adirs, \%Bfullname);
+		&readlist(\@ARGV, \@A, \@Adirs, \%Afullname)
+	} else {
+		&readlist(\@ARGV, \@A, \@Adirs, \%Afullname);
+		if($strip > 0) {
+			@Adirs = ('.');
+			$strip = 0
+		}
+		&makelist(\@B, \%Bfullname, \@Adirs)
+	}
+	&make_check(\@B, \%Bcheck);
+	&patchlist()
+} elsif($mode eq 'double') {
+	&standardlist();
+	&printdoubles()
+} else {
+	&pod2usage('no mode specified')
 }
