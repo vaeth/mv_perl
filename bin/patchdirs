@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package Patchdirs v3.2.0;
+package Patchdirs v3.2.1;
 
 use warnings;
 use strict;
@@ -350,8 +350,6 @@ my @Adirs = ();
 my @B = ();
 my %Bfullname = ();
 my %Bcheck = ();
-my @H = ();
-my %Hfullname = ();
 
 # Default for the Options:
 
@@ -604,17 +602,6 @@ sub infocount {
 	&info('[' . $info . $printsize . '] Checksumming ' . $name)
 }}
 
-sub hintchecksum {
-	my ($name, $size) = @_;
-	my $hintindex = $Hfullname{$name};
-	return undef unless(defined($hintindex));
-	my $checksum = &thechecksum($H[$hintindex]);
-	if($checksum =~ m{^(\d+)}o) {
-		return $checksum if($size == $1)
-	}
-	undef
-}
-
 sub checksum {
 	my $name = shift();
 	my $errname = (shift() // $name);
@@ -636,8 +623,24 @@ sub checksum {
 	(@checksum)
 }
 
+{
+	my %hints = ();
+	my $know_hints = '';
+sub hintchecksum {
+	my ($name, $size) = @_;
+	my $checksum = $hints{$name};
+	return undef unless(defined($checksum));
+	if($checksum =~ m{^(\d+)}o) {
+		return $checksum if($size == $1)
+	}
+	undef
+}
 sub makelist {
 	my ($list, $fullhash, $dirs) = @_;
+	if(@hints) {
+		&readlist(\@hints, \%hints);
+		@hints = ()
+	}
 	my @count  = (0, 0);
 	my @postpone = ();
 	my @total = $justintime ? () : (0, 0);
@@ -719,7 +722,7 @@ sub makelist {
 		&infocount(\@count, \@total, $size, $name);
 		$curr->[1] = join(':', $size, &checksum($name))
 	}
-}
+}}
 
 sub printlist {
 	my ($list) = @_;
@@ -734,7 +737,15 @@ sub printlist {
 }
 
 sub readlist {
-	my ($files, $list, $alldirs, $fullhash) = @_;
+	my ($files, $list, $alldirs, $fullhash);
+	my $only_checksum;
+	if(@_ > 2) {
+		($files, $list, $alldirs, $fullhash) = @_;
+		$only_checksum = ''
+	} else {
+		($files, $fullhash) = @_;
+		$only_checksum = 1
+	}
 	my %hashdir = ();
 	my $repeat = undef;
 	my $err;
@@ -753,7 +764,7 @@ sub readlist {
 		while(<$fh>) {
 			chomp();
 			if(defined($repeat)) {
-				$repeat .= "\n" . $_;
+				$repeat .= "\n" . $_
 			} elsif((m{^\s*$}) || (m{^\s*[\#\;]})) {
 				next
 			}
@@ -763,6 +774,23 @@ sub readlist {
 			$name = &unify_name($name);
 			next unless(&strip_dirs($strip, $name));
 			&fatal("no checksum for $name") unless(defined($checksum));
+			my ($vol, @dirs) = &split_dir($name);
+			my $file = pop(@dirs);
+			unless(@dirs) {
+				@dirs = ($mdot);
+				$name = &cat_dir(@dirs, $file)
+			}
+			if(exists($fullhash->{$name})) {
+				&warning("ignoring second occurence of $name");
+				next
+			}
+			if($only_checksum) {
+				if($checksum =~ m{^\d+\:.}) {
+					$fullhash->{$name} = $checksum
+				}
+				next
+			}
+			$hashdir{&cat_dir($vol, @dirs)} = '';
 			($owner, $time) = ($mode, $owner) unless($modattrib);
 			$time = $owner unless($modowner);
 			unless($quiet) {
@@ -770,23 +798,12 @@ sub readlist {
 				&warning("-A assumed for $name") if($modattrib && !defined($mode));
 				&warning("-O assumed for $name") if($modowner && !defined($owner))
 			}
-			my ($vol, @dirs) = &split_dir($name);
-			my $file = pop(@dirs);
-			unless(@dirs) {
-				@dirs = ($mdot);
-				$name = &cat_dir(@dirs, $file)
-			}
-			my $currdir = &cat_dir($vol, @dirs);
-			if(defined($fullhash->{$name})) {
-				&warning("ignoring second occurence of $name");
-				next
-			}
-			$hashdir{$currdir} = '';
 			$fullhash->{$name} = scalar(@$list);
 			push(@$list, [ $name, $checksum, $mode, $owner, $time ])
 		}
 		close($fh) if($close)
 	}
+	return if($only_checksum);
 	@$alldirs = keys(%hashdir)
 }
 
@@ -1408,15 +1425,6 @@ for my $i (@sumcmds) {
 	}
 }
 
-if(@hints) {
-	my @store = ($modtime, $modowner, $modattrib);
-	$modtime = '';
-	$modowner = '';
-	$modattrib = '';
-	&readlist(\@hints, \@H, \my @dummy, \%Hfullname);
-	($modtime, $modowner, $modattrib) = @store
-}
-
 if($mode eq 'store') {
 	&standardlist();
 	&printlist(\@A);
@@ -1427,7 +1435,7 @@ if($mode eq 'store') {
 	} else {
 		&readlist(\@ARGV, \@A, \@Adirs, \%Afullname);
 		if($strip > 0) {
-			@Adirs = ('.');
+			@Adirs = ($mdot);
 			$strip = 0
 		}
 		&makelist(\@B, \%Bfullname, \@Adirs)
