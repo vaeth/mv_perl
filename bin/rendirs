@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
-require 5.012;
-package RenDirs v5.10.2;
+BEGIN { require 5.006_001 }
+our $VERSION = 'v5.10.3';
+eval "package Rendirs $VERSION" if($] ge '5.012');
 
 use warnings;
 use strict;
@@ -8,6 +9,8 @@ use integer;
 use Getopt::Long 2.24 ();
 #use Pod::Usage ();
 #use String::ShellQuote ();  # not mandatory but recommended: poor fallback
+
+=encoding UTF-8
 
 =head1 NAME
 
@@ -344,10 +347,6 @@ Print version number
 Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 =cut
-
-# Global variables:
-
-our $VERSION;
 
 # Default for the Options:
 

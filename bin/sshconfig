@@ -1,12 +1,15 @@
 #!/usr/bin/env perl
-require 5.012;
-package SshConfig v1.7.2;
+BEGIN { require 5.006_001 }
+our $VERSION = 'v1.7.3';
+eval "package SshConfig $VERSION" if($] ge '5.012');
 
 use warnings;
 use strict;
 use integer;
 use Getopt::Long 2.24 ();
 #use Pod::Usage ();
+
+=encoding UTF-8
 
 =head1 NAME
 
@@ -109,10 +112,6 @@ Last option
 Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 =cut
-
-# Global Variables
-
-our $VERSION;
 
 # Default for the Options:
 

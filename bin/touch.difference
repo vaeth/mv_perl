@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
-require 5.012;
-package TouchDifference v2.0.3;
+BEGIN { require 5.006_001 }
+our $VERSION = 'v2.0.4';
+eval "package TouchDifference $VERSION" if($] ge '5.012');
 
 use strict;
 use integer;
@@ -8,6 +9,8 @@ use Getopt::Long 2.24 ();
 #use File::lchown 0.02 (); # used for symlinks if -F is not specified
 #use Time::localtime (); # if verbose is used
 #use Pod::Usage ();
+
+=encoding UTF-8
 
 =head1 NAME
 
@@ -109,7 +112,6 @@ my $follow = '';
 # Global variables:
 
 my $name = 'touch.difference';
-our $VERSION;
 my $lutimes = undef;
 
 # Functions:

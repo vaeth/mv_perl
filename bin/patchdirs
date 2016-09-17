@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
-require 5.012;
-package Patchdirs v3.2.1;
+BEGIN { require 5.008 }
+our $VERSION = 'v3.2.2';
+eval "package Patchdirs $VERSION" if($] ge '5.012');
 
 use warnings;
 use strict;
@@ -14,6 +15,8 @@ use Time::localtime ();
 #use String::Escape ();  # not mandatory but strongly recommended: poor fallback
 #use String::ShellQuote ();  # not mandatory but recommended: poor fallback
 #use Pod::Usage ();  # needed for --man, --help, some errors
+
+=encoding UTF-8
 
 =head1 NAME
 
@@ -336,7 +339,6 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 # Static variables:
 
-our $VERSION;
 my $name = 'patchdirs';
 my $mdot = File::Spec->curdir();
 my $ddot = File::Spec->updir();

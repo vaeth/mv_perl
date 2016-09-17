@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
-require 5.012;
-package Plrep v2.13.8;
+BEGIN { require 5.006_001 }
+our $VERSION = 'v2.13.9';
+eval "package Plrep $VERSION" if($] ge '5.012');
 
 use warnings;
 use strict;
@@ -20,6 +21,7 @@ my @termlist = (
 
 my $BackSpacePattern = qr{[\b]|\x1b\[3\~};
 
+=encoding UTF-8
 
 =head1 NAME
 
@@ -506,7 +508,6 @@ my $Terminal = $termlist[0];
 
 # Global variables:
 
-our $VERSION;
 my $name = 'plrep';
 my $ShowChanges = 1;
 my $TruncateMode = 0;
@@ -566,10 +567,10 @@ sub optcolored {
 #
 #It is assumed that the last character is a newline.
 
-{ # static variables for PrintLine
+{  # static variables for PrintLine
 	my $HeadEllipsis = '...';
 	my $TailEllipsis = "...\n";
-	my $LenTailEllipsis = length($TailEllipsis) - 1; # Do not count the linefeed
+	my $LenTailEllipsis = length($TailEllipsis) - 1;  # Do not count the linefeed
 	my $LenHeadEllipsis = length($HeadEllipsis);
 sub PrintLine {
 	my($Mode, $LineNumber, $String);
@@ -619,7 +620,7 @@ sub PrintLine {
 		if($Len <= $End) {
 			$Beg = 0;
 			$CutEnd = ''
-		} elsif($Mode && ($TruncateMode>0)) { # We shift only if match exists
+		} elsif($Mode && ($TruncateMode>0)) {  # We shift only if match exists
 			my $Point = $Shift + length($Substrings[0]);
 			if($ShiftFromEnd) {
 				$Point += length($Substrings[1])
@@ -628,7 +629,7 @@ sub PrintLine {
 				# The line is visible to the desired point
 				$Beg = 0; $End = $End - $LenTailEllipsis
 			} else {
-				if($Len <= $Point) { # Shift reaches lineend
+				if($Len <= $Point) {  # Shift reaches lineend
 					$Beg = $Len - $End + $LenHeadEllipsis;
 					$CutEnd = ''
 				} else {
@@ -636,7 +637,7 @@ sub PrintLine {
 					$End = $Point
 				}
 			}
-		} else { # Truncate, but do not shift
+		} else {  # Truncate, but do not shift
 			$Beg = 0;
 			$End -= $LenTailEllipsis
 		}
@@ -668,12 +669,12 @@ sub PrintLine {
 		}
 		print $PreString;
 		if($CutEnd) {
-			if($Beg >= $End) { # Our (minimal) calculation does not fit into the line
+			if($Beg >= $End) {  # Our (minimal) calculation does not fit into the line
 				print $TailEllipsis;
 				return
 			}
-		} elsif($Beg) { # We have calculated to print HeadEllipsis+String_until_end
-			if($PreStringLen+$i>$Truncate) { # too long
+		} elsif($Beg) {  # We have calculated to print HeadEllipsis+String_until_end
+			if($PreStringLen+$i>$Truncate) {  # too long
 				print $TailEllipsis;
 				return
 			}
@@ -695,7 +696,7 @@ sub PrintLine {
 			$i =~ s{[^\n[:print:]]}{$nonprintable}go
 				if($nonprintable ne '');
 			if($i ne '') {
-				if($Beg || $CutEnd) { # We calculate only if we must care
+				if($Beg || $CutEnd) {  # We calculate only if we must care
 					my($l, $From, $To);
 					$l = length($i); $From = 0; $To = $l;
 					if($CutEnd && ($End<$Len+$l)) {
@@ -1158,7 +1159,7 @@ if($TruncOpt ne '') {
 	if($ShiftOpt ne '') {
 		$ShiftFromEnd = 1 if($ShiftOpt =~ s{e}{}i);
 		$ShiftOpt =~ m{^s?([+-]\d+)}i;
-		$Shift = ($1 // 0)
+		$Shift = (defined($1) ? $1 : 0)
 	} else {
 		$Shift = 3
 	}
@@ -1203,11 +1204,11 @@ if($Recurse) {
 		for my $i (@ARGV) {
 			$_ = $i;
 			s{([./^\$()])}{\\$1}g;
-			if(!s{([?*])}{.$1}g) { # If we have no ? or * joker, test for [..]:
+			if(!s{([?*])}{.$1}g) {  # If we have no ? or * joker, test for [..]:
 				$i = "^$_\$";
-				if($changed && (!$Suppress)) { # No * or ? joker, but perhaps [...]?
-					s{\\\\}{}g; # First, eliminate quoted \ characters
-					s{\\\[}{}g; # Then,  eliminate quoted [ and ] charaters
+				if($changed && (!$Suppress)) {  # No * or ? joker, but perhaps [...]?
+					s{\\\\}{}g;  # First, eliminate quoted \ characters
+					s{\\\[}{}g;  # Then,  eliminate quoted [ and ] charaters
 					s{\\\]}{}g;
 					m{\[(.+)\]} or ($changed = '')
 				}
@@ -1246,7 +1247,7 @@ if($Recurse) {
 # Parse the $Search and $Replace strings:
 
 $PlainSearch and ( $Search =~ s{(\W)}{\\$1}g );
-if($Search eq '') { # Empty $Search is special in perl
+if($Search eq '') {  # Empty $Search is special in perl
 	$Search = '.?'
 }
 if($Ignore) {

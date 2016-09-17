@@ -1,12 +1,15 @@
 #!/usr/bin/env perl
-require 5.012;
-package Comp v3.0.0;
+BEGIN { require 5.006_001 }
+our $VERSION = 'v3.0.1';
+eval "package Comp $VERSION" if($] ge '5.012');
 
 use warnings;
 use strict;
 use integer;
 use Getopt::Long 2.24 ();
 #use Pod::Usage ();
+
+=encoding UTF-8
 
 =head1 NAME
 
@@ -123,7 +126,6 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 # Global Variables
 
-our $VERSION;
 my $blocksize = 512 * 1024;
 my $sepstring = '';
 my $sepstringdefault = ': ';
@@ -201,8 +203,8 @@ sub ProcessMask {
 	($mask) = @_;
 
 	# Replace multiple occurences of / by single ones, and chop / at the end:
-	while($mask =~ s{//+}{/}go) {}
-	$mask =~ s{^\~/}{$home/} if(($home // '') ne '');
+	while($mask =~ s{\/\/+}{\/}go) {}
+	$mask =~ s{^\~/}{$home/} if(defined($home) && ($home ne ''));
 	$mask =~ s{/$}{} if($mask ne '/');
 	$dorecurse = 1;
 	if($mask =~ m{[\*\?\[]}) {  # If the mask contains wildcard:

@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
-require 5.012;
-package Touchdirs v5.0.0;
+BEGIN { require 5.008 }
+our $VERSION = 'v5.0.1';
+eval "package Touchdirs $VERSION" if($] ge '5.012');
 
 use warnings;
 use strict;
@@ -14,6 +15,8 @@ use Time::localtime ();
 #use Pod::Usage ();  # needed for --man, --help, some errors
 #use String::ShellQuote ();  # not mandatory but recommended: poor fallback
 #use Time::HiRes ();  # needed unless -R is used
+
+=encoding UTF-8
 
 =head1 NAME
 
@@ -164,7 +167,6 @@ my @exclude = ();
 
 # Global Variables:
 
-our $VERSION;
 my $name = 'touchdirs';
 my $hires_write;
 my %DIR;

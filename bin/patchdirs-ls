@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
-require 5.012;
-package PatchdirsLs v1.7.2;
+BEGIN { require 5.006_001 }
+our $VERSION = 'v1.7.3';
+eval "package PatchdirsLs $VERSION" if($] ge '5.012');
 
 use warnings;
 use strict;
@@ -9,6 +10,8 @@ use File::Find ();
 use Getopt::Long 2.24 ();
 #use Pod::Usage ();
 #use String::ShellQuote ();  # not mandatory but recommended: poor fallback
+
+=encoding UTF-8
 
 =head1 NAME
 
@@ -107,10 +110,6 @@ Last option
 Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 =cut
-
-# Global Variables:
-
-our $VERSION;
 
 # Default for the Options:
 
@@ -216,7 +215,7 @@ sub handeline {
 	chomp();
 	if(s{[\:\/]\s*$}{}o) {  # We are parsing a directory name
 		if($strip > 0) {
-			unless(s/^(?:[^\/]*\/){$strip}//o) {
+			unless(s{^(?:[^\/]*\/){$strip}}{}o) {
 				&fatal('directory name contains less / than you want to strip')
 			}
 		}
