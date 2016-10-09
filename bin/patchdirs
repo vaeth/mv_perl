@@ -1,7 +1,9 @@
 #!/usr/bin/env perl
 BEGIN { require 5.008 }
-our $VERSION = 'v3.2.2';
-eval "package Patchdirs $VERSION" if($] ge '5.012');
+package Patchdirs;
+our $VERSION = 'v3.2.3';
+eval { $VERSION = version->declare($VERSION) };
+eval 'use version 0.77; $VERSION = version->declare($VERSION)' if($@);
 
 use warnings;
 use strict;

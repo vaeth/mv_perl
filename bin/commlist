@@ -1,7 +1,9 @@
 #!/usr/bin/env perl
 BEGIN { require 5.006_001 }
-our $VERSION = 'v2.2.3';
-eval "package Commlist $VERSION" if($] ge '5.012');
+package Commlist;
+our $VERSION = 'v2.2.4';
+eval { $VERSION = version->declare($VERSION) };
+eval 'use version 0.77; $VERSION = version->declare($VERSION)' if($@);
 
 use warnings;
 use strict;
