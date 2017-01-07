@@ -1,7 +1,7 @@
 #compdef changecase
 local curcontext="$curcontext" state state_descr line
 typeset -A opt_args
-_arguments -C -s -S -A '-*' : \
+_arguments -C -s -S : \
 '(1 -)'{'--version','-V'}'[print version]' \
 {'(--dir)-d+','(-d)--dir='}'[change content of DIR instead of .]:dir:_files -/' \
 {'(--recurse)-r','(-r)--recurse'}'[recurse (default)]' \
@@ -21,7 +21,6 @@ mode)
 	'u:change filenames to uppercase'
 	'l:change filenames to lowercase'
 	)
-	_describe -t mode 'mode' mode
-	ret=$?;;
+	_describe -t mode 'mode' mode && ret=0;;
 esac
 return ret

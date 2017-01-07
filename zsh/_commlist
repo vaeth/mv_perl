@@ -1,5 +1,5 @@
 #compdef commlist
-_arguments -s -S -A '-*' : \
+_arguments -s -S : \
 '(* -)'{'--help','-h'}'[print a brief help]' \
 '(* -)'{'--man','-\\?'}'[show extended help as a manpage]' \
 '(* -)'{'--version','-V'}'[print version]' \
