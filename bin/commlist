@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 BEGIN { require 5.006_001 }
 package Commlist;
-our $VERSION = 'v2.2.4';
+our $VERSION = 'v3.0.0';
 eval { $VERSION = version->declare($VERSION) };
-eval 'use version 0.77; $VERSION = version->declare($VERSION)' if($@);
+eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 
 use warnings;
 use strict;
@@ -61,6 +61,26 @@ Prefix the column of lines not occurring in I<fileB...> with I<string>.
 The default is the empty string or the tab character, depending on whether
 this is the second column or not.
 
+=item B<--ignore-space> or B<-s>
+
+Ignore leading/trailing space, and inside lines replace all tabs by spaces
+and crunsh several consecutive spaces to one. Also ignore empty lines.
+
+=item B<--ignore-comments> or B<-i>
+
+Ignore comments starting with # and spaces before these.
+Lines consisting only of comments are skipped completely.
+
+=item B<--ignore-semicolons or B<-S>
+
+Ignore comments starting with # and spaces before these.
+Lines consisting only of comments are skipped completely.
+
+=item B<--ignore-c> or B<-I>
+
+Ignore comments starting with // or enclosed in /* ... */ and spaces befere
+or after these. Lines consisting only of comments are skipped completely.
+
 =item B<--version> or B<-v>
 
 print version number
@@ -87,6 +107,10 @@ my $suppress1 = '';
 my $suppress2 = '';
 my $only = undef;
 my $common = '';
+my $ignore_space = '';
+my $ignore_comments = '';
+my $ignore_semicolons = '';
+my $ignore_c = '';
 
 # Functions
 
@@ -104,6 +128,114 @@ sub pod2usage {
 	&Pod::Usage::pod2usage
 }
 
+{
+	package File;
+	sub new {
+		my $class = shift();
+		bless({
+			name => '',
+			handle => undef,
+			isfile => ''
+		}, $class)
+	}
+	sub close {
+		my $self = shift();
+		return 1 unless ($self->{isfile});
+		$self->{isfile} = '';
+		my $ret = close($self->{handle});
+		$self->{handle} = undef;
+		&Commlist::warn('cannot close: ', $self->{name}) unless ($ret);
+		$ret
+	}
+	sub open {
+		my $self = shift();
+		my ($name) = @_;
+		$self->close();
+		$self->{name} = $name;
+		if ($name eq '-') {
+			$self->{isfile} = '';
+			$self->{handle} = \*STDIN;
+			return 1
+		}
+		unless (open($self->{handle}, '<', $name)) {
+			&Commlist::warn('cannot open: ', $name);
+			return ($self->{isfile} = '')
+		}
+		$self->{isfile} = 1
+	}
+	sub get {
+		my $self = shift();
+		my $fh = $self->{handle};
+		return <$fh>;
+	}
+	sub DESTROY {
+		my $self = shift();
+		$self->close()
+	}
+}
+
+{
+	package Strip;
+	sub new {
+		my $class = shift();
+		my $self = bless({
+			open => ''
+		}, $class);
+		$self
+	}
+	sub strip {
+		my $self = shift();
+		my ($line) = @_;
+		chomp($line);
+		$line =~ s{\r\Z}{}g;
+		if ($self->{open}) {
+			if ($line =~ s{\A.*?\*\/\s*}{}) {
+				$self->{open} = '';
+				return undef if ($line eq '')
+			} else {
+				return undef
+			}
+		}
+		if ($ignore_comments) {
+			if ($line =~ s{\s*\#.*\Z}{}) {
+				return undef if ($line eq '')
+			}
+		}
+		if ($ignore_semicolons) {
+			if ($line =~ s{\s*\;.*\Z}{}) {
+				return undef if ($line eq '')
+			}
+		}
+		if ($ignore_c) {
+			my $found = ($line =~ s{\s*\/\/.*\Z}{});
+			$found = 1 if ($line =~ s{\s*\/\*.*?\*\/\s*}{}g);
+			$self->{open} = $found = 1
+				if ($line =~ s{\s*\/\*.*\z}{});
+			if ($found) {
+				return undef if ($line eq '')
+			}
+		}
+		if ($ignore_space) {
+			$line =~ s{\A\s*}{};
+			$line =~ s{\s*\Z}{}g;
+			$line =~ s{\s+}{ }g;
+			return undef if ($line eq '')
+		}
+		$line
+	}
+	sub unclosed {
+		my $self = shift();
+		return 1 unless($self->{open});
+		&Commlist::warn('unclosed /*', (scalar(@_) ? (' in ') : ()), @_);
+		$self->{open} = ''
+	}
+	sub DESTROY {
+		my $self = shift();
+		$self->unclosed();
+	}
+}
+
+
 # Parse Options:
 
 Getopt::Long::Configure(qw(gnu_getopt));
@@ -112,70 +244,60 @@ Getopt::Long::GetOptions(
 	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
 	'only|o=s', \$only,
 	'common|c=s', \$common,
+	'ignore-space|s', \$ignore_space,
+	'ignore-comments|i', \$ignore_comments,
+	'ignore-semicolons|S', \$ignore_semicolons,
+	'ignore-c|I', \$ignore_c,
 	'1', \$suppress1,
 	'2', \$suppress2,
 	'version|V', \&version
 ) or &pod2usage(2);
 
-$only = ($suppress1 ? '' : "\t") unless(defined($only));
+$only = ($suppress1 ? '' : "\t") unless (defined($only));
 
 my @fileA = ();
 my @fileB = ();
 
 my $found = '';
-foreach (@ARGV) {
-	if($found) {
-		push(@fileB, $_);
+for my $arg (@ARGV) {
+	if ($found) {
+		push(@fileB, $arg);
 		next
 	}
-	if($_ eq '') {
+	if ($arg eq '') {
 		$found = 1
 	} else {
-		push(@fileA, $_)
+		push(@fileA, $arg)
 	}
 }
-&pod2usage(1) unless($found);
-exit(0) unless(@fileA);
+&pod2usage(1) unless ($found);
+exit(0) unless (@fileA);
 
 my %B = ();
-for my $file (@fileB) {
-	my ($fh, $close);
-	if($file eq '-') {
-		$fh = \*STDIN;
-		$close = ''
-	} else {
-		unless(open($fh, '<', $file)) {
-			&warn('cannot open ', $file);
-			next
-		}
-		$close = 1
+for my $filename (@fileB) {
+	my $file = File->new();
+	next unless $file->open($filename);
+	my $strip = Strip->new();
+	while (my $line = $file->get()) {
+		my $stripped = $strip->strip($line);
+		$B{$stripped} = undef if (defined($stripped))
 	}
-	while(<$fh>) {
-		chomp();
-		$B{$_} = undef
-	}
-	close($fh) if($close)
+	$strip->unclosed($filename);
+	$file->close()
 }
-for my $file (@fileA) {
-	my ($fh, $close);
-	if($file eq '-') {
-		$fh = \*STDIN;
-		$close = ''
-	} else {
-		unless(open($fh, '<', $file)) {
-			&warn('cannot open ', $file);
-			next
-		}
-		$close = 1
-	}
-	while(<$fh>) {
-		my $c = $_;
-		chomp($c);
-		if(exists($B{$c})) {
-			print($common, $_) unless($suppress1)
+for my $filename (@fileA) {
+	my $file = File->new();
+	next unless $file->open($filename);
+	my $strip = Strip->new();
+	while (my $line = $file->get()) {
+		my $stripped = $strip->strip($line);
+		next unless (defined($stripped));
+		if (exists($B{$stripped})) {
+			print($common, $line) unless ($suppress1)
 		} else {
-			print($only, $_) unless($suppress2)
+			print($only, $line) unless ($suppress2)
 		}
 	}
-	close($fh) if($close)
+	$strip->unclosed($filename);
+	$file->close()
 }

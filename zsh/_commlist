@@ -5,6 +5,10 @@ _arguments -s -S : \
 '(* -)'{'--version','-V'}'[print version]' \
 {'(--common)-c+','(-c)--common='}'[prefix common lines with this string]:prefix for common lines:(" " "	")' \
 {'(--only)-o+','(-o)--only='}'[prefix lines occurring only once with string]:prefix for not-common lines:(" " "	")' \
+{'(--ignore-space)-s','(-s)--ignore-space'}'[ignore/compress spaces]' \
+{'(--ignore-comments)-i','(-i)--ignore-comments'}'[ignore # comments]' \
+{'(--ignore-semicolons)-S','(-S)--ignore-semicolons'}'[ignore ; comments]' \
+{'(--ignore-c)-I','(-I)--ignore-c'}'[ignore // and /* */ comments]' \
 '-1[suppress the first column of output]' \
 '-2[suppress the second column of output]' \
 '*:files:_files -/'
