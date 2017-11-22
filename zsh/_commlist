@@ -9,6 +9,7 @@ _arguments -s -S : \
 {'(--ignore-comments)-i','(-i)--ignore-comments'}'[ignore # comments]' \
 {'(--ignore-semicolons)-S','(-S)--ignore-semicolons'}'[ignore ; comments]' \
 {'(--ignore-c)-I','(-I)--ignore-c'}'[ignore // and /* */ comments]' \
+{'(--strip)-p','(-p)--strip'}'[strip ignored comments/spaces in output]' \
 '-1[suppress the first column of output]' \
 '-2[suppress the second column of output]' \
 '*:files:_files -/'

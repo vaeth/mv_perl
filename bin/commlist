@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 BEGIN { require 5.006_001 }
 package Commlist;
-our $VERSION = 'v3.0.0';
+our $VERSION = 'v3.1.0';
 eval { $VERSION = version->declare($VERSION) };
 eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 
@@ -81,6 +81,10 @@ Lines consisting only of comments are skipped completely.
 Ignore comments starting with // or enclosed in /* ... */ and spaces befere
 or after these. Lines consisting only of comments are skipped completely.
 
+=item B<--strip> or B<-p>
+
+Strip ignored comments/spaces in output
+
 =item B<--version> or B<-v>
 
 print version number
@@ -111,6 +115,7 @@ my $ignore_space = '';
 my $ignore_comments = '';
 my $ignore_semicolons = '';
 my $ignore_c = '';
+my $strip_output = '';
 
 # Functions
 
@@ -248,6 +253,7 @@ Getopt::Long::GetOptions(
 	'ignore-comments|i', \$ignore_comments,
 	'ignore-semicolons|S', \$ignore_semicolons,
 	'ignore-c|I', \$ignore_c,
+	'strip|p', \$strip_output,
 	'1', \$suppress1,
 	'2', \$suppress2,
 	'version|V', \&version
@@ -293,9 +299,11 @@ for my $filename (@fileA) {
 		my $stripped = $strip->strip($line);
 		next unless (defined($stripped));
 		if (exists($B{$stripped})) {
-			print($common, $line) unless ($suppress1)
+			print($common, $strip_output ? ($stripped, "\n") : $line)
+				unless ($suppress1)
 		} else {
-			print($only, $line) unless ($suppress2)
+			print($only, $strip_output ? ($stripped, "\n") : $line)
+				unless ($suppress2)
 		}
 	}
 	$strip->unclosed($filename);
