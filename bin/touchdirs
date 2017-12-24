@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 BEGIN { require 5.008 }
 package Touchdirs;
-our $VERSION = 'v5.0.2';
+our $VERSION = 'v5.1.0';
 eval { $VERSION = version->declare($VERSION) };
-eval 'use version 0.77; $VERSION = version->declare($VERSION)' if($@);
+eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 
 use warnings;
 use strict;
@@ -199,10 +199,10 @@ sub myctime {
 	my $format = '%04d%02d%02d%02d%02d%s%02d%s';
 	my $dot = '.';
 	my $rest = '';
-	if($hires_write) {
+	if ($hires_write) {
 		$itime = int($rtime);
 		$time = Time::localtime::localtime($itime);
-		if(&not_equal($itime, $rtime)) {
+		if (&not_equal($itime, $rtime)) {
 			no integer;
 			$hires_writing = 1;
 			$rest = $rtime - $itime;
@@ -224,7 +224,7 @@ sub check_lutimes {
 	eval {
 		require File::lchown
 	};
-	return ($lutimes = '') if($@);
+	return ($lutimes = '') if ($@);
 	no integer;
 	$lutimes = (defined($File::lchown::VERSION) &&
 		($File::lchown::VERSION >= 0.02))
@@ -232,22 +232,22 @@ sub check_lutimes {
 
 sub touchit {
 	my ($atime, $mtime, $file) = @_;
-	return if($show && ($quiet >= 2));
+	return if ($show && ($quiet >= 2));
 	my $symlink = ((!$follow) && (-l $file));
 	my @touch = ('touch');
-	push(@touch, '-h') if($symlink);
+	push(@touch, '-h') if ($symlink);
 	my ($cm, $cmarg, $cmtime) = &myctime($mtime);
 	my ($ca, $caarg, $catime) =
 		(&is_equal($atime, $mtime) ? (undef) : &myctime($atime));
 	my $system = ($cm || ($ca // ''));
-	if($symlink && !$system) {
-		&check_lutimes() unless(defined($lutimes));
-		$system = 1 unless($lutimes)
+	if ($symlink && !$system) {
+		&check_lutimes() unless (defined($lutimes));
+		$system = 1 unless ($lutimes)
 	}
 	my $shellexec = ($system && !$show);
 	my $shellprint = ($quiet < 2);
-	if($shellprint || $shellexec) {
-		if(!defined($ca)) {
+	if ($shellprint || $shellexec) {
+		if (!defined($ca)) {
 			&printexec($shellprint, $shellexec,
 				[@touch, $cmarg, $cmtime], $file)
 		} else {
@@ -257,8 +257,8 @@ sub touchit {
 				[@touch, '-a', $caarg, $catime], $file)
 		}
 	}
-	unless($system || $show) {
-		if($symlink) {
+	unless ($system || $show) {
+		if ($symlink) {
 			File::lchown::lutimes($atime, $mtime, $file)
 		} else {
 			utime($atime, $mtime, $file)
@@ -269,7 +269,7 @@ sub touchit {
 sub exclude {
 	my ($path) = @_;
 	for my $regex (@exclude) {
-		if($path =~ $regex) {
+		if ($path =~ $regex) {
 			return 1
 		}
 	}
@@ -296,21 +296,21 @@ sub my_amtime {
 }}
 
 sub dotouch {
-	if(defined($File::Find::dir) && ($File::Find::dir ne $_)) {
+	if (defined($File::Find::dir) && ($File::Find::dir ne $_)) {
 		$PARENT{$File::Find::dir} = 1
 	}
-	if((-d $_) && ($follow || !(-l $_))) {
-		return if($emptyignore || exists($PARENT{$_}));
-		&printcomment('empty', $_) if($verbose)
+	if ((-d $_) && ($follow || !(-l $_))) {
+		return if ($emptyignore || exists($PARENT{$_}));
+		&printcomment('empty', $_) if ($verbose)
 	}
-	if(&exclude($_)) {
-		&printcomment('ignored', $_) unless($quiet);
+	if (&exclude($_)) {
+		&printcomment('ignored', $_) unless ($quiet);
 		return
 	}
 	my @dirs;
 	&my_split(\@dirs, $_);
 	for my $i (@topdirs) {
-		if((!@dirs) || ($i ne shift(@dirs))) {
+		if ((!@dirs) || ($i ne shift(@dirs))) {
 			&printcomment('prune', $_);
 			$File::Find::prune = 1;
 			return
@@ -318,36 +318,36 @@ sub dotouch {
 	}
 	my $filename = &my_cat(@topdirs, @dirs);
 	my ($atime, $mtime) = &my_amtime($filename);
-	unless(defined($atime) && defined($mtime)) {
+	unless (defined($atime) && defined($mtime)) {
 		&printcomment('non-statable', $filename);
 		return
 	}
 	my $write = $all;
-	if($rounding) {
+	if ($rounding) {
 		my ($oldatime, $oldmtime) = ($atime, $mtime);
 		($atime, $mtime) = (int($atime), int($mtime));
-		if($round && !$write) {
-			$write = 1 if(&not_equal($oldmtime, $mtime) ||
+		if ($round && !$write) {
+			$write = 1 if (&not_equal($oldmtime, $mtime) ||
 				($round_atime_write &&
 					&not_equal($oldatime, $atime)))
 		}
 	}
-	if($access && &not_equal($atime, $mtime)) {
+	if ($access && &not_equal($atime, $mtime)) {
 		$atime = $mtime;
 		&touchit($atime, $mtime, $filename)
-	} elsif($write) {
+	} elsif ($write) {
 		&touchit($atime, $mtime, $filename)
 	}
-	while(@dirs) {
+	while (@dirs) {
 		pop(@dirs);
 		my $dirname = &my_cat(@topdirs, @dirs);
 		my $array = $DIR{$dirname};
-		if(defined($array)) {
+		if (defined($array)) {
 			my ($oriatime, $orimtime) = @$array;
-			if($atime > $oriatime) {
+			if ($atime > $oriatime) {
 				$array->[0] = $atime
 			}
-			if($mtime > $orimtime) {
+			if ($mtime > $orimtime) {
 				$array->[1] = $mtime
 			}
 		} else {
@@ -368,17 +368,17 @@ sub printexec {
 	my $shellprint = shift();
 	my $shellexec = shift();
 	# The following shortcut-check is done at a higher level:
-	# return unless($shellprint || $shellexec);
+	# return unless ($shellprint || $shellexec);
 	my @cmd = &shdash;
-	&shprintraw(@cmd) if($shellprint);
-	system(@cmd) if($shellexec)
+	&shprintraw(@cmd) if ($shellprint);
+	system(@cmd) if ($shellexec)
 }
 
 sub shdash {
 	my $c = shift();
-	$c = [$c] unless(ref($c) eq 'ARRAY');
+	$c = [$c] unless (ref($c) eq 'ARRAY');
 	for my $i (@_) {
-		if($i =~ m{^[-+]}o) {
+		if ($i =~ m{^[-+]}o) {
 			push(@$c, '--');
 			last
 		}
@@ -390,7 +390,7 @@ sub shdash {
 
 { my $shellquote = undef;  # A closure static variable
 sub use_shellquote {
-	return $shellquote if(defined($shellquote));
+	return $shellquote if (defined($shellquote));
 	eval {
 		require String::ShellQuote
 	};
@@ -500,57 +500,57 @@ Getopt::Long::GetOptions(
 for my $i (@ARGV) {
 	(-e $i) || (-l $i) || &pod2usage("cannot find $i")
 }
-@ARGV = (File::Spec->curdir()) unless($check || @ARGV);
+@ARGV = (File::Spec->curdir()) unless ($check || @ARGV);
 
 # Set dependent options
 
 $round_atime_write = !$opt_mtime;
 
-$rounding = 1 if($round || $roundread);
-if($all) {
+$rounding = 1 if ($round || $roundread);
+if ($all) {
 	$force = 1;
 	$round = ''
 }
-if($check) {
+if ($check) {
 	$roundread = '';
 	$follow = 1
 }
 
 # Set globals depending on options
 $hires_write = !$rounding;
-unless($roundread) {
+unless ($roundread) {
 	eval {
 		require Time::HiRes
 	};
-	if($@) {
+	if ($@) {
 		my @err = ('perl module Time::HiRes not found:', $@);
-		if($check) {
-			&info(@err) unless($quiet);
+		if ($check) {
+			&info(@err) unless ($quiet);
 			exit(1)
 		}
 		&warning(@err, 'Forcing option -R');
 		$roundread = 1
 	} else {
 		my ($atime, $mtime) = &my_amtime(File::Spec->curdir());
-		if((int($atime) < 1000000) || (int($mtime) < 1000000)) {
+		if ((int($atime) < 1000000) || (int($mtime) < 1000000)) {
 			my @err = ('Time::Hires::stat() appears broken');
-			if($check) {
-				print(@err) unless($quiet);
+			if ($check) {
+				print(@err) unless ($quiet);
 				exit(1)
 			}
 			$roundread = 1;
 			($atime, $mtime) = &my_amtime(File::Spec->curdir());
 			&fatal('stat() appears to be corrupted by Time::Hires',
 				'You might want to retry with option -R')
-				if((int($atime) < 1000000) ||
+				if ((int($atime) < 1000000) ||
 					(int($mtime) < 1000000));
 			&warning(@err, 'Forcing option -R')
-		} elsif($check) {
-			&info('Time::Hires appears to work') unless($quiet);
+		} elsif ($check) {
+			&info('Time::Hires appears to work') unless ($quiet);
 			exit(0)
 		}
 	}
-	if($roundread) {  # error case
+	if ($roundread) {  # error case
 		$round = '';
 		$rounding = 1
 	}
@@ -558,22 +558,23 @@ unless($roundread) {
 
 # Compile regular expressions and make one array:
 for my $i (@exclude) {
-	$i = qr{$i}m if(ref($i) ne 'Regexp')
+	$i = qr{$i}m if (ref($i) ne 'Regexp')
 }
 for my $i (@iexclude) {
-	$i = qr{$i}im if(ref($i) ne 'Regexp');
+	$i = qr{$i}im if (ref($i) ne 'Regexp');
 	Push(@exclude, $i)
 }
 
 }  # End of option parsing
 
 # Main Loop
+no warnings 'File::Find';
 for my $currdir (@ARGV) {
 	%DIR = ();
 	$count = 0;
 	&my_split(\@topdirs, File::Spec->canonpath($currdir));
 	my $topdir = &my_cat(@topdirs);
-	unless(-d $topdir) {
+	unless (-d $topdir) {
 		$_ = $topdir;
 		&dotouch();
 		next
@@ -594,7 +595,7 @@ for my $currdir (@ARGV) {
 	for my $dir (@DIR) {
 		my ($atime, $mtime) = &my_amtime($dir);
 		my ($newatime, $newmtime) = @{$DIR{$dir}};
-		if($force || &not_equal($atime, $newatime) ||
+		if ($force || &not_equal($atime, $newatime) ||
 			&not_equal($mtime, $newmtime)) {
 			&touchit($newatime, $newmtime, $dir)
 		}

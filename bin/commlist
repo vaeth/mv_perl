@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 BEGIN { require 5.006_001 }
 package Commlist;
-our $VERSION = 'v3.1.0';
+our $VERSION = 'v3.1.1';
 eval { $VERSION = version->declare($VERSION) };
 eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 
@@ -230,7 +230,7 @@ sub pod2usage {
 	}
 	sub unclosed {
 		my $self = shift();
-		return 1 unless($self->{open});
+		return 1 unless ($self->{open});
 		&Commlist::warn('unclosed /*', (scalar(@_) ? (' in ') : ()), @_);
 		$self->{open} = ''
 	}

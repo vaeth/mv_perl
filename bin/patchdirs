@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 BEGIN { require 5.008 }
 package Patchdirs;
-our $VERSION = 'v3.2.3';
+our $VERSION = 'v3.2.4';
 eval { $VERSION = version->declare($VERSION) };
-eval 'use version 0.77; $VERSION = version->declare($VERSION)' if($@);
+eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 
 use warnings;
 use strict;
@@ -386,9 +386,9 @@ my $subseconds = 0;
 
 sub shdash {
 	my $c = shift();
-	$c = [$c] unless(ref($c) eq 'ARRAY');
+	$c = [$c] unless (ref($c) eq 'ARRAY');
 	for my $i (@_) {
-		if($i =~ m{^[-+]}o) {
+		if ($i =~ m{^[-+]}o) {
 			push(@$c, '--');
 			last
 		}
@@ -400,7 +400,7 @@ sub shdash {
 
 { my $shellquote = undef;  # A closure static variable
 sub use_shellquote {
-	return $shellquote if(defined($shellquote));
+	return $shellquote if (defined($shellquote));
 	eval {
 		require String::ShellQuote
 	};
@@ -411,7 +411,7 @@ sub use_shellquote {
 
 { my $escape = undef;  # A closure static variable
 sub use_escape {
-	return $escape if(defined($escape));
+	return $escape if (defined($escape));
 	eval {
 		require String::Escape
 	};
@@ -450,41 +450,41 @@ sub split_quoted {
 	my @res = ();
 	my $word = undef;
 	my $quoting = '';
-	$_[0] = '' if(@_);
-	while($arg ne '') {
+	$_[0] = '' if (@_);
+	while ($arg ne '') {
 		my $add;
-		if(($arg =~ s{\A([^\"\'\s\\]+)}{}m) ||
+		if (($arg =~ s{\A([^\"\'\s\\]+)}{}m) ||
 			($arg =~ s{\A\\(.)}{}m) ||
 			($arg =~ s{\A\'((?:[^\'])*)\'}{}m)) {
 			$add = $1
-		} elsif($arg =~ s{\A(\s+)}{}m) {
+		} elsif ($arg =~ s{\A(\s+)}{}m) {
 			$add = $1;
-			unless($quoting) {
-				if(defined($word)) {
+			unless ($quoting) {
+				if (defined($word)) {
 					push(@res, $word);
 					$word = undef
 				}
 				next
 			}
-		} elsif($arg =~ s{^\"}{}) {
+		} elsif ($arg =~ s{^\"}{}) {
 			$quoting = !$quoting;
 			next
-		} elsif($arg eq "\\") {
-			$_[0] = "file ends with \\-quote" if(@_);
+		} elsif ($arg eq "\\") {
+			$_[0] = "file ends with \\-quote" if (@_);
 			return @res
-		} elsif($arg =~ s{\A\'}{}m) {
-			$_[0] = "unclosed \'-quote" if(@_);
+		} elsif ($arg =~ s{\A\'}{}m) {
+			$_[0] = "unclosed \'-quote" if (@_);
 			$add = $arg;
 			$arg = ''
 		}
-		if(defined($word)) {
+		if (defined($word)) {
 			$word .= $add
 		} else {
 			$word = $add
 		}
 	}
-	$_[0] = "unclosed \"-quote" if($quoting && @_);
-	push(@res, $word) if(defined($word));
+	$_[0] = "unclosed \"-quote" if ($quoting && @_);
+	push(@res, $word) if (defined($word));
 	@res
 }
 
@@ -498,8 +498,8 @@ sub string2list {
 sub split_dir {
 	my ($vol, $dir, $file) = File::Spec->splitpath(File::Spec->canonpath($_[0]));
 	my @dir = File::Spec->splitdir($dir);
-	pop(@dir) if(@dir && $dir[$#dir] eq '');
-	push(@dir, $file) if($file ne '');
+	pop(@dir) if (@dir && $dir[$#dir] eq '');
+	push(@dir, $file) if ($file ne '');
 	($vol, @dir)
 }
 
@@ -513,13 +513,13 @@ sub cat_dir {
 
 sub strip_dirs {
 	my $num = shift();
-	return 1 unless($num);
+	return 1 unless ($num);
 	my ($vol, @dirs) = &split_dir($_[0]);
-	if($num < 0) {
+	if ($num < 0) {
 		$_[0] = &cat_dir($vol, (($ddot) x (-$num)), @dirs);
 		return 1
 	}
-	if(@dirs > $num) {
+	if (@dirs > $num) {
 		$_[0] = &cat_dir($vol, splice(@dirs, 0, $num));
 		return 1
 	}
@@ -565,11 +565,11 @@ sub pod2usage {
 
 
 sub standardlist {
-	@ARGV = ($mdot) unless(@ARGV || @files);
+	@ARGV = ($mdot) unless (@ARGV || @files);
 	@A = ();
 	%Afullname = ();
-	&readlist(\@files, \@A, \@Adirs, \%Afullname) if(@files);
-	&makelist(\@A, \%Afullname, \@ARGV) if(@ARGV)
+	&readlist(\@files, \@A, \@Adirs, \%Afullname) if (@files);
+	&makelist(\@A, \%Afullname, \@ARGV) if (@ARGV)
 }
 
 {
@@ -582,7 +582,7 @@ sub standardlist {
 	$ten = 10
 }
 sub infocount {
-	return if($quiet);
+	return if ($quiet);
 	my ($countref, $total, $size, $name) = @_;
 	my $counter = ++($countref->[0]);
 	my $info = (@$total ? $counter . '|' . $total->[0] . ' ' :
@@ -594,7 +594,7 @@ sub infocount {
 		$printsize = (($currsize + $halfm) / $fullm) . 'M + ' .
 			(($size + $halfm) / $fullm) . 'M';
 		$countref->[1] += $size;
-		if(@$total) {
+		if (@$total) {
 			my $totalsize = $total->[1];
 			my $percent = ($totalsize ?
 				(($currsize * $thousand5) / $totalsize) / $ten
@@ -611,13 +611,13 @@ sub checksum {
 	my $errname = (shift() // $name);
 	my @checksum = ();
 	for my $cmd (@sumcmds) {
-		if($cmd eq '.') {
+		if ($cmd eq '.') {
 			open(my $file, '<', $name) or
 				&fatal("cannot open $errname", $!);
 			binmode($file);
 			push(@checksum, Digest::MD5->new->addfile($file)->b64digest());
 			close($file)
-		} elsif($cmd ne '') {
+		} elsif ($cmd ne '') {
 			my $c = &shell_dash($cmd, $_);
 			$c = `$c`;
 			$c =~ m{([^\s]+)*};
@@ -633,15 +633,15 @@ sub checksum {
 sub hintchecksum {
 	my ($name, $size) = @_;
 	my $checksum = $hints{$name};
-	return undef unless(defined($checksum));
-	if($checksum =~ m{^(\d+)}o) {
-		return $checksum if($size == $1)
+	return undef unless (defined($checksum));
+	if ($checksum =~ m{^(\d+)}o) {
+		return $checksum if ($size == $1)
 	}
 	undef
 }
 sub makelist {
 	my ($list, $fullhash, $dirs) = @_;
-	if(@hints) {
+	if (@hints) {
 		&readlist(\@hints, \%hints);
 		@hints = ()
 	}
@@ -650,30 +650,30 @@ sub makelist {
 	my @total = $justintime ? () : (0, 0);
 	my $fullpath;
 	my $makeentry = sub {
-		return if(($_ eq $mdot) || ($_ eq $ddot));
-		$File::Find::prune = 1 unless($recurse);
+		return if (($_ eq $mdot) || ($_ eq $ddot));
+		$File::Find::prune = 1 unless ($recurse);
 		my $name = ($fullpath ? $_ :
 			&unify_name((&cat_dir(&split_dir($File::Find::dir), $_))));
 		my ($mode, $uid, $gid, $size, $mtime) =
 			($follow ? (stat($_)) : (lstat($_)))[2, 4, 5, 7, 9];
-		unless(defined($mtime)) {
+		unless (defined($mtime)) {
 			&info("cannot stat $name");
 			return
 		}
-		return if(defined($fullhash->{$name}));
+		return if (defined($fullhash->{$name}));
 		my $checksum;
-		if(Fcntl::S_ISLNK($mode)) {
+		if (Fcntl::S_ISLNK($mode)) {
 			my $linkname = readlink();
 			$checksum = '->' . $linkname
-		} elsif(Fcntl::S_ISDIR($mode)) {
+		} elsif (Fcntl::S_ISDIR($mode)) {
 			$checksum = 'dir'
-		} elsif(Fcntl::S_ISREG($mode)) {
+		} elsif (Fcntl::S_ISREG($mode)) {
 			$checksum = &hintchecksum($name, $size);
-			if(defined($checksum)) {
+			if (defined($checksum)) {
 				&info('hinted checksum for ' . $name)
-					if($verbose)
-			} elsif($calccheck) {
-				if($justintime) {
+					if ($verbose)
+			} elsif ($calccheck) {
+				if ($justintime) {
 					&infocount(\@count, \@postpone, $size, $name);
 					$checksum = join(':', $size, &checksum($_, $name))
 				} else {
@@ -697,9 +697,9 @@ sub makelist {
 	my @mydirs = ();
 	for my $a (@$dirs) {
 		my $b = &unify_name($a);
-		push(@mydirs, $b) if(-d $b)
+		push(@mydirs, $b) if (-d $b)
 	}
-	return unless(@mydirs);
+	return unless (@mydirs);
 	@mydirs = sort(@mydirs);
 
 	$fullpath = 1;
@@ -708,16 +708,17 @@ sub makelist {
 	}
 	$fullpath = '';
 
+	no warnings 'File::Find';
 	File::Find::find({
 		follow_fast => $follow,
 		preprocess => sub {
 			&info('scanning directory ' . $File::Find::dir)
-				unless($quiet);
+				unless ($quiet);
 			(sort(@_))
 		},
 		wanted => $makeentry
 	}, @mydirs);
-	return unless(@postpone);
+	return unless (@postpone);
 
 	$total[0] = scalar(@postpone);
 	for my $index (@postpone) {
@@ -732,7 +733,7 @@ sub printlist {
 	my ($list) = @_;
 	for my $f (@$list) {
 		my ($name, $checksum, $mode, $owner, $time) = @$f;
-		next unless(&strip_dirs($outstrip, $name));
+		next unless (&strip_dirs($outstrip, $name));
 		print(&list2string($name, $checksum,
 			($modattrib ? $mode : ()),
 			($modowner ? $owner : ()),
@@ -743,7 +744,7 @@ sub printlist {
 sub readlist {
 	my ($files, $list, $alldirs, $fullhash);
 	my $only_checksum;
-	if(@_ > 2) {
+	if (@_ > 2) {
 		($files, $list, $alldirs, $fullhash) = @_;
 		$only_checksum = ''
 	} else {
@@ -755,59 +756,59 @@ sub readlist {
 	my $err;
 	for my $file (@$files) {
 		my ($fh, $close);
-		if($file eq '-') {
+		if ($file eq '-') {
 			$fh = \*STDIN;
 			$close = ''
 		} else {
-			unless(open($fh, '<', $file)) {
+			unless (open($fh, '<', $file)) {
 				&warning("cannot open $file");
 				next
 			}
 			$close = 1
 		}
-		while(<$fh>) {
+		while (<$fh>) {
 			chomp();
-			if(defined($repeat)) {
+			if (defined($repeat)) {
 				$repeat .= "\n" . $_
-			} elsif((m{^\s*$}) || (m{^\s*[\#\;]})) {
+			} elsif ((m{^\s*$}) || (m{^\s*[\#\;]})) {
 				next
 			}
 			my ($name, $checksum, $mode, $owner, $time) =
 				&string2list($repeat // $_);
 			$repeat = undef;
 			$name = &unify_name($name);
-			next unless(&strip_dirs($strip, $name));
-			&fatal("no checksum for $name") unless(defined($checksum));
+			next unless (&strip_dirs($strip, $name));
+			&fatal("no checksum for $name") unless (defined($checksum));
 			my ($vol, @dirs) = &split_dir($name);
 			my $file = pop(@dirs);
-			unless(@dirs) {
+			unless (@dirs) {
 				@dirs = ($mdot);
 				$name = &cat_dir(@dirs, $file)
 			}
-			if(exists($fullhash->{$name})) {
+			if (exists($fullhash->{$name})) {
 				&warning("ignoring second occurence of $name");
 				next
 			}
-			if($only_checksum) {
-				if($checksum =~ m{^\d+\:.}) {
+			if ($only_checksum) {
+				if ($checksum =~ m{^\d+\:.}) {
 					$fullhash->{$name} = $checksum
 				}
 				next
 			}
 			$hashdir{&cat_dir($vol, @dirs)} = '';
-			($owner, $time) = ($mode, $owner) unless($modattrib);
-			$time = $owner unless($modowner);
-			unless($quiet) {
-				&warning("-T assumed for $name") if($modtime && !defined($time));
-				&warning("-A assumed for $name") if($modattrib && !defined($mode));
-				&warning("-O assumed for $name") if($modowner && !defined($owner))
+			($owner, $time) = ($mode, $owner) unless ($modattrib);
+			$time = $owner unless ($modowner);
+			unless ($quiet) {
+				&warning("-T assumed for $name") if ($modtime && !defined($time));
+				&warning("-A assumed for $name") if ($modattrib && !defined($mode));
+				&warning("-O assumed for $name") if ($modowner && !defined($owner))
 			}
 			$fullhash->{$name} = scalar(@$list);
 			push(@$list, [ $name, $checksum, $mode, $owner, $time ])
 		}
-		close($fh) if($close)
+		close($fh) if ($close)
 	}
-	return if($only_checksum);
+	return if ($only_checksum);
 	@$alldirs = keys(%hashdir)
 }
 
@@ -820,9 +821,9 @@ sub unify_name {
 sub make_check {
 	my ($list, $check) = @_;
 	%$check = ();
-	while(my ($j, $ref) = each(@$list)) {
+	while (my ($j, $ref) = each(@$list)) {
 		my ($name, $checksum, $mode, $owner, $time) = @$ref;
-		$check->{$checksum} = [] unless(defined($check->{$checksum}));
+		$check->{$checksum} = [] unless (defined($check->{$checksum}));
 		push(@{$check->{$checksum}}, $j);
 	}
 }
@@ -854,25 +855,25 @@ sub patchlist () {
 	# Pass 1: We decide which files to move where (collect into %from_name).
 	#         Also build @mod_cmds, @LinkCmd, @mkdir_cmds, @copy_list, @not_exist,
 	#         @deleted_index,%needed_dir.
-	while(my ($i, $f) = each(@A)) {
-		#if(($i % 50) == 0) { print STDERR "." }
+	while (my ($i, $f) = each(@A)) {
+		#if (($i % 50) == 0) { print STDERR "." }
 		my ($Aname, $Achecksum, $Amode, $Aowner, $Atime) = @$f;
-		if(&isordinary($Achecksum)) {
+		if (&isordinary($Achecksum)) {
 			my $sumarr = $Bcheck{$Achecksum};
-			if(defined($sumarr)) {   # We have a file with the required checksum for $f
+			if (defined($sumarr)) {   # We have a file with the required checksum for $f
 				my $move = 1;
 				my @movecand = ();     # Optimal move candidates
 				my @movecandsub = ();  # Suboptimal move candidates
 				for my $j (@$sumarr) {  # For all existing files $g with this checksum
-					next if($deleted_index[$j]);  # (Only if this file has not been moved)
+					next if ($deleted_index[$j]);  # (Only if this file has not been moved)
 					my $g = $B[$j];
 					my ($Baname, $Bchecksum) = @$g;
 					my $ia = $Afullname{$Baname};
-					if(defined($ia)) {  # Some file should stay at $g's place.
-						if($ia != $i) {  # If this file is differrent than $f and ...
+					if (defined($ia)) {  # Some file should stay at $g's place.
+						if ($ia != $i) {  # If this file is differrent than $f and ...
 							my $fa = $A[$ia];
 							my ($Aaname, $Aachecksum, $Aamode, $Aaowner, $Aatime) = @$fa;
-							if($Aachecksum ne $Bchecksum) {  #...if this file has another checksum
+							if ($Aachecksum ne $Bchecksum) {  #...if this file has another checksum
 								push(@movecandsub, $j)  # -> $g is candidate for moving
 							}
 							# If it has the same checksum, we assume that it cannot be moved
@@ -886,13 +887,13 @@ sub patchlist () {
 						push(@movecand, $j)
 					}
 				}
-				if(($#movecand < 0) && ($#movecandsub < 0)) {
+				if (($#movecand < 0) && ($#movecandsub < 0)) {
 					# Although we have files with a matching checksum, each of these
 					# files already appears to be on the right place or has already
 					# been moved to the right place.
-					if($dupcopy) {
-						my ($isnew, $j) = &make_dirs_for($Aname, $Achecksum);
-						if($isnew) {
+					if ($dupcopy) {
+						my ($isnew, $j) = &make_dirs_for ($Aname, $Achecksum);
+						if ($isnew) {
 							$j = $sumarr->[0];
 							push(@copy_list, [$j, $Aname]);
 						}
@@ -903,11 +904,11 @@ sub patchlist () {
 				} else {
 					my $j;                # Index of chosen movecandidate
 					my $morecand = '';    # More than 1 candidate -> print an error/warning.
-					if($#movecand == 0) { # There is precisely one optimal:
+					if ($#movecand == 0) { # There is precisely one optimal:
 						$j = $movecand[0]
 					} else {
 						push(@movecand, @movecandsub);
-						if(@movecand == 1) {  # There is precisely one (sub)optimal
+						if (@movecand == 1) {  # There is precisely one (sub)optimal
 							$j = $movecand[0]
 						} else {  # There is some ambiguity.
 							  # In this case, we decide by the name
@@ -918,19 +919,19 @@ sub patchlist () {
 								my ($Bname) = @$g;
 								my $Abase = &basename($Aname);
 								my $Bbase = &basename($Bname);
-								if(($Abase ne '') && ($Bbase ne '')) {
-									if($Abase eq $Bbase) {
+								if (($Abase ne '') && ($Bbase ne '')) {
+									if ($Abase eq $Bbase) {
 										push(@name, $jt)
-									} elsif(uc($Abase) eq uc($Bbase)) {
+									} elsif (uc($Abase) eq uc($Bbase)) {
 										push(@namesub, $jt)
 									}
 								}
 							}
-							if($#name == 0) {  # There is precisely one optimal:
+							if ($#name == 0) {  # There is precisely one optimal:
 								$j = $name[0]
 							} else {
 								push(@name, @namesub);
-								if($#name < 0) {  # No name at all:
+								if ($#name < 0) {  # No name at all:
 									$morecand = 1;
 									$j = $movecand[0]
 								} else {  # Several optimal names or only suboptimal names:
@@ -942,13 +943,13 @@ sub patchlist () {
 					}
 					my $g = $B[$j];
 					my ($Bname) = @$g;
-					if($move) {
-						if($morecand) {
+					if ($move) {
+						if ($morecand) {
 							my @err = ("several candidates for moving to $Aname:");
 							for my $jt (@movecand) {
 								push(@err, &formatnice($B[$jt]))
 							}
-							if($force) {
+							if ($force) {
 								&warning(@err, "\tchosen candidate is $Bname")
 							} else {
 								&error(@err, "\twith option --force choice would be $Bname");
@@ -958,10 +959,10 @@ sub patchlist () {
 						&fatal('this error should never occur.',
 							'My logic would move the same files several times.',
 							'To be on the safe side, I do nothing at all.')
-							if(defined($from_name{$Bname}));
+							if (defined($from_name{$Bname}));
 						$from_name{$Bname} = $Aname;
 						$deleted_index[$j] = 1;
-						&make_dirs_for($Aname, '')
+						&make_dirs_for ($Aname, '')
 					}
 					&changemods($Aname, $Amode, $Aowner, $Atime, '', '', $j)
 				}
@@ -970,19 +971,19 @@ sub patchlist () {
 			}
 		} else {  # directory, link, or other strange filetype:
 			my $tolinkRemember = $tolink; # $tolink is set by &isordinary as a side effect
-			if(&isdircheck($Achecksum)) {  # Directory:
-				my ($isnew, $j) = &make_dirs_for($Aname, '', 1);
+			if (&isdircheck($Achecksum)) {  # Directory:
+				my ($isnew, $j) = &make_dirs_for ($Aname, '', 1);
 				&changemods($Aname, $Amode, $Aowner, $Atime, '', $isnew, $j)
-			} elsif(&isother($Achecksum)) {  # Other strange filetype:
-				my ($isnew, $j) = &make_dirs_for($Aname, $Achecksum);
-				if($isnew) {
+			} elsif (&isother($Achecksum)) {  # Other strange filetype:
+				my ($isnew, $j) = &make_dirs_for ($Aname, $Achecksum);
+				if ($isnew) {
 					push(@link_cmds, &shell_dash('touch', $Aname));
 					&warning("special type file $Aname created as ordinary file")
 				}
 				&changemods($Aname, $Amode, $Aowner, $Atime, '', $isnew, $j)
 			} else {  # Link:
-				my ($isnew, $j) = &make_dirs_for($Aname, $Achecksum);
-				push(@link_cmds, &shell_dash(['ln', '-s'], $tolinkRemember, $Aname)) if($isnew);
+				my ($isnew, $j) = &make_dirs_for ($Aname, $Achecksum);
+				push(@link_cmds, &shell_dash(['ln', '-s'], $tolinkRemember, $Aname)) if ($isnew);
 				&changemods($Aname, $Amode, $Aowner, $Atime, 1, $isnew, $j)
 			}
 		}
@@ -997,7 +998,7 @@ sub patchlist () {
 		my $to = $a->[1];
 		my $from = &thename($B[$a->[0]]);
 		my $froma = ($from_name{$from} // '');
-		$from = $froma if($froma ne '');
+		$from = $froma if ($froma ne '');
 		push(@copy_cmds, &shell_dash(['cp', '-p', '-i'], $from, $to));
 	}
 
@@ -1005,10 +1006,10 @@ sub patchlist () {
 	#         The corresponding delete commands are collected in @del_cmds.
 	for my $g (@B) {
 		my ($Bname, $Bchecksum, $Bmode, $Bowner, $Btime) = @$g;
-		unless(defined($from_name{$Bname})) {
-			unless(defined($Afullname{$Bname})) {
-				if(&isdircheck($Bchecksum)) {
-					unless(defined($needed_dir{$Bname})) {
+		unless (defined($from_name{$Bname})) {
+			unless (defined($Afullname{$Bname})) {
+				if (&isdircheck($Bchecksum)) {
+					unless (defined($needed_dir{$Bname})) {
 						push(@rmdir_cmds, ($follow ?
 							&shell_quote_best_effort('test', '-h', $Bname)
 							. ' && ' .
@@ -1018,7 +1019,7 @@ sub patchlist () {
 							:
 							&shell_dash('rmdir', $Bname)))
 					}
-				} elsif($dodelete) {
+				} elsif ($dodelete) {
 					push(@del_cmds, &shell_dash('rm', $Bname))
 				}
 			}
@@ -1031,15 +1032,15 @@ sub patchlist () {
 	for my $p (keys(%from_name)) {
 		my $q = $from_name{$p};
 		delete($from_name{$p});
-		if(defined($q)) {  # We have not moved $p yet.
+		if (defined($q)) {  # We have not moved $p yet.
 			my @T = ($p, $q);
 			my $loop = '';
-			while() {
+			while () {
 				my $qold = $q;
 				$q = $from_name{$q};
 				delete $from_name{$qold};
-				last unless(defined($q));  # Our `loop' is no loop: It just has finished
-				if($q eq $p) {
+				last unless (defined($q));  # Our `loop' is no loop: It just has finished
+				if ($q eq $p) {
 					# Our loop has reached the start:
 					# At first, we create a temporary filename in the directory of $p
 					$loop = 1;
@@ -1053,28 +1054,28 @@ sub patchlist () {
 			}
 			my $i = $#T;
 			my $to = $T[$i];
-			unless($loop) {
+			unless ($loop) {
 				my $g = $Bfullname{$to};
-				if(defined($g)) {
+				if (defined($g)) {
 					my $checksum = undef;
-					if($g ne '') {
+					if ($g ne '') {
 						$checksum = &thechecksum($B[$g])
 					}
-					if(&isdircheck($checksum)) {
+					if (&isdircheck($checksum)) {
 						# We should move a file onto a yet existing directory:
 						my $tempname = &mktempname($to);
 						push(@after_rmdir_cmds, &shell_dash('rmdir', $to));
 						push(@after_rmdir_cmds, &shell_dash(['mv', '-i'], $tempname, $to));
 						$to = $tempname;
-					} elsif(&islinkcheck($checksum)) {
+					} elsif (&islinkcheck($checksum)) {
 						# We should move a file onto a symbolic link:
 						push(@mov_cmds, &shell_quote_best_effort('test', '-h', $to) .
 							' && ' . &shell_dash('rm', $to))
 					} else {
 						# We should move a file onto a file/other which will not be moved:
-						if($dodelete) {
+						if ($dodelete) {
 							push(@mov_cmds, &shell_dash('rm', $to))
-						} elsif(!$force) {
+						} elsif (!$force) {
 							my $from = $T[$#T - 1];
 							&error('you have chosen to not delete any file, but I should',
 							"move $from onto $to",
@@ -1089,12 +1090,12 @@ sub patchlist () {
 				}
 				delete($Bfullname{$T[0]})
 			}
-			while($i > 0) {
+			while ($i > 0) {
 				my $from = $T[--$i];
 				&fatal('this error should never occur.',
 					'My logic would move a file to itself.',
 					'To be on the safe side, I do nothing at all.')
-					if($from eq $to);
+					if ($from eq $to);
 				push(@mov_cmds, &shell_dash(['mv', '-i'], $from, $to));
 				$to = $from
 			}
@@ -1118,9 +1119,9 @@ sub patchlist () {
 	&doexec(\@rmdir_cmds);
 	&doexec(\@after_rmdir_cmds);
 	&doexec(\@mod_cmds);
-	if(@not_exist) {
+	if (@not_exist) {
 		print("\n\# The following files could not be created by renaming:\n")
-			unless($quiet);
+			unless ($quiet);
 		for my $f (@not_exist) {
 			print(($quiet ? () : '# '), &formatnice($f), "\n");
 		}
@@ -1134,32 +1135,32 @@ sub patchlist () {
 # If $isnew is false, then only the values differing from $B[$j] are set.
 sub changemods {
 	my($name, $mode, $owner, $time, $islink, $isnew, $j) = @_;
-	if((!$isnew) && (($j // '') ne '')) {
+	if ((!$isnew) && (($j // '') ne '')) {
 		my $g = $B[$j];
 		my ($Bname, $Bchecksum, $Bmode, $Bowner, $Btime) = @$g;
-		undef($mode) unless($modattrib && defined($mode) && ($mode ne '') &&
+		undef($mode) unless ($modattrib && defined($mode) && ($mode ne '') &&
 			((!defined($Bmode)) || ($Bmode ne $mode)));
-		undef($owner) unless($modowner && defined($owner) && ($owner ne '') &&
+		undef($owner) unless ($modowner && defined($owner) && ($owner ne '') &&
 			((!defined($Bowner)) || ($Bowner ne $owner)));
-		undef($time) unless($modtime && defined($time) && ($time ne '') &&
+		undef($time) unless ($modtime && defined($time) && ($time ne '') &&
 			((!defined($Btime)) || ($Btime ne $time)))
 	} else {
-		undef($mode) unless($modattrib && defined($mode) && ($mode ne ''));
-		undef($owner) unless($modowner && defined($owner) && ($owner ne ''));
-		undef($time) unless($modtime && defined($time) && ($time ne ''))
+		undef($mode) unless ($modattrib && defined($mode) && ($mode ne ''));
+		undef($owner) unless ($modowner && defined($owner) && ($owner ne ''));
+		undef($time) unless ($modtime && defined($time) && ($time ne ''))
 	}
-	if($islink) {
+	if ($islink) {
 		# chmod and touch have no --no-derefence option and thus are useless
 		# to modify a link.
 		push(@mod_cmds, &shell_dash(['chown', '-h'], $owner, $name))
-			if(defined($owner))
+			if (defined($owner))
 	} else {
 		push(@mod_cmds, &shell_dash('chmod', $mode, $name))
-			if(defined($mode));
+			if (defined($mode));
 		push(@mod_cmds, &shell_dash('chown', $owner, $name))
-			if(defined($owner));
+			if (defined($owner));
 		push(@mod_cmds, &shell_dash(['touch', '--date=' . $time], $name))
-			if(defined($time))
+			if (defined($time))
 	}
 }
 
@@ -1183,27 +1184,27 @@ sub changemods {
 sub make_dirs_for {
 	my($p, $checksum, $keep) = @_;
 	my $defact = '';
-	unless(($checksum // '') ne '') {
+	unless (($checksum // '') ne '') {
 		$defact = 1;
-		unless(($keep // '') ne '') {
+		unless (($keep // '') ne '') {
 			my ($vol, @dir) = &split_dir($p);
 			pop(@dir);
-			return ('', undef) unless(@dir);
+			return ('', undef) unless (@dir);
 			$p = &cat_dir($vol, @dir)
 		}
 		$checksum = 'dir'
 	}
 	my $j = $Bfullname{$p};
-	if(defined($j)) {
+	if (defined($j)) {
 		my $g = $B[$j];
 		my ($Bname, $Bchecksum, $Bmode, $Bowner, $Btime) = @$g;
 		$p = $Bname;   # If in doubt, we choose the unique name.
-		if($defact) {
-			if(&isdircheck($Bchecksum)) {
+		if ($defact) {
+			if (&isdircheck($Bchecksum)) {
 				&needed_dir_parents($Bname);
 				return ('', $j)
 			}
-		} elsif($Bchecksum eq $checksum) {
+		} elsif ($Bchecksum eq $checksum) {
 			return ('', $j)
 		}
 		# A directory must be created whose name is already be used by a file/link.
@@ -1217,21 +1218,21 @@ sub make_dirs_for {
 		$B[$j] = $g;
 		$Bfullname{$tempname} = $j; # Remember also in the hash-list.
 		# If we already decided to move this file, use the new filename:
-		if(defined($from_name{$p})) {
+		if (defined($from_name{$p})) {
 			$from_name{$tempname} = $from_name{$p};
 			delete $from_name{$p};
 		}
-	} elsif($p eq $mdot) {  # The '.' directories need not be created
+	} elsif ($p eq $mdot) {  # The '.' directories need not be created
 		return ('', undef)
 	}
 	# Create a new entry for the directory/file
 	push(@B, [$p, $checksum, undef, undef, undef]);
 	$j = $#B;
 	$Bfullname{$p} = $j;
-	$needed_dir{$p} = '' if($defact);
+	$needed_dir{$p} = '' if ($defact);
 	# First create recursively all required directories, and then $p
-	&make_dirs_for($p, '');
-	if($defact) {
+	&make_dirs_for ($p, '');
+	if ($defact) {
 		$umask //= sprintf('%03o', (0777 ^ umask()));
 		push(@mkdir_cmds, &shell_dash(['mkdir', '-m', $umask], $p))
 	}
@@ -1240,7 +1241,7 @@ sub make_dirs_for {
 
 # Mark the Directory and all its parents as needed:
 sub needed_dir_parents {
-	for(my ($vol, @dir) = &split_dir($_[0]); @dir; pop(@dir)) {
+	for (my ($vol, @dir) = &split_dir($_[0]); @dir; pop(@dir)) {
 		$needed_dir{&cat_dir($vol, @dir)} = ''
 	}
 }
@@ -1249,9 +1250,9 @@ sub needed_dir_parents {
 {  my %tempnamelist = ();
 sub mktempname {
 	my ($vol, $dir, $file) = File::Spec->splitpath(File::Spec->canonpath($_[0]));
-	for(my $i = 0; ; ++$i) {
+	for (my $i = 0; ; ++$i) {
 		my $tempname = File::Spec->catpath($vol, $dir, $i . $$ . '.tmp');
-		unless(exists($Afullname{$tempname}) ||
+		unless (exists($Afullname{$tempname}) ||
 			exists($Bfullname{$tempname}) ||
 			exists($tempnamelist{$tempname}) ||
 			(-e $tempname)) {
@@ -1279,7 +1280,7 @@ sub basename {
 sub islinkcheck {
 	my ($a) = @_;
 	$tolink = '';
-	if($a =~ m{\A\s*\-\>\s*(.*)}m) {
+	if ($a =~ m{\A\s*\-\>\s*(.*)}m) {
 		$tolink = $1;
 		return 1
 	}
@@ -1295,8 +1296,8 @@ sub isordinary {
 sub doexec {
 	my ($a) = @_;
 	for my $s (@$a) {
-		print($s, "\n") if((!$quiet) || $show);
-		system($s) unless($show)
+		print($s, "\n") if ((!$quiet) || $show);
+		system($s) unless ($show)
 	}
 }
 
@@ -1308,16 +1309,16 @@ sub printdoubles {
 	my $prevn = undef;
 	for my $f (@A) {
 		my ($c, $n) = (&thechecksum($f), &thename($f));
-		if(($c eq $prevc) && (&isordinary($f))) {
-			push(@doubles, $prevn) unless(@doubles);
+		if (($c eq $prevc) && (&isordinary($f))) {
+			push(@doubles, $prevn) unless (@doubles);
 			push(@doubles, $n)
-		} elsif(@doubles) {
+		} elsif (@doubles) {
 			&pushsorted(\@finallist, \@doubles);
 			@doubles = ()
 		}
 		($prevc, $prevn) = ($c, $n)
 	}
-	&pushsorted(\@finallist, \@doubles) if(@doubles);
+	&pushsorted(\@finallist, \@doubles) if (@doubles);
 	for my $doublist (sort { $a->[0] cmp $b->[0] } @finallist) {
 		print(($quiet ? () : '# Same Checksum: '),
 			&list2string(@$doublist), "\n")
@@ -1381,10 +1382,10 @@ Getopt::Long::GetOptions(
 	'sum-cmds|S=s', \$sumcmds,
 	'file|f=s', \@files,
 	'files|i=s', sub { push(@files, $_[1]);
-		push(@files, shift(@ARGV)) while(@ARGV && !($ARGV[0] =~ m{^-.})) },
+		push(@files, shift(@ARGV)) while (@ARGV && !($ARGV[0] =~ m{^-.})) },
 	'hint|h=s', \@hints,
 	'hints|I=s', sub { push(@hints, $_[1]);
-		push(@hints, shift(@ARGV)) while(@ARGV && !($ARGV[0] =~ m{^-.})) },
+		push(@hints, shift(@ARGV)) while (@ARGV && !($ARGV[0] =~ m{^-.})) },
 	'force', \$force,
 	'verbose|v+', \$verbose,
 	'quiet|q+', \$quiet,
@@ -1402,7 +1403,7 @@ Getopt::Long::GetOptions(
 
 $addseconds -= $subseconds;
 
-if($quiet < $verbose) {
+if ($quiet < $verbose) {
 	$verbose -= $quiet;
 	$quiet = 0
 } else {
@@ -1411,9 +1412,9 @@ if($quiet < $verbose) {
 }
 
 # Get mode unless this was specified as an option
-unless($mode) {
+unless ($mode) {
 	$mode = shift(@ARGV);
-	&pod2usage('mode must be specified') unless(defined($mode))
+	&pod2usage('mode must be specified') unless (defined($mode))
 }
 
 @sumcmds = split(qr{;}, $sumcmds);
@@ -1423,22 +1424,22 @@ unless($mode) {
 # Since 'use' is executed at compile-time, we have to use 'require' and do the
 # import()-initialization by hand.
 for my $i (@sumcmds) {
-	if($i eq '.') {
+	if ($i eq '.') {
 		require Digest::MD5;
 		last
 	}
 }
 
-if($mode eq 'store') {
+if ($mode eq 'store') {
 	&standardlist();
 	&printlist(\@A);
-} elsif($mode eq 'restore') {
-	if(@files) {
+} elsif ($mode eq 'restore') {
+	if (@files) {
 		&readlist(\@files, \@B, \@Adirs, \%Bfullname);
 		&readlist(\@ARGV, \@A, \@Adirs, \%Afullname)
 	} else {
 		&readlist(\@ARGV, \@A, \@Adirs, \%Afullname);
-		if($strip > 0) {
+		if ($strip > 0) {
 			@Adirs = ($mdot);
 			$strip = 0
 		}
@@ -1446,7 +1447,7 @@ if($mode eq 'store') {
 	}
 	&make_check(\@B, \%Bcheck);
 	&patchlist()
-} elsif($mode eq 'double') {
+} elsif ($mode eq 'double') {
 	&standardlist();
 	&printdoubles()
 } else {

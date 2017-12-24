@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 BEGIN { require 5.006_001 }
 package TouchDifference;
-our $VERSION = 'v2.0.5';
+our $VERSION = 'v2.0.6';
 eval { $VERSION = version->declare($VERSION) };
-eval 'use version 0.77; $VERSION = version->declare($VERSION)' if($@);
+eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 
 use strict;
 use integer;
@@ -121,7 +121,7 @@ my $lutimes = undef;
 sub warning {
 	print(STDERR "$name: warning: ",
 		join("\n" . (' ' x (length($name) + 11)), @_), "\n")
-		unless($quiet)
+		unless ($quiet)
 }
 
 sub version {
@@ -138,7 +138,7 @@ sub check_lutimes {
 	eval {
 		require File::lchown
 	};
-	return ($lutimes = '') if($@);
+	return ($lutimes = '') if ($@);
 	no integer;
 	$lutimes = (defined($File::lchown::VERSION) &&
 		($File::lchown::VERSION >= 0.02));
@@ -146,14 +146,14 @@ sub check_lutimes {
 }
 
 sub check_lutimes_exit {
-	unless(&check_lutimes()) {
+	unless (&check_lutimes()) {
 		print("perl module File::lchown 0.02 is not available:\n",
 		"symbolic links are ignored unless you pass the option -F\n")
-			unless($quiet);
+			unless ($quiet);
 		exit(1)
 	}
 	print("perl module File::lchown 0.02 is available:\n",
-		"presumably you can change symbolic links\n") unless($quiet);
+		"presumably you can change symbolic links\n") unless ($quiet);
 	exit(0)
 }
 
@@ -179,32 +179,32 @@ Getopt::Long::GetOptions(
 	'F', \$follow
 ) or &pod2usage(2);
 
-&pod2usage(2) unless(@ARGV);
+&pod2usage(2) unless (@ARGV);
 
-require Time::localtime if($verbose);
+require Time::localtime if ($verbose);
 
 # Actual touch function:
 
 sub dotouch {
 	my ($file) = @_;
 	my $normal = ($follow || !(-l $file));
-	unless($normal) {
+	unless ($normal) {
 		&warning('perl module File::lchown 0.02 not available: ignoring symlinks',
 			'use -F if you want to follow them')
-			unless(defined($lutimes) || &check_lutimes());
-		unless($lutimes) {
+			unless (defined($lutimes) || &check_lutimes());
+		unless ($lutimes) {
 			&warning("ignoring symlink $file");
 			return
 		}
 	}
 	my ($atime, $mtime) = ((($normal ? stat($file) : lstat($file)))[8, 9]);
-	return unless(defined($atime) && defined($mtime));
-	$atime += $seconds if($addatime);
-	$mtime += $seconds if($addmtime);
+	return unless (defined($atime) && defined($mtime));
+	$atime += $seconds if ($addatime);
+	$mtime += $seconds if ($addmtime);
 	printf("%s %s (%s)\n", $file,
 		Time::localtime::ctime($mtime),
-		Time::localtime::ctime($atime)) if($verbose);
-	return if($dry);
+		Time::localtime::ctime($atime)) if ($verbose);
+	return if ($dry);
 	$normal ? utime($atime, $mtime, $file) :
 		File::lchown::lutimes($atime, $mtime, $file)
 }

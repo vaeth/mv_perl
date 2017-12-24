@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 BEGIN { require 5.006_001 }
 package SshConfig;
-our $VERSION = 'v1.7.4';
+our $VERSION = 'v1.7.5';
 eval { $VERSION = version->declare($VERSION) };
-eval 'use version 0.77; $VERSION = version->declare($VERSION)' if($@);
+eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 
 use warnings;
 use strict;
@@ -137,15 +137,15 @@ Getopt::Long::GetOptions(
 
 # Parse Main argument:
 
-&pod2usage('no hostname given') unless(@ARGV);
+&pod2usage('no hostname given') unless (@ARGV);
 my $hostname = shift(@ARGV);
-&pod2usage('only one hostname can be given') if(@ARGV);
+&pod2usage('only one hostname can be given') if (@ARGV);
 
 # Set Variables according to all options:
 
 $TrueHost = $hostname unless defined($TrueHost);
-unless(defined($IPAddress)) {
-	print('Enter IP Address: ') if(-t STDIN && -t STDOUT);
+unless (defined($IPAddress)) {
+	print('Enter IP Address: ') if (-t STDIN && -t STDOUT);
 	$IPAddress = <STDIN>;
 	chomp($IPAddress)
 }
@@ -155,7 +155,7 @@ unless(defined($IPAddress)) {
 my $dir = "$ENV{'HOME'}/.ssh";
 my $file = "$dir/config";
 my $data = '';
-if(open(my $input, '<', $file)) {
+if (open(my $input, '<', $file)) {
 	local $/;
 	$data = <$input>
 }
@@ -165,11 +165,11 @@ my $startmatch = undef;
 my $end = undef;
 my $hostmatch;
 
-if($data =~ m{^(\s*Host\s+\Q$hostname\E\s*)$}mig) {
+if ($data =~ m{^(\s*Host\s+\Q$hostname\E\s*)$}mig) {
 	$startmatch = pos($data);
 	$hostmatch = $1;
 	$start = $startmatch - length($hostmatch);
-	if($data =~ m{^(\s*Host\s)}mig) {
+	if ($data =~ m{^(\s*Host\s)}mig) {
 		$end = pos($data) - length($1)
 	}
 }
@@ -177,7 +177,7 @@ if($data =~ m{^(\s*Host\s+\Q$hostname\E\s*)$}mig) {
 sub indata {
 	my $a = shift;
 	pos($data) = $startmatch;
-	return '' unless($data =~ m{$a}mig);
+	return '' unless ($data =~ m{$a}mig);
 	!defined($end) || (pos($data) <= $end)
 }
 
@@ -190,19 +190,19 @@ my $NameAlias = 'HostKeyAlias';
 
 my ($NameIPFound, $NameAliasFound);
 
-if(defined($start)) {
+if (defined($start)) {
 	$NameIPFound = &indata('^\s*' . $NameIP . '\s');
 	$NameAliasFound = &indata('^\s*' . $NameAlias . '\s')
 }
 
-if($uninstall) {
+if ($uninstall) {
 	my $modified = '';
-	if(defined($start)) {
-		if($NameIPFound) {
+	if (defined($start)) {
+		if ($NameIPFound) {
 			pos($data) = $startmatch; $modified = 1;
 			$data =~ s{\G(.*?)\n\s*$NameIP\s[^\n]*}{$1}msi
 		}
-		if($NameAliasFound) {
+		if ($NameAliasFound) {
 			pos($data) = $startmatch; $modified = 1;
 			$data =~ s{\G(.*?)\n\s*$NameAlias\s[^\n]*}{$1}msi
 		}
@@ -210,17 +210,17 @@ if($uninstall) {
 		# Remove the whole section if only spaces are left:
 
 		pos($data) = $start;
-		if($data =~ s{\G\Q$hostmatch\E[\s\r\n]*(Host\s)}{$1}msi) {
+		if ($data =~ s{\G\Q$hostmatch\E[\s\r\n]*(Host\s)}{$1}msi) {
 			$modified = 1
 		} else {
 			pos($data) = $start;
-			$modified = 1 if($data =~ s{\G\Q$hostmatch\E[\s\r\n]*$}{$1}msi);
+			$modified = 1 if ($data =~ s{\G\Q$hostmatch\E[\s\r\n]*$}{$1}msi);
 		}
 
 		# If nothing is left, remove ~/.ssh/config and possibly also ~/.ssh:
 
-		if($data =~ m{^[\s\r\n]*$}s) {
-			if($show) {
+		if ($data =~ m{^[\s\r\n]*$}s) {
+			if ($show) {
 				print("rm -- $file; rmdir -- $dir\n")
 			} else {
 				unlink($file);
@@ -229,16 +229,16 @@ if($uninstall) {
 			exit(0)
 		}
 	}
-	exit(0) unless($modified)
+	exit(0) unless ($modified)
 } else { # not $uninstall
-	if(defined($start)) {
-		if($NameIPFound) {
+	if (defined($start)) {
+		if ($NameIPFound) {
 			pos($data) = $startmatch;
 			$data =~ s{\G(.*?)^(\s*$NameIP\s+)[^\r\n]*}{$1$2$IPAddress}msi
 		} else {
 			substr($data, $startmatch, 0, "\n$NameIP $IPAddress")
 		}
-		if($NameAliasFound) {
+		if ($NameAliasFound) {
 			pos($data) = $startmatch;
 			$data =~ s{\G(.*?)^(\s*$NameAlias\s+)[^\r\n]*}{$1$2$TrueHost}msi
 		} else {
@@ -252,14 +252,14 @@ if($uninstall) {
 # Write $data:
 
 umask(0077);
-unless(-d $dir) {
-	if($show) {
+unless (-d $dir) {
+	if ($show) {
 		print("mkdir -m 700 $dir; ")
 	} else {
 		mkdir($dir, 0700)
 	}
 }
-if($show) {
+if ($show) {
 	print("echo >$file <<#EOF#\n", $data, "#EOF#\n")
 } else {
 	open(my $fh, '>', $file) || die("cannot open $file for writing\nStopped");

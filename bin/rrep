@@ -1,10 +1,11 @@
 #!/usr/bin/env perl
 
-# rrep $Revision: 1.4 $ by Martin Väth
+# rrep $Revision: 1.5 $ by Martin Väth
 # martin@mvath.de
 
 sub help {
-	$0 =~ /([^\/]*)$/; print <<"EOHELP";
+	$0 =~ /([^\/]*)$/;
+	print <<"EOHELP";
 Usage: $1 [Option] ... [Option] [Search [Replace]] Filemask1 [Filemask2 ...]
 
 Purpose: Replacement of regular expressions in several files
@@ -33,39 +34,39 @@ EOHELP
 	exit;
 }
 
-&help if($ARGV[0] eq '');
+&help if ($ARGV[0] eq '');
 
 sub readarg {
 	$optarg = $optrest; $optrest = '';
-	if($optarg eq '') {
+	if ($optarg eq '') {
 		$optarg = shift(@ARGV)
 	}
 }
-optparse:while($ARGV[0] =~ /^-(.)(.*)$/) {
+optparse:while ($ARGV[0] =~ /^-(.)(.*)$/) {
 	shift(@ARGV);
-	while($1 ne '') {
+	while ($1 ne '') {
 		$optlett = $1;
 		$optrest = $2;
 		if   ($optlett eq 'i') { $ignore = 'i' }
-		elsif($optlett eq 'g') { $grep = 1 }
-		elsif($optlett eq 'a') { $global = 'g' }
-		elsif($optlett eq 'o') { $global = '' }
-		elsif($optlett eq 'y') { $global = 'g'; $yes = 1 }
-		elsif($optlett eq 'Y') { $global = 'g'; $yes = 1; $forcewrite = 1; $quiet = 1 }
-		elsif($optlett eq 'Z') { $global = 'g'; $yes = 1; $forcewrite = 1 }
-		elsif($optlett eq 'F') { $readpar = 1 }
-		elsif($optlett eq 's') { $recurse = 1 }
-		elsif($optlett eq 'S') { $recurse = 1; $suppress = 1 }
-		elsif($optlett eq 'f') { &readarg(); $readpar = 1; $file = $optarg }
-		elsif($optlett eq 'p') { $plainsearch = 1 }
-		elsif($optlett eq 'P') { $plainreplace = 1 }
-		elsif($optlett eq 'w') { $warning = 1 }
-		elsif($optlett eq 'V') { $warning = 1; $verbose = 1 }
-		elsif($optlett =~ /[hH?]/){ &help() }
-		elsif($optlett eq '-') {
+		elsif ($optlett eq 'g') { $grep = 1 }
+		elsif ($optlett eq 'a') { $global = 'g' }
+		elsif ($optlett eq 'o') { $global = '' }
+		elsif ($optlett eq 'y') { $global = 'g'; $yes = 1 }
+		elsif ($optlett eq 'Y') { $global = 'g'; $yes = 1; $forcewrite = 1; $quiet = 1 }
+		elsif ($optlett eq 'Z') { $global = 'g'; $yes = 1; $forcewrite = 1 }
+		elsif ($optlett eq 'F') { $readpar = 1 }
+		elsif ($optlett eq 's') { $recurse = 1 }
+		elsif ($optlett eq 'S') { $recurse = 1; $suppress = 1 }
+		elsif ($optlett eq 'f') { &readarg(); $readpar = 1; $file = $optarg }
+		elsif ($optlett eq 'p') { $plainsearch = 1 }
+		elsif ($optlett eq 'P') { $plainreplace = 1 }
+		elsif ($optlett eq 'w') { $warning = 1 }
+		elsif ($optlett eq 'V') { $warning = 1; $verbose = 1 }
+		elsif ($optlett =~ /[hH?]/){ &help() }
+		elsif ($optlett eq '-') {
 			if   ($optrest eq '') {
 				last optparse
-			} elsif($optrest =~ /^h(elp)?$/i || $optrest eq '?') {
+			} elsif ($optrest =~ /^h(elp)?$/i || $optrest eq '?') {
 				&help()
 			} else {
 				die "illegal option: --$optrest\nStopped"
@@ -73,19 +74,19 @@ optparse:while($ARGV[0] =~ /^-(.)(.*)$/) {
 			last
 		}
 		else{ die "illegal option: $optlett\nStopped" }
-		last unless($optrest =~ /^(.)(.*)$/)
+		last unless ($optrest =~ /^(.)(.*)$/)
 	}
 }
-if($readpar) {
-	if(open(PARA, '<', $file)) {
+if ($readpar) {
+	if (open(PARA, '<', $file)) {
 		$search = <PARA>; chop($search);
-		unless($grep) { $replace = <PARA>; chop($replace) }
+		unless ($grep) { $replace = <PARA>; chop($replace) }
 		close(PARA)
 	} else {
 		print "Search : ";
 		$search = <STDIN>;
 		chomp($search);
-		unless($grep) {
+		unless ($grep) {
 			print "Replace: ";
 			$replace = <STDIN>;
 			chomp($replace)
@@ -94,34 +95,34 @@ if($readpar) {
 }
 else {
 	$search = shift(@ARGV);
-	$replace = shift(@ARGV) unless($grep);
+	$replace = shift(@ARGV) unless ($grep);
 }
 print "The passed search and replacement strings are:\n$search\n$replace\n"
-	if($verbose);
-unless(@ARGV) {
+	if ($verbose);
+unless (@ARGV) {
 	$print = "Filemask missing\n\n";
 	&help()
 }
-if($plainsearch) {
+if ($plainsearch) {
 	$search =~ s/(\W)/\\$1/g
 } else {
 	# Quote all unquoted / ` " ' # @ or $ characters;
 	# for $ make an exception if $ is last character or ) follows.
 	# For security reasons, eliminate \x where x is unknown search letter.
 	# Moreover, if an uneven number of \ occurs at the end, eliminate last one.
-	if($search =~ s/^((\\\\)*)([\/\`\"\'\#\@])/$1\\$3/g) {$searchmod = 1}
-	while($search =~ s/([^\\])((\\\\)*)([\/\`\"\'\#\@])/$1$2\\$4/) {$searchmod = 1}
-	if($search =~ s/^((\\\\)*)\$([^\)])/$1\\\$$3/g) {$searchmod = 1}
-	while($search =~ s/([^\\])((\\\\)*)\$([^\)])/$1$2\\\$$4/) {$searchmod = 1}
-	if($search =~ s/^((\\\\)*)(\\[aceg-mo-quvx-zACE-RT-VX-Z])/$1/g) {$searchmod = 1}
-	while($search =~ s/([^\\])((\\\\)*)(\\[aceg-mo-quvx-zACE-RT-VX-Z])/$1$2/) {$searchmod = 1}
-	if($search =~ s/^(\\\\)*\\$/$1/g) {$searchmod = 1}
-	if($search =~ s/([^\\])(\\\\)*\\$/$1$2/g) {$searchmod = 1}
-	if(($searchmod) && ($warning)) {
+	if ($search =~ s/^((\\\\)*)([\/\`\"\'\#\@])/$1\\$3/g) {$searchmod = 1}
+	while ($search =~ s/([^\\])((\\\\)*)([\/\`\"\'\#\@])/$1$2\\$4/) {$searchmod = 1}
+	if ($search =~ s/^((\\\\)*)\$([^\)])/$1\\\$$3/g) {$searchmod = 1}
+	while ($search =~ s/([^\\])((\\\\)*)\$([^\)])/$1$2\\\$$4/) {$searchmod = 1}
+	if ($search =~ s/^((\\\\)*)(\\[aceg-mo-quvx-zACE-RT-VX-Z])/$1/g) {$searchmod = 1}
+	while ($search =~ s/([^\\])((\\\\)*)(\\[aceg-mo-quvx-zACE-RT-VX-Z])/$1$2/) {$searchmod = 1}
+	if ($search =~ s/^(\\\\)*\\$/$1/g) {$searchmod = 1}
+	if ($search =~ s/([^\\])(\\\\)*\\$/$1$2/g) {$searchmod = 1}
+	if (($searchmod) && ($warning)) {
 		print STDERR "warning: search pattern has been patched to:\n$search\n"
 	}
 }
-if($plainreplace) {
+if ($plainreplace) {
 	$replace =~ s/(\W)/\\$1/g
 } else {
 	# Quote all unquoted / ` " ' # or @ characters
@@ -129,70 +130,70 @@ if($plainreplace) {
 	#             Otherwise: Quote $
 	# For security reasons, eliminate \x where x is unknown replacement letter.
 	# Moreover, if an uneven number of \ occurs at the end, eliminate last one.
-	if($replace =~ s/^((\\\\)*)([\/\`\"\'\#\@])/$1\\$3/g) {$replacemod = 1}
-	while($replace =~ s/([^\\])((\\\\)*)([\/\`\"\'\#\@])/$1$2\\$4/) {$replacemod = 1}
-	if($replace =~ s/^((\\\\)*\$)([1-9]\d*)(\D|$)/$1\{$3\}$4/g) {$replacemod = 1}
-	while($replace =~ s/([^\\])((\\\\)*\$)([1-9]\d*)(\D|$)/$1$2\{$4\}$5/) {$replacemod = 1}
+	if ($replace =~ s/^((\\\\)*)([\/\`\"\'\#\@])/$1\\$3/g) {$replacemod = 1}
+	while ($replace =~ s/([^\\])((\\\\)*)([\/\`\"\'\#\@])/$1$2\\$4/) {$replacemod = 1}
+	if ($replace =~ s/^((\\\\)*\$)([1-9]\d*)(\D|$)/$1\{$3\}$4/g) {$replacemod = 1}
+	while ($replace =~ s/([^\\])((\\\\)*\$)([1-9]\d*)(\D|$)/$1$2\{$4\}$5/) {$replacemod = 1}
 
 	# In order to substitute all non-${1-9...} by something,
 	# temporarily replace ${1-9...} by x#{1-9...} and at the end x# by $
 	$replace =~ s/^((\\\\)*)\$(\{[1-9]\d*\})/$1x\#$3/g;
-	while($replace =~ s/([^\\])((\\\\)*)\$(\{[1-9]\d*\})/$1$2x\#$4/) {}
-	if($replace =~ s/^((\\\\)*)\$/$1\\\$/g) {$replacemod = 1}
-	while($replace =~ s/([^\\])((\\\\)*)\$/$1$2\\\$/) {$replacemod = 1}
+	while ($replace =~ s/([^\\])((\\\\)*)\$(\{[1-9]\d*\})/$1$2x\#$4/) {}
+	if ($replace =~ s/^((\\\\)*)\$/$1\\\$/g) {$replacemod = 1}
+	while ($replace =~ s/([^\\])((\\\\)*)\$/$1$2\\\$/) {$replacemod = 1}
 	$replace =~ s/x\#/\$/g;
 
-	if($replace =~ s/^((\\\\)*)(\\[ac-eg-mo-qsu-zA-Z0-9])/$1/g) {$replacemod = 1}
-	while($replace =~ s/([^\\])((\\\\)*)(\\[ac-eg-mo-qsu-zA-Z0-9])/$1$2/) {$replacemod = 1}
-	if($replace =~ s/^(\\\\)*\\$/$1/g) {$replacemod = 1}
-	if($replace =~ s/([^\\])(\\\\)*\\$/$1$2/g) {$replacemod = 1}
-	if(($replacemod) && ($warning)) {
+	if ($replace =~ s/^((\\\\)*)(\\[ac-eg-mo-qsu-zA-Z0-9])/$1/g) {$replacemod = 1}
+	while ($replace =~ s/([^\\])((\\\\)*)(\\[ac-eg-mo-qsu-zA-Z0-9])/$1$2/) {$replacemod = 1}
+	if ($replace =~ s/^(\\\\)*\\$/$1/g) {$replacemod = 1}
+	if ($replace =~ s/([^\\])(\\\\)*\\$/$1$2/g) {$replacemod = 1}
+	if (($replacemod) && ($warning)) {
 		print STDERR "warning: replacement string has been patched to:\n$replace\n"
 	}
 }
 
 sub processA {
 	local($lyes, $changed, $first, $found) = ($yes, 0, 1);
-bigloop: for(@A) {
+bigloop: for (@A) {
 		$orig = $_;
 		$chopped = chop;
 		eval "\$found = s/\$search/$replace/$ignore$global";
-		die "illegal search or replacement string:\n$@" if($@);
+		die "illegal search or replacement string:\n$@" if ($@);
 		$_ = "$_$chopped";
-		if($found) {
-			if($first) {
+		if ($found) {
+			if ($first) {
 				print "$filename:\n" unless $quiet;
 				$first = 0
 			}
-			if($grep) {
+			if ($grep) {
 				print $orig
 			}
 			else {
 				print "< $orig> $_" unless $quiet;
-				if($lyes) {
+				if ($lyes) {
 					$changed = 1
 				}
-				elsif($global) {
-					while() {
+				elsif ($global) {
+					while () {
 						print "(Y)es, (N)o, (R)est of file, all (F)iles, (Q)uit file, first (O)ccur. mode: ";
 						$key = <STDIN>;
 						if   ($key =~ /^y/io) {$changed = 1; last }
-						elsif($key =~ /^n/io) {$_ = $orig; last }
-						elsif($key =~ /^r/io) {$changed = 1; $lyes = 1; last }
-						elsif($key =~ /^f/io) {$changed = 1; $lyes = 1; $yes = 1; $forcewrite = 1; last }
-						elsif($key =~ /^o/io) {$_ = $orig; $global = ''; redo bigloop }
-						elsif($key =~ /^q/io) {$_ = $orig; return $changed }
+						elsif ($key =~ /^n/io) {$_ = $orig; last }
+						elsif ($key =~ /^r/io) {$changed = 1; $lyes = 1; last }
+						elsif ($key =~ /^f/io) {$changed = 1; $lyes = 1; $yes = 1; $forcewrite = 1; last }
+						elsif ($key =~ /^o/io) {$_ = $orig; $global = ''; redo bigloop }
+						elsif ($key =~ /^q/io) {$_ = $orig; return $changed }
 					}
 				}
 				else {
-					while() {
+					while () {
 						print "(Y)es, (N)o, same (L)ine again, (A)ll in line (switches mode), (Q)uit file: ";
 						$key = <STDIN>;
 						if	 ($key =~ /^y/io) {$changed = 1; last }
-						elsif($key =~ /^n/io) {$_ = $orig; last }
-						elsif($key =~ /^l/io) {$changed = 1; redo bigloop }
-						elsif($key =~ /^a/io) {$_ = $orig; $global = 'g'; redo bigloop }
-						elsif($key =~ /^q/io) {$_ = $orig; return $changed }
+						elsif ($key =~ /^n/io) {$_ = $orig; last }
+						elsif ($key =~ /^l/io) {$changed = 1; redo bigloop }
+						elsif ($key =~ /^a/io) {$_ = $orig; $global = 'g'; redo bigloop }
+						elsif ($key =~ /^q/io) {$_ = $orig; return $changed }
 					}
 				}
 			}
@@ -205,15 +206,15 @@ sub ProcessFile {
 	local($filename) = @_;
 	open(FILE, '<', $filename) || return;
 	@A = ();
-	while(<FILE>) {$A[$#A + 1] = $_ }
+	while (<FILE>) {$A[$#A + 1] = $_ }
 	close(FILE);
-	if(&processA) {
-		unless($forcewrite) {
-			while() {
+	if (&processA) {
+		unless ($forcewrite) {
+			while () {
 				print "Write changes to $filename?  (Y)es, (N)o: ";
 				$key = <STDIN>;
-				if   ($key =~ /^y/io) {last }
-				elsif($key =~ /^n/io) {return }
+				if    ($key =~ /^y/io) { last }
+				elsif ($key =~ /^n/io) { return }
 			}
 		}
 		open(FILE, '>', $filename) || print STDERR "warning: cannot open $filename for writing!";
@@ -222,23 +223,23 @@ sub ProcessFile {
 	}
 }
 
-for($i = $[; $i < @ARGV; ++$i) {
-	if($recurse) {
-		if($ARGV[$i] =~ m![\\/]!o) {
+for ($i = $[; $i < @ARGV; ++$i) {
+	if ($recurse) {
+		if ($ARGV[$i] =~ m![\\/]!o) {
 			die 'filemask must not contain \ or / when using recurse'
 		}
 	}
 	$ARGV[$i] =~ s/([^\w\?\*\-])/\\$1/go;
-	$smask = 1 if($ARGV[$i] =~ s/\?/./go);
-	$smask = 1 if($ARGV[$i] =~ s/\*/.*/go);
+	$smask = 1 if ($ARGV[$i] =~ s/\?/./go);
+	$smask = 1 if ($ARGV[$i] =~ s/\*/.*/go);
 }
-if($recurse && (!$smask) && (!$suppress)) {
+if ($recurse && (!$smask) && (!$suppress)) {
 	die "probably forgotten quote (recurse without joker)\nStopped"
 }
 
 sub ProcessDir {
 	local($act, @dir, $fname) = @_;
-	if($act ne '') {
+	if ($act ne '') {
 		opendir(DIR, $act)
 	} else {
 		opendir(DIR, '.')
@@ -246,19 +247,19 @@ sub ProcessDir {
 	@dir = readdir(DIR);
 	closedir(DIR);
 	foreach $fname (@dir) {
-		if(($fname ne '.') && ($fname ne '..')) {
+		if (($fname ne '.') && ($fname ne '..')) {
 			$fmmask = '';
 			foreach $maske (@ARGV) {
-				$fmmask = 1 if($fname =~ /^$maske$/i)
+				$fmmask = 1 if ($fname =~ /^$maske$/i)
 			}
 			$thefile = (($act ne '') ? ($act . '/' . $fname) : $fname);
-			if($recurse) {
-				if(-d $thefile) {
+			if ($recurse) {
+				if (-d $thefile) {
 					&ProcessDir($thefile);
 					next
 				}
 			}
-			&ProcessFile($thefile) if($fmmask);
+			&ProcessFile($thefile) if ($fmmask);
 		}
 	}
 }

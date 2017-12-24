@@ -1,11 +1,11 @@
 #!/usr/bin/env perl
 
-# renreg $Revision: 1.5 $ by Martin Väth
+# renreg $Revision: 1.6 $ by Martin Väth
 # martin@mvath.de
 
 # If the Environment-Variable path contains a '/', we assume that we are
 # in a Unix-like environmnet. Otherwise, we assume we are in DOS.
-if($ENV{'PATH'} =~ /\// ) {
+if ($ENV{'PATH'} =~ /\// ) {
 	$delim = $sdelim = "\'"; $scdefault = '%'
 } else {
 	$sdelim = '"'; $scdefault = '+';
@@ -89,7 +89,7 @@ sub countprep {
 	local $rr;
 	$cmod = '';
 	$replace = $repmask;
-	while($replace =~ /$screg(([1-9][0-9]*)?)([dxX])/) {
+	while ($replace =~ /$screg(([1-9][0-9]*)?)([dxX])/) {
 		$cmod = 1;
 		$rr = sprintf(($1 ? "%0$1$3" : "%$3"), $counter);
 		$replace =~ s/$screg([1-9][0-9]*)?[dxX]/$rr/;
@@ -98,7 +98,7 @@ sub countprep {
 
 sub prepsearch {
 	local($smod) = ('');
-	if(($ARGV[0] eq '') || ($ARGV[0] eq "$magic")) { exit 0 }
+	if (($ARGV[0] eq '') || ($ARGV[0] eq "$magic")) { exit 0 }
 	$search = $ARGV[0]; shift(@ARGV);
 	$vverbose && print "FROM (as passed from shell): $search\n";
 
@@ -107,23 +107,23 @@ sub prepsearch {
 	# For security reasons, eliminate \x where x is unknown letter.
 	# Moreover, if an uneven number of \ occurs at the end, eliminate last one.
 	# Finally, make match exact, i.e. add ^ at beginning and $ at end.
-	if($search =~ s/^((\\\\)*)(\\n)/$1\[^.\]/g) {$smod = 1}
-	while($search =~ s/([^\\])((\\\\)*)(\\n)/$1$2\[^.\]/) {$smod = 1}
-	if($search =~ s/^((\\\\)*)([\/\$\^\`\"\'\#\@])/$1\\$3/g) {$smod = 1}
-	while($search =~ s/([^\\])((\\\\)*)([\/\`\"\'\#\@])/$1$2\\$4/) {$smod = 1}
-	if($search =~ s/^((\\\\)*)(\\[aceg-qu-zACE-Z])/$1/g) {$smod = 1}
-	while($search =~ s/([^\\])((\\\\)*)(\\[aceg-qu-zACE-Z])/$1$2/) {$smod = 1}
-	if($search =~ s/^(\\\\)*\\$/$1/g) {$smod = 1}
-	if($search =~ s/([^\\])(\\\\)*\\$/$1$2/g) {$smod = 1}
+	if ($search =~ s/^((\\\\)*)(\\n)/$1\[^.\]/g) {$smod = 1}
+	while ($search =~ s/([^\\])((\\\\)*)(\\n)/$1$2\[^.\]/) {$smod = 1}
+	if ($search =~ s/^((\\\\)*)([\/\$\^\`\"\'\#\@])/$1\\$3/g) {$smod = 1}
+	while ($search =~ s/([^\\])((\\\\)*)([\/\`\"\'\#\@])/$1$2\\$4/) {$smod = 1}
+	if ($search =~ s/^((\\\\)*)(\\[aceg-qu-zACE-Z])/$1/g) {$smod = 1}
+	while ($search =~ s/([^\\])((\\\\)*)(\\[aceg-qu-zACE-Z])/$1$2/) {$smod = 1}
+	if ($search =~ s/^(\\\\)*\\$/$1/g) {$smod = 1}
+	if ($search =~ s/([^\\])(\\\\)*\\$/$1$2/g) {$smod = 1}
 	$search = "^$search\$";
-	if($vverbose || ($verb && $smod)) {
+	if ($vverbose || ($verb && $smod)) {
 		print "FROM (in Perl format): $search\n"
 	}
 }
 
 sub preprep {
 	local($repmod) = ('');
-	if($ARGV[0] eq '') { &help() }
+	if ($ARGV[0] eq '') { &help() }
 	$repmask = $ARGV[0]; shift(@ARGV);
 	$vverbose && print "TO (as passed from shell): $repmask\n";
 
@@ -132,42 +132,42 @@ sub preprep {
 	#             Otherwise: Quote $
 	# For security reasons, eliminate \x where x is unknown replacement letter.
 	# Moreover, if an uneven number of \ occurs at the end, eliminate last one.
-	if($repmask =~ s/^((\\\\)*)([\/\`\"\'\#\@])/$1\\$3/g) {$repmod = 1}
-	while($repmask =~ s/([^\\])((\\\\)*)([\/\`\"\'\#\@])/$1$2\\$4/) {$repmod = 1}
-	if($repmask =~ s/^((\\\\)*\$)([1-9]\d*)(\D|$)/$1\{$3\}$4/g) {$repmod = 1}
-	while($repmask =~ s/([^\\])((\\\\)*\$)([1-9]\d*)(\D|$)/$1$2\{$4\}$5/) {$repmod = 1}
+	if ($repmask =~ s/^((\\\\)*)([\/\`\"\'\#\@])/$1\\$3/g) {$repmod = 1}
+	while ($repmask =~ s/([^\\])((\\\\)*)([\/\`\"\'\#\@])/$1$2\\$4/) {$repmod = 1}
+	if ($repmask =~ s/^((\\\\)*\$)([1-9]\d*)(\D|$)/$1\{$3\}$4/g) {$repmod = 1}
+	while ($repmask =~ s/([^\\])((\\\\)*\$)([1-9]\d*)(\D|$)/$1$2\{$4\}$5/) {$repmod = 1}
 
 	# In order to substitute all non-${1-9...} by something,
 	# temporarily replace ${1-9...} by x#{1-9...} and at the end x# by $
 	$repmask =~ s/^((\\\\)*)\$(\{[1-9]\d*\})/$1x\#$3/g;
-	while($repmask =~ s/([^\\])((\\\\)*)\$(\{[1-9]\d*\})/$1$2x\#$4/) {}
-	if($repmask =~ s/^((\\\\)*)\$/$1\\\$/g) {$repmod = 1}
-	while($repmask =~ s/([^\\])((\\\\)*)\$/$1$2\\\$/) {$repmod = 1}
+	while ($repmask =~ s/([^\\])((\\\\)*)\$(\{[1-9]\d*\})/$1$2x\#$4/) {}
+	if ($repmask =~ s/^((\\\\)*)\$/$1\\\$/g) {$repmod = 1}
+	while ($repmask =~ s/([^\\])((\\\\)*)\$/$1$2\\\$/) {$repmod = 1}
 	$repmask =~ s/x\#/\$/g;
 
-	if($repmask  =~ s/^((\\\\)*)(\\[ac-eg-mo-qsu-zA-Z0-9])/$1/g) {$repmod = 1}
-	while($repmask =~ s/([^\\])((\\\\)*)(\\[ac-eg-mo-qsu-zA-Z0-9])/$1$2/) {$repmod = 1}
-	if($repmask =~ s/^(\\\\)*\\$/$1/g) {$repmod = 1}
-	if($repmask =~ s/([^\\])(\\\\)*\\$/$1$2/g) {$repmod = 1}
-	print "TO (Perl mask): $repmask\n" if($vverbose || ($verbose && $repmod));
+	if ($repmask  =~ s/^((\\\\)*)(\\[ac-eg-mo-qsu-zA-Z0-9])/$1/g) {$repmod = 1}
+	while ($repmask =~ s/([^\\])((\\\\)*)(\\[ac-eg-mo-qsu-zA-Z0-9])/$1$2/) {$repmod = 1}
+	if ($repmask =~ s/^(\\\\)*\\$/$1/g) {$repmod = 1}
+	if ($repmask =~ s/([^\\])(\\\\)*\\$/$1$2/g) {$repmod = 1}
+	print "TO (Perl mask): $repmask\n" if ($vverbose || ($verbose && $repmod));
 	&countprep()
 }
 
 sub prepstrings {
-	unless($prepared) {
+	unless ($prepared) {
 		$prepared = 1;
-		if($nmode) {
+		if ($nmode) {
 			&preprep()
 		}
-		&help() if($ARGV[0] eq '');
+		&help() if ($ARGV[0] eq '');
 	}
 	&prepsearch();
-	&preprep() unless($nmode)
+	&preprep() unless ($nmode)
 }
 
 sub setsc {
 	local($scnew) = @_;
-	if($scnew =~ /[\d\\dxX\#\/\$\"\'\`]/o) {
+	if ($scnew =~ /[\d\\dxX\#\/\$\"\'\`]/o) {
 		die "Not allowed as special character: $scnew\n"
 	}
 	$sc = $screg = $scnew;
@@ -180,60 +180,60 @@ $counter = $step = 1;
 
 sub readarg {
 	$optarg = $optrest; $optrest = '';
-	if($optarg eq '') {
+	if ($optarg eq '') {
 		$optarg = shift(@ARGV)
 	}
 }
 
 sub helping {
-	if($optarg =~ /^\s*s/i) {
+	if ($optarg =~ /^\s*s/i) {
 		&shelp()
-	} elsif($optarg =~ /^\s*r/i){
+	} elsif ($optarg =~ /^\s*r/i){
 		&rhelp()
 	} else {
 		&help()
 	}
 }
 
-optparse:while($ARGV[0] =~ /^-(.)(.*)$/) {
+optparse:while ($ARGV[0] =~ /^-(.)(.*)$/) {
 	shift;
-	while($1 ne '') {
+	while ($1 ne '') {
 		$optlett = $1; $optrest = $2;
 		if   ($optlett eq 'n'){ $nmode = 1 }
-		elsif($optlett eq 's'){ $showonly = 1 }
-		elsif($optlett eq 'S'){ &readarg(); $step = $optarg }
-		elsif($optlett eq 'f'){ $force = 1 }
-		elsif($optlett eq 'F'){ $force = 1; $nowarn = 1 }
-		elsif($optlett eq 'c'){ &readarg(); $counter = $optarg }
-		elsif($optlett eq 'C'){ &readarg(); &setsc(substr($optarg, 0, 1)) }
-		elsif($optlett eq 'i'){ $ignore = 'i' }
-		elsif($optlett eq 'g'){ $global = 'g' }
-		elsif($optlett eq 'v'){ $verbose = 1 }
-		elsif($optlett eq 'V'){ $verbose = 1; $vverbose = 1 }
-		elsif($optlett eq '@'){ &readarg(); $magic = $optarg }
-		elsif($optlett =~ /[hH?]/){ &readarg(); &helping() }
-		elsif($optlett eq '-'){
+		elsif ($optlett eq 's'){ $showonly = 1 }
+		elsif ($optlett eq 'S'){ &readarg(); $step = $optarg }
+		elsif ($optlett eq 'f'){ $force = 1 }
+		elsif ($optlett eq 'F'){ $force = 1; $nowarn = 1 }
+		elsif ($optlett eq 'c'){ &readarg(); $counter = $optarg }
+		elsif ($optlett eq 'C'){ &readarg(); &setsc(substr($optarg, 0, 1)) }
+		elsif ($optlett eq 'i'){ $ignore = 'i' }
+		elsif ($optlett eq 'g'){ $global = 'g' }
+		elsif ($optlett eq 'v'){ $verbose = 1 }
+		elsif ($optlett eq 'V'){ $verbose = 1; $vverbose = 1 }
+		elsif ($optlett eq '@'){ &readarg(); $magic = $optarg }
+		elsif ($optlett =~ /[hH?]/){ &readarg(); &helping() }
+		elsif ($optlett eq '-'){
 			if   ($optrest eq ''){ last optparse }
-			elsif($optrest =~ /^help(.*)$/i || $optrest =~ /^h(.*)$/i ||
+			elsif ($optrest =~ /^help(.*)$/i || $optrest =~ /^h(.*)$/i ||
 			      $optrest =~ /^\?(.*)$/) { $optrest = $1; &readarg(); &helping() }
 			else{ die "Illegal option: --$optrest\nStopped" }
 			last
 		}
 		else{ die "Illegal option: $optlett\nStopped" }
-		last unless($optrest =~ /^(.)(.*)$/)
+		last unless ($optrest =~ /^(.)(.*)$/)
 	}
 }
 
-&help() if($ARGV[0] eq '');
+&help() if ($ARGV[0] eq '');
 
 &prepstrings();
 # After we read the first string, we look for @ (more precisely for magic):
 $argstep = ($nmode ? 1 : 2);
-for($i = 0; $i < scalar(@ARGV); $i += $argstep) {
-	last if($ARGV[$i] eq "$magic");
+for ($i = 0; $i < scalar(@ARGV); $i += $argstep) {
+	last if ($ARGV[$i] eq "$magic");
 }
-if($i < scalar(@ARGV)) {
-	for($i = $#ARGV - $i - 1, $j = $#ARGV; $i >=0 ; --$i, --$j) {
+if ($i < scalar(@ARGV)) {
+	for ($i = $#ARGV - $i - 1, $j = $#ARGV; $i >=0 ; --$i, --$j) {
 		$dir[$i] = $ARGV[$j]
 	}
 } else {
@@ -241,35 +241,35 @@ if($i < scalar(@ARGV)) {
 	@dir = readdir(DIR);
 	closedir(DIR)
 }
-while() {
+while () {
 	for my $fname (@dir) {
-		if(($fname ne '.') && ($fname ne '..')) {
+		if (($fname ne '.') && ($fname ne '..')) {
 			$_ = $fname;
 			$vverbose && $cmod && print "TO (numbers substituted): $replace\n";
 			eval "\$found = s/\$search/$replace/$ignore$global";
-			die "Illegal filemask:\n$@" if($@);
-			if($found) {
-				if($fname ne $_) {
-					if($showonly) {
+			die "Illegal filemask:\n$@" if ($@);
+			if ($found) {
+				if ($fname ne $_) {
+					if ($showonly) {
 						print "ren $fname $_\n"
-					} elsif($verbose) {
+					} elsif ($verbose) {
 						print "$fname -> $_\n"
 					}
 					$avoid = '';
-					if(-e $_) {
-						$avoid = 1 unless($force);
-						unless($nowarn) {
+					if (-e $_) {
+						$avoid = 1 unless ($force);
+						unless ($nowarn) {
 							print STDERR "Warning: $_ already exists";
-							if($showonly) {
+							if ($showonly) {
 								print "\n"
-							} elsif($force) {
+							} elsif ($force) {
 								print STDERR " (renamed anyway)\n"
 							} else {
 								print STDERR " (not renamed)\n"
 							}
 						}
 					}
-					unless(($showonly) || ($avoid)) {
+					unless (($showonly) || ($avoid)) {
 						rename($fname, $_)
 					}
 				}

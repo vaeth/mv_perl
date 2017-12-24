@@ -5,15 +5,16 @@ use File::Find ();
 use strict;
 
 sub version {
-	print("changecase v2.1.3\n");
+	print("changecase v2.1.4\n");
 	exit(0)
 }
 
 our ($mdot, $ddot, $dirsep) = ('.', '..', '/');
 
-$0 =~ /([^\/]*)$/; our $script = $1;
+$0 =~ /([^\/]*)$/;
+our $script = $1;
 sub usage {
-	my($exitstatus)=@_;
+	my ($exitstatus)=@_;
 	print STDERR <<"EOUSAGE";
 Usage: $script [options] u\|l
 Change all filenames in current directory and subdirectory to upper/lower case.
@@ -58,12 +59,13 @@ Getopt::Long::GetOptions(
 
 # Read first (and only) argument:
 
-&usage(1) if(@ARGV != 1);
+&usage(1) if (@ARGV != 1);
 $mode = shift(@ARGV);
-&usage(1) unless(($mode eq 'l') || ($mode eq 'u'));
+&usage(1) unless (($mode eq 'l') || ($mode eq 'u'));
 
 # Now we start:
 
+no warnings 'File::Find';
 File::Find::find({
 	bydepth => $recurse,
 	follow => 1,
@@ -71,29 +73,29 @@ File::Find::find({
 }, $dir);
 
 sub dorename {
-	return if(($_ eq $mdot) || ($_ eq $ddot));
+	return if (($_ eq $mdot) || ($_ eq $ddot));
 	my $ftest = ($skip_dirs || $skip_files || $skip_nonfiles);
-	if($skip_links) {
-		return if(-l $_)
-	} elsif($ftest) {
-		$ftest = '' if(-l $_)
+	if ($skip_links) {
+		return if (-l $_)
+	} elsif ($ftest) {
+		$ftest = '' if (-l $_)
 	}
-	if($ftest) {
-		return if(($skip_dirs && (-d _)) ||
+	if ($ftest) {
+		return if (($skip_dirs && (-d _)) ||
 			($skip_files && (-f _)) ||
 			($skip_nonfiles && (!(-f _))))
 	}
-	$File::Find::prune = 1 unless($recurse);
+	$File::Find::prune = 1 unless ($recurse);
 	my $change = (($mode eq 'u') ? uc() : lc());
-	return if($change eq $_);
+	return if ($change eq $_);
 	my $source = $File::Find::dir . $dirsep . $_;
 	my $dest = $File::Find::dir . $dirsep . $change;
-	if(-e $dest) {
+	if (-e $dest) {
 		print(STDERR "warning: $dest exists; do not rename $source\n");
 		return
 	}
-	print("$source -> $dest\n") unless($quiet);
-	return if($dry_run);
+	print("$source -> $dest\n") unless ($quiet);
+	return if ($dry_run);
 	rename($_, $change) or
 		print(STDERR "warning: cannot rename $source -> $dest\n");
 }

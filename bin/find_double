@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 
-# double $Revision: 1.8 $ by Martin Väth
+# double $Revision: 1.9 $ by Martin Väth
 # martin@mvath.de
 
 # If the Environment-Variable PATH contains a '/', we assume that we are
 # in a Unix-like environment. Otherwise, we assume we are in DOS.
 
-if($ENV{'PATH'} =~ m{\/} ) {
+if ($ENV{'PATH'} =~ m{\/} ) {
 	$unix = 1;
 	$sep = '/'
 } else {
@@ -60,57 +60,57 @@ Options:
 }
 
 $magic = '@';
-&help() unless(@ARGV);
+&help() unless (@ARGV);
 
 sub readarg {
 	$optarg = $optrest;
 	$optrest = '';
-	$optarg = shift(@ARGV) if($optarg eq '')
+	$optarg = shift(@ARGV) if ($optarg eq '')
 }
 
-optparse:while($ARGV[0] =~ m{^-(.)(.*)$}) {
+optparse:while ($ARGV[0] =~ m{^-(.)(.*)$}) {
 	shift(@ARGV);
-	while($1 ne '') {
+	while ($1 ne '') {
 		$optlett = $1;
 		$optrest = $2;
-		if($optlett eq 'N') {
+		if ($optlett eq 'N') {
 			$nametest = 1;
 			$pathtest = ''
-		} elsif($optlett eq 't') {
+		} elsif ($optlett eq 't') {
 			$timetest = 1
-		} elsif($optlett eq 'b') {
+		} elsif ($optlett eq 'b') {
 			$beginning = 1;
 			$nodiff = $nolength = ''
-		} elsif($optlett eq 'd') {
+		} elsif ($optlett eq 'd') {
 			$nodiff = 1;
 			$nolength = ''
-		} elsif($optlett eq 'n') {
+		} elsif ($optlett eq 'n') {
 			$nolength = $nodiff = $nametest = $nodisk = 1;
 			$beginning = $pathtest = ''
-		} elsif($optlett eq 'p') {
+		} elsif ($optlett eq 'p') {
 			$nolength = $nodiff = $nametest = $pathtest = 1;
 			$beginning = ''
-		} elsif($optlett eq 'f') {
+		} elsif ($optlett eq 'f') {
 			$ignorebad = 1
-		} elsif($optlett eq 'v') {
+		} elsif ($optlett eq 'v') {
 			$verbose = $showdot = 1
-		} elsif($optlett eq 'V') {
+		} elsif ($optlett eq 'V') {
 			$verbose = 1; $showdot = ''
-		} elsif($optlett eq '@') {
+		} elsif ($optlett eq '@') {
 			&readarg();
 			$magic = $optarg
-		} elsif($optlett eq 'a') {
+		} elsif ($optlett eq 'a') {
 			$bubble = 1
-		} elsif($optlett eq 's'){
+		} elsif ($optlett eq 's'){
 			$standardin = 1
-		} elsif($optlett eq 'x'){
+		} elsif ($optlett eq 'x'){
 			$bubble = $extern = 1
-		} elsif($optlett =~ m{[hH?]}){
+		} elsif ($optlett =~ m{[hH?]}){
 			&help()
-		} elsif($optlett eq '-') {
-			if($optrest eq '') {
+		} elsif ($optlett eq '-') {
+			if ($optrest eq '') {
 				last optparse
-			} elsif(($optrest =~ /^h(elp)?$/i) || ($optrest eq '?')) {
+			} elsif (($optrest =~ /^h(elp)?$/i) || ($optrest eq '?')) {
 				&help()
 			} else {
 				&fatal("illegal option: --" . $optrest)
@@ -119,12 +119,12 @@ optparse:while($ARGV[0] =~ m{^-(.)(.*)$}) {
 		} else {
 			die("illegal option: -" . $optlett)
 		}
-		last unless($optrest =~ /^(.)(.*)$/)
+		last unless ($optrest =~ /^(.)(.*)$/)
 	}
 }
 
-if($standardin) {
-	while(<STDIN>) {
+if ($standardin) {
+	while (<STDIN>) {
 		chomp();
 		push(@ARGV, $_)
 	}
@@ -133,8 +133,8 @@ if($standardin) {
 # Look for the magic string.
 
 $lastfile = $#ARGV;
-for($i = 0; $i < scalar(@ARGV); ++$i) {
-	if($ARGV[$i] eq $magic) {
+for ($i = 0; $i < scalar(@ARGV); ++$i) {
+	if ($ARGV[$i] eq $magic) {
 		# The magic string is not a file we can read.
 		# By marking it in @double, the bubble-comparison will ignore it.
 		$lastfile = $i - 1;
@@ -145,14 +145,14 @@ for($i = 0; $i < scalar(@ARGV); ++$i) {
 	}
 }
 
-if($showdot) {
+if ($showdot) {
 	$| = 1;
 	$dotcount = 0
 }
-if($verbose) {
+if ($verbose) {
 	$i = $lastfile + 1;
 	&error('Number of files: ' . $i);
-	if($withmagic) {
+	if ($withmagic) {
 		$i = $#ARGV - $i;
 		&error('Number of files to check against: ' . $i);
 		&error('Total number of files: ' . $#ARGV)
@@ -162,20 +162,20 @@ if($verbose) {
 # Read the filelength into @size and
 # mark @badfile if file does not exist or is not readable
 
-if((!$nolength) || $timetest || $ignorebad) {
-	for($i = $#ARGV; $i >= 0; --$i) {
-		if($i != $lastfile + 1) { # ignore the magic index
-			if((!$nodisk) && (-f $ARGV[$i])) {
-				$size[$i] = (-s $ARGV[$i]) unless($nolength);
-				if($ignorebad) {
-					$badfile[$i] = 1 unless(-r $ARGV[$i])
+if ((!$nolength) || $timetest || $ignorebad) {
+	for ($i = $#ARGV; $i >= 0; --$i) {
+		if ($i != $lastfile + 1) { # ignore the magic index
+			if ((!$nodisk) && (-f $ARGV[$i])) {
+				$size[$i] = (-s $ARGV[$i]) unless ($nolength);
+				if ($ignorebad) {
+					$badfile[$i] = 1 unless (-r $ARGV[$i])
 				}
 			} else {
 				$size[$i] = -1;
 				$badfile[$i] = 1
 			}
-			if($showdot) {
-				if(++$dotcount >= 100) {
+			if ($showdot) {
+				if (++$dotcount >= 100) {
 					$dotcount = 0;
 					&printdot('-');
 					$wasdot = 1
@@ -186,7 +186,7 @@ if((!$nolength) || $timetest || $ignorebad) {
 }
 
 sub flushdot {
-	return unless($wasdot);
+	return unless ($wasdot);
 	&printdot("\n");
 	$wasdot = ''
 }
@@ -226,18 +226,18 @@ sub timecomp {
 # This function uses the external programs diff/comp to decide this.
 
 sub isequalextern {
-	return '' if(($badfile[$a]) || ($badfile[$b]));
-	return 1 if($ARGV[$a] eq $ARGV[$b]);
-	return '' if($nametest && ($pathtest ||
+	return '' if (($badfile[$a]) || ($badfile[$b]));
+	return 1 if ($ARGV[$a] eq $ARGV[$b]);
+	return '' if ($nametest && ($pathtest ||
 			((&namecomp($ARGV[$a], $ARGV[$b])) != 0)));
-	unless($nolength) {
-		return '' if($size[$a] != $size[$b]);
-		unless($nodiff) {
-			if($unix) {
-				return '' if(system('diff', '-q', '--',
+	unless ($nolength) {
+		return '' if ($size[$a] != $size[$b]);
+		unless ($nodiff) {
+			if ($unix) {
+				return '' if (system('diff', '-q', '--',
 					$ARGV[$a], $ARGV[$b]));
 			} else {
-				return '' if(system("comp $ARGV[$a] $ARGV[$b] >nul"));
+				return '' if (system("comp $ARGV[$a] $ARGV[$b] >nul"));
 			}
 		}
 	}
@@ -273,68 +273,68 @@ sub isequalextern {
 # For time reasons, the variable $rcomp is used but not declared as local.
 
 sub compare {
-	if(($showdot) && ($sorting)) {
-		if(++$dotcount > 100) {
+	if (($showdot) && ($sorting)) {
+		if (++$dotcount > 100) {
 			$dotcount = 0;
 			&printdot('.');
 			$wasdot = 1
 		}
 	}
-	if($badfile[$a]) {
-		return($a <=> $b) if(($sorting) && ($badfile[$b]));
+	if ($badfile[$a]) {
+		return($a <=> $b) if (($sorting) && ($badfile[$b]));
 		return 1
 	}
-	return (-1) if($badfile[$b]);
-	if($ARGV[$a] ne $ARGV[$b]) {
-		if($nametest) {
-			return($ARGV[$a] cmp $ARGV[$b]) if($pathtest);
-			if(($rcomp = &namecomp($ARGV[$a], $ARGV[$b])) !=0) {
+	return (-1) if ($badfile[$b]);
+	if ($ARGV[$a] ne $ARGV[$b]) {
+		if ($nametest) {
+			return($ARGV[$a] cmp $ARGV[$b]) if ($pathtest);
+			if (($rcomp = &namecomp($ARGV[$a], $ARGV[$b])) !=0) {
 				return $rcomp
 			}
 		}
-		unless($nolength) {
-			if((!$beginning) && (($rcomp = ($size[$a] <=> $size[$b])) != 0)) {
+		unless ($nolength) {
+			if ((!$beginning) && (($rcomp = ($size[$a] <=> $size[$b])) != 0)) {
 				return $rcomp
 			}
-			unless($nodiff) {
-				unless(open(FA, '<', $ARGV[$a])) {
+			unless ($nodiff) {
+				unless (open(FA, '<', $ARGV[$a])) {
 					&flushdot();
 					&warning("cannot open file $ARGV[$a] but system claimed contrary");
 					$badfile[$a] = 1
 				}
-				unless(open(FB, '<', $ARGV[$b])) {
+				unless (open(FB, '<', $ARGV[$b])) {
 					&flushdot();
 					&warning("cannot open file $ARGV[$b] but system claimed contrary");
 					$badfile[$b] = 1
 				}
-				if($badfile[$a]) {
-					if($badfile[$b]) {
-						return($a <=> $b) if($sorting)
+				if ($badfile[$a]) {
+					if ($badfile[$b]) {
+						return($a <=> $b) if ($sorting)
 					} else {
 						close(FB)
 					}
 					return 1
 				}
-				if($badfile[$b]) {
+				if ($badfile[$b]) {
 					close(FA);
 					return (-1)
 				}
 				binmode(FA);
 				binmode(FB);
 				local ($A, $B);
-				while(($aread = read(FA, $A, 1024))>0) {
+				while (($aread = read(FA, $A, 1024))>0) {
 					$bread = read(FB, $B, 1024);
-					if($bread != $aread) {
-						unless($beginning) {
+					if ($bread != $aread) {
+						unless ($beginning) {
 							&flushdot();
 							warning("length of $ARGV[$a] or $ARGV[$b] changed");
 							close(FB);
 							close(FA);
 							return ($aread <=> $bread)
 						}
-						if($aread < $bread) {
+						if ($aread < $bread) {
 							$B = substr($B, 0, $aread)
-						} elsif($bread > 0) {
+						} elsif ($bread > 0) {
 							$A = substr($A, 0, $bread)
 						} else {
 							close(FB);
@@ -342,26 +342,26 @@ sub compare {
 							return 0
 						}
 					}
-					if(($rcomp = ($A cmp $B)) != 0) {
+					if (($rcomp = ($A cmp $B)) != 0) {
 						close(FB);
 						close(FA);
 						return $rcomp
 					}
 				}
 				close(FA);
-				unless($beginning) {
+				unless ($beginning) {
 					$bread = read(FB, $B, 1)
 				}
 				close(FB);
-				if((!$beginning) && ($bread > 0)) {
+				if ((!$beginning) && ($bread > 0)) {
 					&flushdot();
 					&warning("length of $ARGV[$a] and $ARGV[$b] changed");
 					return (0 <=> $bread)
 				}
 			}
 		}
-		if($timetest) {
-			if(($rcomp = &timecomp()) != 0) {
+		if ($timetest) {
+			if (($rcomp = &timecomp()) != 0) {
 				return $rcomp
 			}
 		}
@@ -385,26 +385,26 @@ sub isequal {
 # parameters in &isequal (and its subfunctions)
 
 sub bubble {
-	for($a = 0; $a <= $lastfile; ++$a) {
-		unless($double[$a]) {
+	for ($a = 0; $a <= $lastfile; ++$a) {
+		unless ($double[$a]) {
 			$foundpair = '';
-			for($b = $a + 1; $b < scalar(@ARGV); ++$b) {
-				unless($double[$b]) {
-					if(&isequal) {
-						unless($foundpair) {
+			for ($b = $a + 1; $b < scalar(@ARGV); ++$b) {
+				unless ($double[$b]) {
+					if (&isequal) {
+						unless ($foundpair) {
 							$foundpair = 1;
 							&flushdot();
-							if($b <= $lastfile) {
+							if ($b <= $lastfile) {
 								print('Double: ', $ARGV[$a])
 							} else {
 								print("Match:\t", $ARGV[$a])
 							}
 							$double[$a] = 1
-						} elsif($b > $lastfile) {
+						} elsif ($b > $lastfile) {
 							print ' and'
 						}
 						$double[$b] = 1;
-						if($b > $lastfile) {
+						if ($b > $lastfile) {
 							print(' matches with ', $ARGV[$b]);
 							last # print only the first occurence in SECONDLIST
 						}
@@ -412,9 +412,9 @@ sub bubble {
 					}
 				}
 			}
-			if($foundpair) {
+			if ($foundpair) {
 				&flushdot()
-			} elsif($showdot) {
+			} elsif ($showdot) {
 				&printdot('.');
 				$wasdot = 1
 			}
@@ -435,14 +435,14 @@ sub bubble {
 sub binsearch {
 	local ($l, $r, $m, $c, $ret);
 	$ret = -1;
-	for($l = 0, $r = $#index; $l <= $r; ) {
+	for ($l = 0, $r = $#index; $l <= $r; ) {
 		$m = int(($l + $r) / 2); # Find the middle; for odd sizes it is not important
 		                         # which of the two middle elements is chosen
 		$a = $index[$m];
 		$c = &compare(); # Compare entry of index $m with search
-		if($c <= 0) {
+		if ($c <= 0) {
 			$l = $m + 1;
-			$ret = $m if($c == 0)
+			$ret = $m if ($c == 0)
 		} else { # $c > 0
 			$r = $m - 1
 		}
@@ -466,7 +466,7 @@ sub tricky {
 	# For time reasons we do not sort @ARGV, @badfile, ... but instead
 	# one indexlist and will later make all references via this indexlist:
 
-	for($i = $lastfile; $i >= 0; --$i) {
+	for ($i = $lastfile; $i >= 0; --$i) {
 		$index[$i] = $i
 	}
 	$sorting = 1;
@@ -479,16 +479,16 @@ sub tricky {
 	# If there is a match, we let @double of the corresponding match point to $b
 	# (unless @double already was a pointer: In this case, we are done with $b)
 
-	for($b = $lastfile + 2; $b <= $#ARGV; ++$b) {
-		if($showdot) {
-			if(++$dotcount >= 100) {
+	for ($b = $lastfile + 2; $b <= $#ARGV; ++$b) {
+		if ($showdot) {
+			if (++$dotcount >= 100) {
 				$dotcount = 0;
 				&printdot(',');
 				$wasdot = 1
 			}
 		}
-		if(($i = &binsearch) >= 0) {
-			$double[$index[$i]] = $b unless($double[$index[$i]] > 0)
+		if (($i = &binsearch) >= 0) {
+			$double[$index[$i]] = $b unless ($double[$index[$i]] > 0)
 		}
 	}
 	&flushdot();
@@ -499,22 +499,22 @@ sub tricky {
 
 	$a = -1; # $a denotes the previous element to compare with
 	$foundpair = '';
-	for($i = 0; $i <= $lastfile; ++$i) {
+	for ($i = 0; $i <= $lastfile; ++$i) {
 		$b = $index[$i];
-		if($a >= 0) {
-			if(&compare == 0) {
-				unless($foundpair) {
+		if ($a >= 0) {
+			if (&compare == 0) {
+				unless ($foundpair) {
 					$foundpair = 1;
 					print('Double: ', $ARGV[$a])
 				}
 				print(' ', $ARGV[$b])
-			} elsif($foundpair) {
+			} elsif ($foundpair) {
 				$foundpair = '';
 				print("\n")
 			}
 		}
-		if($double[$b] > 0) { # If we have a match with SECONDLIST:
-			unless($foundpair) {
+		if ($double[$b] > 0) { # If we have a match with SECONDLIST:
+			unless ($foundpair) {
 				print("Match:\t", $ARGV[$b])
 			} else {
 				print(' and')
@@ -528,7 +528,7 @@ sub tricky {
 			$a = $b
 		}
 	}
-	print("\n") if($foundpair)
+	print("\n") if ($foundpair)
 }
 
 # Now the "main" program:

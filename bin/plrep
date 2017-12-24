@@ -1224,6 +1224,7 @@ if ($Recurse) {
 			unless ($changed);
 	}
 	$RecurseDir = '.' if ($RecurseDir eq '');
+	no warnings 'File::Find';
 	File::Find::find({wanted => sub {
 		return unless (-r $_);
 		if (!@ARGV) {

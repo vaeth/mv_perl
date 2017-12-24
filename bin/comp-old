@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 BEGIN { require 5.006_001 }
 package Comp;
-our $VERSION = 'v3.0.2';
+our $VERSION = 'v3.0.3';
 eval { $VERSION = version->declare($VERSION) };
-eval 'use version 0.77; $VERSION = version->declare($VERSION)' if($@);
+eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 
 use warnings;
 use strict;
@@ -180,12 +180,12 @@ Getopt::Long::GetOptions(
 	'debug|D', \$debug,
 	'verbose|v', \$verbose,
 ) or &pod2usage(2);
-&pod2usage(2) unless(@ARGV);
+&pod2usage(2) unless (@ARGV);
 
-$nodirtime = 1 if($notime);
-$pedantic = 1 if($toopedantic);
-$sepstring = $sepstringdefault if($verbose);
-$nowarn = $noowner = $notime = $nodirtime = $noattrib = 1 if($sloppy);
+$nodirtime = 1 if ($notime);
+$pedantic = 1 if ($toopedantic);
+$sepstring = $sepstringdefault if ($verbose);
+$nowarn = $noowner = $notime = $nodirtime = $noattrib = 1 if ($sloppy);
 
 my ($dorecurse, $prepend, $printprepend);
 my ($currpath, $isdir, $fullpath, $comparepath);
@@ -205,12 +205,12 @@ sub ProcessMask {
 	($mask) = @_;
 
 	# Replace multiple occurences of / by single ones, and chop / at the end:
-	while($mask =~ s{\/\/+}{\/}go) {}
-	$mask =~ s{^\~/}{$home/} if(defined($home) && ($home ne ''));
-	$mask =~ s{/$}{} if($mask ne '/');
+	while ($mask =~ s{\/\/+}{\/}go) {}
+	$mask =~ s{^\~/}{$home/} if (defined($home) && ($home ne ''));
+	$mask =~ s{/$}{} if ($mask ne '/');
 	$dorecurse = 1;
-	if($mask =~ m{[\*\?\[]}) {  # If the mask contains wildcard:
-		if($mask =~ m{\A(.*\/)([^\/]*[\*\?\[].*)\z}m) {
+	if ($mask =~ m{[\*\?\[]}) {  # If the mask contains wildcard:
+		if ($mask =~ m{\A(.*\/)([^\/]*[\*\?\[].*)\z}m) {
 			# If $mask consists of leading directory(ies) $1 and remaining mask with
 			# wildcards, then we recurse, starting from $1.
 			$prepend = $1;
@@ -226,20 +226,20 @@ sub ProcessMask {
 		$mask =~ s{\*}{[^\/]*}go;
 		$mask =~ s{\?}{[^\/]}g
 	} else {  # Otherwise (i.e. mask is actually a dir/filename):
-		if($mask eq '') {
+		if ($mask eq '') {
 			$prepend = './';
 			$printprepend = ''
 		} else {
-			if(-d $mask) {  # If we consider directories:
+			if (-d $mask) {  # If we consider directories:
 				$prepend = $mask;
-				if($prepend ne '/') {
+				if ($prepend ne '/') {
 					$prepend = $prepend . '/'
 				}
 				$printprepend = $prepend . $sepstring;
 				$mask = ''
 			} else {  # For a single file, we isolate the path before, if it exists
 				$dorecurse = '';
-				if($mask =~ m{\A(.*\/)([^\/]*)\z}m) {
+				if ($mask =~ m{\A(.*\/)([^\/]*)\z}m) {
 					$prepend = $1;
 					$printprepend = $prepend . $sepstring;
 					$mask = $2
@@ -266,15 +266,15 @@ sub ProcessDir {
 	$currpath = $act;
 	&AddIfMatch('');
 	$act = $nextpath;
-	return unless($isdir);
+	return unless ($isdir);
 	opendir(my $dirfh, $fullpath);
 	@dir = readdir($dirfh);
 	closedir($dirfh);
 	for my $fname (@dir) {
-		if(($fname ne '.') && ($fname ne '..')) {
+		if (($fname ne '.') && ($fname ne '..')) {
 			$currpath = $act . $fname;
 			&AddIfMatch(1);
-			if($isdir && $dorecurse) {
+			if ($isdir && $dorecurse) {
 				++$depth;
 				&ProcessDir($currpath);
 				--$depth
@@ -285,7 +285,7 @@ sub ProcessDir {
 
 sub AddIfMatch {
 	my($sureadd) = @_;
-	if($currpath eq '') {
+	if ($currpath eq '') {
 		$isdir = 1;
 		$fullpath = $prepend . '.';
 		$comparepath = './';
@@ -293,7 +293,7 @@ sub AddIfMatch {
 		$nextpath = ''
 	} else {
 		$fullpath = $prepend . $currpath;
-		if(-d $fullpath) {
+		if (-d $fullpath) {
 			$isdir = 1;
 			$comparepath = $currpath . '/'
 		} else {
@@ -309,49 +309,49 @@ sub AddIfMatch {
 	# latter case that ... contains no further /
 	# Moreover, we have to make an exception for the empty $mask.
 	$domatch = '';
-	if($mask eq '') {
-		$domatch = 1 unless(($norecurse) && ($currpath =~ m{\/.*\/}m))
+	if ($mask eq '') {
+		$domatch = 1 unless (($norecurse) && ($currpath =~ m{\/.*\/}m))
 	} else {
-		if($ignorecase) {
-			if($currpath =~ m{\A$mask\z}im) {
+		if ($ignorecase) {
+			if ($currpath =~ m{\A$mask\z}im) {
 				$domatch = 1
-			} elsif($currpath =~ m{\A$mask\/\z}im) {
-				$domatch = 1 unless(($norecurse) && ($currpath =~ m{\/}))
+			} elsif ($currpath =~ m{\A$mask\/\z}im) {
+				$domatch = 1 unless (($norecurse) && ($currpath =~ m{\/}))
 			}
 		} else {
-			if($currpath =~ m{\A$mask\z}m) {
+			if ($currpath =~ m{\A$mask\z}m) {
 				$domatch = 1
-			} elsif($currpath =~ m{\A$mask\/}m) {
-				$domatch = 1 unless(($norecurse) && ($currpath =~ m{\/}))
+			} elsif ($currpath =~ m{\A$mask\/}m) {
+				$domatch = 1 unless (($norecurse) && ($currpath =~ m{\/}))
 			}
 		}
 	}
 	# However, we do not match directories in which we have just recursed
 	# (unless this is the first directory).
 	# We also do not match *.dvi ... files in TeX mode
-	if($isdir) {
-		unless($sureadd) {
-			$domatch = '' if(($depth != 0) || ($nohighdir))
+	if ($isdir) {
+		unless ($sureadd) {
+			$domatch = '' if (($depth != 0) || ($nohighdir))
 		}
-	} elsif($texmode) {
-		if($ignorecase) {
+	} elsif ($texmode) {
+		if ($ignorecase) {
 			$domatch = ''
-				if($currpath =~ m{\.(dvi|aux|toc|lo[ft]|idx|ind|glo|log|[bdi]lg)$}i)
+				if ($currpath =~ m{\.(dvi|aux|toc|lo[ft]|idx|ind|glo|log|[bdi]lg)$}i)
 		} else {
 			$domatch = ''
-				if($currpath =~ m{\.(dvi|aux|toc|lo[ft]|idx|ind|glo|log|[bdi]lg)$})
+				if ($currpath =~ m{\.(dvi|aux|toc|lo[ft]|idx|ind|glo|log|[bdi]lg)$})
 		}
 	}
-	if($domatch) {
-		if($makelast) {
-			print('For second arg: ', $comparepath, ' =~ ', $fullpath, "\n") if($debug);
+	if ($domatch) {
+		if ($makelast) {
+			print('For second arg: ', $comparepath, ' =~ ', $fullpath, "\n") if ($debug);
 			push(@B, $comparepath);
 			push(@Bdepth, $depth);
 			push(@Bfull, $fullpath);
 			push(@Bprint, $printpath);
 			$Bhash{$comparepath} = $#B
 		} else {
-			print('For  first arg: ', $comparepath, ' =~ ', $fullpath, "\n") if($debug);
+			print('For  first arg: ', $comparepath, ' =~ ', $fullpath, "\n") if ($debug);
 			push(@A, $comparepath);
 			push(@Adepth, $depth);
 			push(@Afull, $fullpath);
@@ -362,8 +362,8 @@ sub AddIfMatch {
 }
 
 
-if($[ < $#ARGV) {
-	for($i = $[; $i < $#ARGV; ++$i) {
+if ($[ < $#ARGV) {
+	for ($i = $[; $i < $#ARGV; ++$i) {
 		&ProcessMask($ARGV[$i])
 	}
 	$makelast = 1;
@@ -381,39 +381,39 @@ if($[ < $#ARGV) {
 # This is of course an exceptional trivial case:
 
 $i = $j = $[;
-if(($#A == $i) && ($#B == $j)) {
+if (($#A == $i) && ($#B == $j)) {
 	my $name = $A[$i];
 	$isdir = ($name =~ m{\/$});
 	# We have this special treatment only if $A and $B are both directories
 	# or both files:
-	if($isdir == ($B[$j] =~ m{\/$})) {
+	if ($isdir == ($B[$j] =~ m{\/$})) {
 		&comparepair();
 		exit($differ);
 	}
 }
 
-for($i = $[; $i <= $#A; ++$i) {
+for ($i = $[; $i <= $#A; ++$i) {
 	my $name = $A[$i];
 	$isdir = ($name =~ m{\/$});
 	$j = $Bhash{$name};
-	if(defined($j)) {
+	if (defined($j)) {
 		&comparepair()
 	} else {
-		if($isdir) {  # If we deal with a directory and have no match:
-			unless($notforfirst) {
+		if ($isdir) {  # If we deal with a directory and have no match:
+			unless ($notforfirst) {
 				++$differ;
 				print('DIR  without matching  last arg: ', $Aprint[$i], "\n")
 			}
 			# We skip until we are at the current depth again.
 			$depth = $Adepth[$i];
-			while(++$i <= $#A) {
-				if($Adepth[$i] == $depth) {
+			while (++$i <= $#A) {
+				if ($Adepth[$i] == $depth) {
 					--$i;
 					last
 				}
 			}
 		} else {
-			unless($notforfirst) {
+			unless ($notforfirst) {
 				++$differ;
 				print('File without matching  last arg: ', $Aprint[$i], "\n")
 			}
@@ -421,26 +421,26 @@ for($i = $[; $i <= $#A; ++$i) {
 	}
 }
 
-for($j = $[; $j <= $#B; ++$j) {
+for ($j = $[; $j <= $#B; ++$j) {
 	my $name = $B[$j];
 	$isdir = ($name =~ m{\/$});
 	$i = $Ahash{$name};
-	next if(defined($i));
-	if($isdir) {  # If we deal with a directory and have no match:
-		unless($notforlast) {
+	next if (defined($i));
+	if ($isdir) {  # If we deal with a directory and have no match:
+		unless ($notforlast) {
 			++$differ;
 			print('DIR  without matching first arg: ',  $Bprint[$j], "\n")
 		}
 		# We skip until we are at the current depth again.
 		$depth = $Bdepth[$j];
-		while(++$j <= $#B) {
-			if($Bdepth[$j] == $depth) {
+		while (++$j <= $#B) {
+			if ($Bdepth[$j] == $depth) {
 				$j--;
 				last
 			}
 		}
 	} else {
-		unless($notforlast) {
+		unless ($notforlast) {
 			++$differ;
 			print('File without matching first arg: ', $Bprint[$j], "\n")
 		}
@@ -458,12 +458,12 @@ sub comparepair {
 	my ($a, $b) = ($Afull[$i], $Bfull[$j]);
 	my $Alink = (-l $a);
 	my $Blink = (-l $b);
-	if(($Alink) || ($Blink)) {
-		unless($Alink && $Blink) {
+	if (($Alink) || ($Blink)) {
+		unless ($Alink && $Blink) {
 			$serious = 1;
 			&adderror('link-status');
-			unless($nowarn) {
-				if($Alink) {
+			unless ($nowarn) {
+				if ($Alink) {
 					&warn($Aprint[$i], ' is a symbolic link')
 				} else {
 					&warn($Bprint[$j], ' is a symbolic link')
@@ -477,31 +477,31 @@ sub comparepair {
 	@Stat = (($Blink && $noresolve) ? lstat($b) : stat($b));
 	my $Bstat = ($#Stat >= 8);
 	my ($Bdev, $Bino, $Bmode, $Bhlink, $Buid, $Bgid, $Brdev, $Bsize, $Batime, $Bmtime, $Bctime) = @Stat;
-	unless($Astat && $Bstat) {
-		unless($Astat) {
+	unless ($Astat && $Bstat) {
+		unless ($Astat) {
 			&error('cannot get stat of ', $a)
 		}
-		unless($Bstat) {
+		unless ($Bstat) {
 			&error('cannot get stat of ', $b)
 		}
-		if($Astat) {
+		if ($Astat) {
 			print('File without statable  last arg: ', $Aprint[$i], "\n")
 		}
-		if($Bstat) {
+		if ($Bstat) {
 			print('File without statable first arg: ', $Bprint[$j], "\n")
 		}
 		return
 	}
 	my $diffother = '';
-	if($toopedantic) {
-		if(($Ardev) || ($Brdev)) {
-			if(($Ardev) && ($Brdev)) {
+	if ($toopedantic) {
+		if (($Ardev) || ($Brdev)) {
+			if (($Ardev) && ($Brdev)) {
 				&warn($Aprint[$i], ' and ', $Bprint[$j], ' have unusual attributes')
-					unless($nowarn)
+					unless ($nowarn)
 			} else {
 				$diffother = 1;
-				unless($nowarn) {
-					if($Ardev) {
+				unless ($nowarn) {
+					if ($Ardev) {
 						&warn($Aprint[$i], ' has unusual attributes')
 					} else {
 						&warn($Bprint[$j], ' has unusual attributes')
@@ -510,47 +510,47 @@ sub comparepair {
 			}
 		}
 	}
-	unless($noattrib) {
-		&adderror('attributes') if(($Amode != $Bmode) || $diffother)
+	unless ($noattrib) {
+		&adderror('attributes') if (($Amode != $Bmode) || $diffother)
 	}
-	if($pedantic) {
-		&adderror('hardlink-nr') if($Ahlink != $Bhlink)
+	if ($pedantic) {
+		&adderror('hardlink-nr') if ($Ahlink != $Bhlink)
 	}
-	unless($noowner) {
-		&adderror('uid/gid') if(($Auid != $Buid) || ($Agid != $Bgid ))
+	unless ($noowner) {
+		&adderror('uid/gid') if (($Auid != $Buid) || ($Agid != $Bgid ))
 	}
-	unless($isdir ? $nodirtime : $notime) {
-		&adderror('modify time') if($Amtime != $Bmtime);
-		if($pedantic) {
-			&adderror('status time') if($Actime != $Bctime);
-			&adderror('access time') if($Aatime != $Batime)
+	unless ($isdir ? $nodirtime : $notime) {
+		&adderror('modify time') if ($Amtime != $Bmtime);
+		if ($pedantic) {
+			&adderror('status time') if ($Actime != $Bctime);
+			&adderror('access time') if ($Aatime != $Batime)
 		}
 	}
-	unless($isdir) {
-		if($toopedantic && !(($Asize > 0) && ($Bsize > 0))) {
-			if(($Asize <= 0) && ($Bsize <= 0)) {
+	unless ($isdir) {
+		if ($toopedantic && !(($Asize > 0) && ($Bsize > 0))) {
+			if (($Asize <= 0) && ($Bsize <= 0)) {
 				&warn($Aprint[$i], ' and ', $Bprint[$j], ' have size 0')
 			} else {
 				&warn((($Asize <= 0) ? $Aprint[$i] : $Bprint[$j] ), ' has size 0')
 			}
 		}
-		if($Asize != $Bsize) {
+		if ($Asize != $Bsize) {
 			$serious = 1;
 			&adderror('length')
 		}
-		if($noresolve && ($Alink || $Blink)) {
-			if($Alink && $Blink) {
+		if ($noresolve && ($Alink || $Blink)) {
+			if ($Alink && $Blink) {
 				my $al = readlink($a);
-				&error('cannot read link ' . $a) unless(defined($al));
+				&error('cannot read link ' . $a) unless (defined($al));
 				my $bl = readlink($b);
-				&error('cannot read link ' . $b) unless(defined($bl));
-				if(defined($al) && defined($bl) && ($al ne $bl)) {
+				&error('cannot read link ' . $b) unless (defined($bl));
+				if (defined($al) && defined($bl) && ($al ne $bl)) {
 					$serious = 1;
 					&adderror('symlink destinations')
 				}
 			}
 		} else {
-			unless((((!defined($Adev) && !defined($Bdev)) || ($Adev eq $Bdev)) &&
+			unless ((((!defined($Adev) && !defined($Bdev)) || ($Adev eq $Bdev)) &&
 				(defined($Aino) && defined($Bino)) && ($Aino eq $Bino)) ||
 				&comparefile($a, $b, $Asize, $Bsize)) {
 				$serious = 1;
@@ -558,19 +558,19 @@ sub comparepair {
 			}
 		}
 	}
-	if($describe ne '') {
-		if($serious) {
+	if ($describe ne '') {
+		if ($serious) {
 			++$differ;
 			print($Aprint[$i], ' and ', $Bprint[$j], " have different $describe\n")
 		} else {
 			&warn($Aprint[$i], ' and ', $Bprint[$j], " have different $describe")
-				unless($sloppy)
+				unless ($sloppy)
 		}
 	}
 }
 
 sub adderror {
-	if($describe ne '') {
+	if ($describe ne '') {
 		$describe .= ', ' . $_[0]
 	} else {
 		$describe = $_[0]
@@ -579,37 +579,37 @@ sub adderror {
 
 sub comparefile {
 	my ($a, $b, $toread) = @_;
-	return 1 if(($toread <= 0) || $nocompare);
-	return 1 unless((-f $a) && (-f $b));
+	return 1 if (($toread <= 0) || $nocompare);
+	return 1 unless ((-f $a) && (-f $b));
 	my $result = 1;
 	my ($afile, $bfile);
-	if(open($afile, '<', $a)) {
+	if (open($afile, '<', $a)) {
 		binmode($afile)
 	} else {
 		&error('cannot open ', $a);
 		$result = ''
 	}
-	if(open($bfile, '<', $b)) {
+	if (open($bfile, '<', $b)) {
 		binmode($bfile)
 	} else {
 		&error('cannot open ', $b);
 		$result = ''
 	}
-	while($result && ($toread > 0)) {
+	while ($result && ($toread > 0)) {
 		my $readnow = (($toread < $blocksize) ? $toread : $blocksize);
 		my ($ablock, $bblock);
-		if((read($afile, $ablock, $readnow)) != $readnow) {
+		if ((read($afile, $ablock, $readnow)) != $readnow) {
 			&error('read error for file ', $Afull[$i]);
 			$result = ''
 		}
-		if((read($bfile, $bblock, $readnow)) != $readnow) {
+		if ((read($bfile, $bblock, $readnow)) != $readnow) {
 			&error('read error for file ', $Bfull[$j]);
 			$result = ''
 		}
-		if($result && ($ablock ne $bblock)) {
+		if ($result && ($ablock ne $bblock)) {
 			$result = ''
 		}
-		$toread -= $readnow if($result)
+		$toread -= $readnow if ($result)
 	}
 	close($bfile);
 	close($afile);
