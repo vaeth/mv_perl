@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 BEGIN { require 5.006_001 }
 package Plrep;
-our $VERSION = 'v2.14.0';
+our $VERSION = 'v2.15.0';
 eval { $VERSION = version->declare($VERSION) };
 eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 
@@ -17,11 +17,12 @@ use Term::ANSIColor ();
 # Format is an array of the form [grep, "old" content, "new" content]
 
 my @termlist = (
-	['bold yellow', 'bold red', 'bold green'],
-	['bold magenta', 'bold red', 'bold blue'],
-	['reverse', 'underline reverse', 'bold underline reverse']);
+  ['bold yellow', 'bold red', 'bold green'],
+  ['bold magenta', 'bold red', 'bold blue'],
+  ['reverse', 'underline reverse', 'bold underline reverse']
+);
 
-my $BackSpacePattern = qr{[\b]|\x1b\[3\~};
+my $backspace_patternn = qr{[\b]|\x1b\[3\~};
 
 =encoding UTF-8
 
@@ -483,874 +484,864 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 # Options and their defaults:
 
-my $AlwaysReplace = '';
-my $AlwaysWrite = '';
-my $GrepOnly = '';
-my $CountOnly = '';
-my $ListOnly = '';
-my $KeepTimestamp = '';
-my $Ignore = '';
-my $Binary = '';
-my $Multiline = '';
-my $PlainSearch = '';
-my $PlainReplace = '';
-my $Recurse = '';
-my $FromFile = '';
-my $NotHighlight = '';
-my $Before = 0;
-my $After = 0;
-my $TruncOpt = '';
-my $ShiftOpt = '';
-my $Verbose = '';
+my $always_replace = '';
+my $always_write = '';
+my $grep_only = '';
+my $count_only = '';
+my $list_only = '';
+my $keep_timestamp = '';
+my $ignore = '';
+my $binary = '';
+my $multiline = '';
+my $plain_search = '';
+my $plain_replace = '';
+my $recurse = '';
+my $from_file = '';
+my $not_highlight = '';
+my $before = 0;
+my $after = 0;
+my $trunc_opt = '';
+my $shift_opt = '';
+my $verbose = '';
 my $nonprintable = '~';
-my $DataName;
-my $RecurseDir;
-my $Suppress;
-my $Terminal = $termlist[0];
+my $data_name;
+my $recurse_dir;
+my $suppress;
+my $terminal = $termlist[0];
 
 # Global variables:
 
 my $name = 'plrep';
-my $ShowChanges = 1;
-my $TruncateMode = 0;
-my $Truncate;
-my $Shift;
-my $ShiftFromEnd;
-my $FileName;
-my $LastPrinted;
-my $FileMatches;
-my $Line;
-my $A;
+my $show_changes = 1;
+my $truncate_mode = 0;
+my $truncate;
+my $shift;
+my $shift_from_end;
+my $file_name;
+my $last_printed;
+my $file_matches;
+my $line;
+my $current;
 
-my @A = ();
-my @Substrings = ();
-my @Replacements = ();
-my $AskForReplace = '';
-my $TotalMatches = 0;
+my @content = ();
+my @substrings = ();
+my @replacements = ();
+my $ask_for_replace = '';
+my $total_matches = 0;
 
-my $SearchPattern;
-my $Search;
-my $Replace;
+my $search_pattern;
+my $search;
+my $replace;
 
 sub version {
-	print($name, ' ', $VERSION, "\n");
-	exit(0)
+  print($name, ' ', $VERSION, "\n");
+  exit(0)
 }
 
 sub pod2usage {
-	require Pod::Usage;
-	&Pod::Usage::pod2usage
+  require Pod::Usage;
+  &Pod::Usage::pod2usage
 }
 
-sub NormalExit {
-	exit(0) unless ($GrepOnly);
-	exit(127) if ($TotalMatches > 127);
-	exit($TotalMatches)
+sub fatal {
+  print(STDERR join(@_, "\n"), "\n");
 }
 
-sub optcolored {
-	my $string = shift();
-	my $opt = shift();
-	$opt ? Term::ANSIColor::colored($string, $_[0]) : $string
+sub normal_exit {
+  exit(0) unless ($grep_only);
+  exit(127) if ($total_matches > 127);
+  exit($total_matches)
 }
 
-#Output line StringList formatted, colorized, and truncated.
-#Two or three arguments: Mode, LineNumber(-1), Line
+sub opt_colored {
+  my $string = shift();
+  my $opt = shift();
+  $opt ? Term::ANSIColor::colored($string, $_[0]) : $string
+}
+
+#Output line string_list formatted, colorized, and truncated.
+#Two or three arguments: mode, line_number(-1), line
 #
-#Mode > 0: Line with "old" content or in grep mode a line with a match.
-#Mode < 0: Line with "new" content.
-#Mode = 0: Informal content (no match) - used e.g. for pure "context" lines.
+#mode > 0: line with "old" content or in grep mode a line with a match.
+#mode < 0: line with "new" content.
+#mode = 0: Informal content (no match) - used e.g. for pure "context" lines.
 #
-#If Mode = 0, the third argument Line must be given.
-#Otherwise, the line is assumed to be contained in @Substrings, where
-#@Substrings is "until 1st match" "1st match" "1st match to 2nd match" ...
-#@Substrings must contain at least 2 elements, because the first match is
+#If mode = 0, the third argument line must be given.
+#Otherwise, the line is assumed to be contained in @substrings, where
+#@substrings is "until 1st match" "1st match" "1st match to 2nd match" ...
+#@substrings must contain at least 2 elements, because the first match is
 #used to shift the line.
 #
 #It is assumed that the last character is a newline.
 
-{  # static variables for PrintLine
-	my $HeadEllipsis = '...';
-	my $TailEllipsis = "...\n";
-	my $LenTailEllipsis = length($TailEllipsis) - 1;  # Do not count the linefeed
-	my $LenHeadEllipsis = length($HeadEllipsis);
-sub PrintLine {
-	my($Mode, $LineNumber, $String);
-	$Mode = shift();
-	$LineNumber = shift();
-	++$LineNumber if ($LineNumber ne '');
-	if ($Mode == 0) {
-		$String = shift();
-		if ($nonprintable ne '') {
-			$String =~ s{[^\n[:print:]]}{$nonprintable}go
-		}
-	}
-	my($ModeString, $Color);
-	if ($GrepOnly) {
-		$ModeString = '';
-		$Color = $Terminal->[0]
-	} elsif ($Mode > 0) {
-		$ModeString = '-';
-		$Color = $Terminal->[1]
-	} elsif ($Mode < 0) {
-		$ModeString = '+';
-		$Color = $Terminal->[2]
-	} else {
-		$ModeString = ' '
-	}
-	my $PreString = $FileName . ':' . $LineNumber . $ModeString . ':';
-	my $PreStringLen = length($PreString);
+{ # static variables for print_line
+  my $head_ellipsis = '...';
+  my $tail_ellipsis = "...\n";
+  my $len_tail_ellipsis = length($tail_ellipsis) - 1;  # Do not count \n
+  my $len_head_ellipsis = length($head_ellipsis);
+sub print_line {
+  my ($mode, $line_number, $string) = @_;
+  ++$line_number if ($line_number ne '');
+  if ($mode == 0) {
+    $string =~ s{[^\n[:print:]]}{$nonprintable}go if ($nonprintable ne '')
+  }
+  my ($mode_string, $color);
+  if ($grep_only) {
+    $mode_string = '';
+    $color = $terminal->[0]
+  } elsif ($mode > 0) {
+    $mode_string = '-';
+    $color = $terminal->[1]
+  } elsif ($mode < 0) {
+    $mode_string = '+';
+    $color = $terminal->[2]
+  } else {
+    $mode_string = ' '
+  }
+  my $pre_string = $file_name . ':' . $line_number . $mode_string . ':';
+  my $pre_string_len = length($pre_string);
 
-	# Calculate Beg, End (set CutEnd to true if End should be used), and
-	#           Len (if TruncateMode is used). Len is the Len without trailing \n
-	# It may happen that End < Beg in which case we print only ellipsis...
+  # Calculate beg, end (set cut_end to true if end should be used), and
+  # len (if truncate_mode is used). len is the len without trailing \n
+  # It may happen that end < beg in which case we print only ellipsis...
 
-	my($Beg, $End, $CutEnd, $Len);
-	if ($TruncateMode) {
-		$End = $Truncate - $PreStringLen;
-		$CutEnd = 1;
-		if ($Mode) {
-			$Len = 0;
-			for (@Substrings) {
-				$Len += length
-			}
-		} else {
-			$Len = length($String)
-		}
-		if (--$Len < 0) {
-			$Len = 0
-		}
-		if ($Len <= $End) {
-			$Beg = 0;
-			$CutEnd = ''
-		} elsif ($Mode && ($TruncateMode > 0)) {  # We shift only if match exists
-			my $Point = $Shift + length($Substrings[0]);
-			if ($ShiftFromEnd) {
-				$Point += length($Substrings[1])
-			}
-			if ($Point <= $End - $LenTailEllipsis) {
-				# The line is visible to the desired point
-				$Beg = 0; $End = $End - $LenTailEllipsis
-			} else {
-				if ($Len <= $Point) {  # Shift reaches lineend
-					$Beg = $Len - $End + $LenHeadEllipsis;
-					$CutEnd = ''
-				} else {
-					$Beg = $Point - $End + $LenHeadEllipsis + $LenTailEllipsis;
-					$End = $Point
-				}
-			}
-		} else {  # Truncate, but do not shift
-			$Beg = 0;
-			$End -= $LenTailEllipsis
-		}
-	} else {
-		$Beg = 0;
-		$CutEnd = ''
-	}
+  my ($beg, $end, $cut_end, $len);
+  if ($truncate_mode) {
+    $end = $truncate - $pre_string_len;
+    $cut_end = 1;
+    if ($mode) {
+        $len = 0;
+        for (@substrings) {
+          $len += length
+        }
+    } else {
+        $len = length($string)
+    }
+    if (--$len < 0) {
+        $len = 0
+    }
+    if ($len <= $end) {
+        $beg = 0;
+        $cut_end = ''
+    } elsif ($mode && ($truncate_mode > 0)) {  # We shift only if match exists
+        my $point = $shift + length($substrings[0]);
+        if ($shift_from_end) {
+          $point += length($substrings[1])
+        }
+        if ($point <= $end - $len_tail_ellipsis) {
+          # The line is visible to the desired point
+          $beg = 0; $end = $end - $len_tail_ellipsis
+        } else {
+          if ($len <= $point) {  # shift reaches lineend
+              $beg = $len - $end + $len_head_ellipsis;
+              $cut_end = ''
+          } else {
+              $beg = $point - $end + $len_head_ellipsis + $len_tail_ellipsis;
+              $end = $point
+          }
+        }
+    } else {  # truncate, but do not shift
+        $beg = 0;
+        $end -= $len_tail_ellipsis
+    }
+  } else {
+    $beg = 0;
+    $cut_end = ''
+  }
 
-	# Print according to Beg and End
+  # Print according to beg and end
 
-	# First, print the PreString and HeadEllipsis (if Beg > 0).
-	# If this string or our final string becomes too long already with
-	# the above calculated minimal size, we print ellipsis and are finished.
-	if ($TruncateMode) {
-		my($L, $i);
-		if ($CutEnd) {
-			$L = $LenTailEllipsis
-		} elsif ($Beg) {
-			$i = $Len - $Beg + $LenHeadEllipsis;
-			$L = (($i < $LenTailEllipsis) ? $i : $LenTailEllipsis);
-		} else {
-			$L = (($Len<$LenTailEllipsis) ? $Len : $LenTailEllipsis)
-		}
-		if (($PreStringLen + $L) > $Truncate) {
-			if ($Truncate > $LenTailEllipsis)
-				{ print substr($PreString, 0, $Truncate - $LenTailEllipsis) }
-			print($TailEllipsis);
-			return
-		}
-		print $PreString;
-		if ($CutEnd) {
-			if ($Beg >= $End) {  # Our (minimal) calculation does not fit into the line
-				print $TailEllipsis;
-				return
-			}
-		} elsif ($Beg) {  # We have calculated to print HeadEllipsis + String_until_end
-			if ($PreStringLen + $i > $Truncate) {  # too long
-				print $TailEllipsis;
-				return
-			}
-		}
-		if ($Beg) {
-			print $HeadEllipsis
-		}
-	} else {
-		print $PreString
-	}
+  # First, print the pre_string and head_ellipsis (if beg > 0).
+  # If this string or our final string becomes too long already with
+  # the above calculated minimal size, we print ellipsis and are finished.
+  if ($truncate_mode) {
+    my ($l, $i);
+    if ($cut_end) {
+        $l = $len_tail_ellipsis
+    } elsif ($beg) {
+        $i = $len - $beg + $len_head_ellipsis;
+        $l = (($i < $len_tail_ellipsis) ? $i : $len_tail_ellipsis);
+    } else {
+        $l = (($len < $len_tail_ellipsis) ? $len : $len_tail_ellipsis)
+    }
+    if (($pre_string_len + $l) > $truncate) {
+        if ($truncate > $len_tail_ellipsis) {
+          print(substr($pre_string, 0, $truncate - $len_tail_ellipsis))
+        }
+        print($tail_ellipsis);
+        return
+    }
+    print($pre_string);
+    if ($cut_end) {
+        if ($beg >= $end) {  # Our (minimal) calculation does not fit into the line
+          print($tail_ellipsis);
+          return
+        }
+    } elsif ($beg) {  # We have calculated to print head_ellipsis + string_until_end
+        if ($pre_string_len + $i > $truncate) {  # too long
+          print($tail_ellipsis);
+          return
+        }
+    }
+    if ($beg) {
+        print($head_ellipsis)
+    }
+  } else {
+    print($pre_string)
+  }
 
-	# Now the main print loop
+  # Now the main print loop
 
-	if ($Mode) {
-		my $IsAMatch = '';
-		$Len = 0;
-		for my $i (@Substrings) {
-			$i =~ s{[^\n[:print:]]}{$nonprintable}go
-				if ($nonprintable ne '');
-			if ($i ne '') {
-				if ($Beg || $CutEnd) {  # We calculate only if we must care
-					my $l = length($i);
-					my $From = 0;
-					my $To = $l;
-					if ($CutEnd && ($End < $Len + $l)) {
-						$To = $End - $Len;
-						if ($l < $To) {
-							$To = $l
-						}
-					}
-					if ($Beg) {
-						$From = $Beg - $Len;
-						if ($From < $l) {
-							$Beg = 0
-						}
-					}
-					$Len = $Len + $l;
-					if ($From < $To) {
-						if ($From || ($To < $l)) {
-							print(&optcolored(substr($i, $From, $To - $From),
-								$IsAMatch && $Mode, $Color))
-						} else {
-							print(&optcolored($i, $IsAMatch && $Mode, $Color))
-						}
-					}
-					if ($CutEnd && ($End <= $Len)) {
-						print($TailEllipsis);
-						return
-					}
-				} elsif ($IsAMatch) {
-					print(&optcolored($i, $Mode, $Color))
-				} else {
-					print($i)
-				}
-			}
-			unless ($NotHighlight) {
-				$Color = $Terminal->[0] if ($IsAMatch);
-				$IsAMatch = !$IsAMatch
-			}
-		}
-	} elsif ($CutEnd) {
-		print(substr($String, 0, $End)) if ($End > 0);
-		print($TailEllipsis)
-	} else {
-		print($String)
-	}
+  if ($mode) {
+    my $is_a_match = '';
+    $len = 0;
+    for my $s (@substrings) {
+      my $i = $s;
+      $i =~ s{[^\n[:print:]]}{$nonprintable}go if ($nonprintable ne '');
+      if ($i ne '') {
+        if ($beg || $cut_end) {  # We calculate only if we must care
+          my $l = length($i);
+          my $from = 0;
+          my $to = $l;
+          if ($cut_end && ($end < $len + $l)) {
+            $to = $end - $len;
+            $to = $l if ($l < $to)
+          }
+          if ($beg) {
+            $from = $beg - $len;
+            $beg = 0 if ($from < $l)
+          }
+          $len = $len + $l;
+          if ($from < $to) {
+            if ($from || ($to < $l)) {
+              print(&opt_colored(substr($i, $from, $to - $from),
+              $is_a_match && $mode, $color))
+            } else {
+              print(&opt_colored($i, $is_a_match && $mode, $color))
+            }
+          }
+          if ($cut_end && ($end <= $len)) {
+            print($tail_ellipsis);
+            return
+          }
+        } elsif ($is_a_match) {
+          print(&opt_colored($i, $mode, $color))
+        } else {
+          print($i)
+        }
+      }
+      unless ($not_highlight) {
+        $color = $terminal->[0] if ($is_a_match);
+        $is_a_match = !$is_a_match
+      }
+    }
+  } elsif ($cut_end) {
+    print(substr($string, 0, $end)) if ($end > 0);
+    print($tail_ellipsis)
+  } else {
+    print($string)
+  }
 }}
 
 # The main functions to change all occurences in one line.
 
-sub ReplaceAsk {
-	while () {
-		print('y(es)/n(o)/r(est of file)/q(uit this file)/a(lways)/s(top all) ');
-		my $key = <STDIN>;
-		if ($key =~ $BackSpacePattern) {
-			next
-		} elsif ($key =~ m{^[yj]}i){
-			return 1
-		} elsif ($key =~ m{^n}i) {
-			return 0
-		} elsif ($key =~ m{^q}i) {
-			$AskForReplace = -1;
-			return 0
-		} elsif ($key =~ m{^r}i) {
-			$AskForReplace = 0;
-			return 1
-		} elsif ($key =~ m{^s}i) {
-			&NormalExit()
-		} elsif ($key =~ m{^a}i) {
-			$AlwaysReplace = 1;
-			$AskForReplace = 0;
-			return 1
-		}
-	}
+sub replace_ask {
+  while () {
+    print('y(es)/n(o)/r(est of file)/q(uit this file)/a(lways)/s(top all) ');
+    my $key = <STDIN>;
+    if ($key =~ $backspace_patternn) {
+        next
+    } elsif ($key =~ m{^[yj]}i){
+        return 1
+    } elsif ($key =~ m{^n}i) {
+        return 0
+    } elsif ($key =~ m{^q}i) {
+        $ask_for_replace = -1;
+        return 0
+    } elsif ($key =~ m{^r}i) {
+        $ask_for_replace = 0;
+        return 1
+    } elsif ($key =~ m{^s}i) {
+        &normal_exit()
+    } elsif ($key =~ m{^a}i) {
+        $always_replace = 1;
+        $ask_for_replace = 0;
+        return 1
+    }
+  }
 }
 
-sub ChangeString {
-	my ($LineNumber) = @_;
-	my ($Changed, $i, $j, $count, $subs, $DoReplace, $HavePrintedAfter, $r);
-	$Changed = '';
-	$DoReplace = 1;
-	$subs = $Replace if ($PlainReplace);
-	for ($count = 0; $#Substrings >= 2; shift(@Substrings), shift(@Substrings), ++$count) {
-		$subs = $Replacements[$count] unless ($PlainReplace);
-		if ($subs eq $Substrings[1]) {
-			$Substrings[2] = $Substrings[0] . $Substrings[1] . $Substrings[2]
-		} else {
-			if ($ShowChanges) {
-				&PrintLine(1, $LineNumber);
-				$HavePrintedAfter = '';
-				if ($After > 0) {
-					my $Ellipsis;
-					if ($LineNumber < $LastPrinted) {
-						$j = $LastPrinted + 1;
-						$Ellipsis = 1
-					} else {
-						$Ellipsis = '';
-						$j = $LineNumber + 1
-					}
-					for (; ($j <= $LineNumber + $After) && ($j < $#A); ++$j) {
-						if ($Ellipsis) {
-							print '...'; $Ellipsis = ''
-						}
-						$HavePrintedAfter = 1;
-						&PrintLine(0, $j, $A[$j]);
-						$LastPrinted = $j;
-					}
-				}
-				print('---') if ($HavePrintedAfter);
-				$r = $Substrings[1];
-				$Substrings[1] = $subs; &PrintLine(-1, $LineNumber);
-				$Substrings[1] = $r
-			}
-			if ($AskForReplace) {
-				$DoReplace = &ReplaceAsk()
-			}
-			if ($DoReplace) {
-				$Changed = 1;
-				$Substrings[2] = $Substrings[0] . $subs . $Substrings[2];
-			} else {
-				$Substrings[2] = $Substrings[0] . $Substrings[1] . $Substrings[2]
-			}
-		}
-		if ($AskForReplace < 0) {
-			$Substrings[0] = $Substrings[2];
-			last
-		}
-	}
-	$A[$LineNumber] = $Substrings[0] if ($Changed);
-	$Changed
+sub change_string {
+  my ($line_number) = @_;
+  my ($changed, $i, $j, $count, $subs, $do_replace, $have_printed_after, $r);
+  $changed = '';
+  $do_replace = 1;
+  $subs = $replace if ($plain_replace);
+  for ($count = 0; $#substrings >= 2;
+    shift(@substrings), shift(@substrings), ++$count) {
+    $subs = $replacements[$count] unless ($plain_replace);
+    if ($subs eq $substrings[1]) {
+        $substrings[2] = $substrings[0] . $substrings[1] . $substrings[2]
+    } else {
+        if ($show_changes) {
+          &print_line(1, $line_number);
+          $have_printed_after = '';
+          if ($after > 0) {
+              my $ellipsis;
+              if ($line_number < $last_printed) {
+                 $j = $last_printed + 1;
+                 $ellipsis = 1
+              } else {
+                 $ellipsis = '';
+                 $j = $line_number + 1
+              }
+              for (; ($j <= $line_number + $after) && ($j < $#content); ++$j) {
+                 if ($ellipsis) {
+                    print('...');
+                    $ellipsis = ''
+                 }
+                 $have_printed_after = 1;
+                 &print_line(0, $j, $content[$j]);
+                 $last_printed = $j;
+              }
+          }
+          print('---') if ($have_printed_after);
+          $r = $substrings[1];
+          $substrings[1] = $subs; &print_line(-1, $line_number);
+          $substrings[1] = $r
+        }
+        if ($ask_for_replace) {
+          $do_replace = &replace_ask()
+        }
+        if ($do_replace) {
+          $changed = 1;
+          $substrings[2] = $substrings[0] . $subs . $substrings[2];
+        } else {
+          $substrings[2] = $substrings[0] . $substrings[1] . $substrings[2]
+        }
+    }
+    if ($ask_for_replace < 0) {
+        $substrings[0] = $substrings[2];
+        last
+    }
+  }
+  $content[$line_number] = $substrings[0] if ($changed);
+  $changed
 }
 
 
 # The function to process a single file (in singleline mode)
 
-sub ProcessSingleline {
-	my ($fh) = @_;
-	my ($Changed, $i, $j, $LastPos, $WillPrint);
-	$Changed = '';
-	$LastPrinted = -1; $i = $WillPrint = 0;
-	$FileMatches = 0;
-	unless ($GrepOnly) {
-		@A = <$fh> or return ''
-	}
-	for ($i = 0; ; ++$i) {
-		if ($GrepOnly) {
-			unless (defined($Line = <$fh>)) {
-				last
-			}
-		} elsif ($i > $#A) {
-			last
-		} else {
-			$Line = $A[$i]
-		}
-		if ($Line =~ m{$SearchPattern}og) {
-			if ($ListOnly) {
-				print("$FileName\n");
-				$TotalMatches = 1;
-				last
-			}
-			if ((!$CountOnly) && ($ShowChanges || $GrepOnly)) {
-				if ($Before > 0) {
-					$j = $i - $Before;
-					$j = $LastPrinted + 1
-						if ($j <= $LastPrinted);
-					if ($GrepOnly) {
-						for (; $j < $i; ++$j) {
-							&PrintLine(0, $j, $A[$j % $Before])
-						}
-					} else {
-						for (; $j < $i; ++$j) {
-							&PrintLine(0, $j, $A[$j])
-						}
-					}
-				}
-				$LastPrinted = $i if ($i > $LastPrinted)
-			}
-			@Substrings = ();
-			@Replacements = ();
-			$LastPos = 0;
-			do {
-				++$FileMatches;
-				unless ($CountOnly) {
-					unless ($GrepOnly || $PlainReplace) {
-						eval "push(\@Replacements, \"$Replace\")"
-					}
-					$_ = pos($Line) - length($&) - $LastPos;
-					if ($_ <= 0) {
-						push(@Substrings, '')
-					} else {
-						push(@Substrings, substr($Line, $LastPos, $_))
-					}
-					$LastPos = pos($Line);
-					push(@Substrings, $&)
-				}
-			} while ($Line =~ m{$SearchPattern}og);
-			unless ($CountOnly) {
-				push(@Substrings, substr($Line, $LastPos))
-			}
-			if ($GrepOnly) {
-				unless ($CountOnly) {
-					&PrintLine(1, $i);
-					$WillPrint = $After
-				}
-			} else {
-				$Changed = 1 if (&ChangeString($i));
-				last if ($AskForReplace < 0)
-			}
-		} elsif ($WillPrint > 0) {
-			$LastPrinted = $i if ($i > $LastPrinted);
-			--$WillPrint;
-			&PrintLine(0, $i, $Line)
-		} elsif (($Before > 0) && $GrepOnly) {
-			$A[$i % $Before] = $Line
-		}
-	}
-	if ($CountOnly && $FileMatches) {
-		print($FileName, ': ', $FileMatches, "\n")
-	}
-	$TotalMatches += $FileMatches;
-	$Changed
+sub process_singleline {
+  my ($fh) = @_;
+  $last_printed = -1;
+  my $changed = '';
+  my $i = 0;
+  my $will_print = 0;
+  $file_matches = 0;
+  unless ($grep_only) {
+    @content = <$fh> or return ''
+  }
+  for ($i = 0; ; ++$i) {
+    if ($grep_only) {
+      unless (defined($line = <$fh>)) {
+        last
+      }
+    } elsif ($i > $#content) {
+      last
+    } else {
+      $line = $content[$i]
+    }
+    if ($line =~ m{$search_pattern}og) {
+      if ($list_only) {
+        print("$file_name\n");
+        $total_matches = 1;
+        last
+      }
+      if ((!$count_only) && ($show_changes || $grep_only)) {
+        if ($before > 0) {
+          my $j = $i - $before;
+          $j = $last_printed + 1 if ($j <= $last_printed);
+          if ($grep_only) {
+            for (; $j < $i; ++$j) {
+              &print_line(0, $j, $content[$j % $before])
+            }
+          } else {
+            for (; $j < $i; ++$j) {
+              &print_line(0, $j, $content[$j])
+            }
+          }
+        }
+        $last_printed = $i if ($i > $last_printed)
+      }
+      @substrings = ();
+      @replacements = ();
+      my $last_pos = 0;
+      do {
+        ++$file_matches;
+        unless ($count_only) {
+          unless ($grep_only || $plain_replace) {
+            eval "push(\@replacements, \"$replace\")"
+          }
+          $_ = pos($line) - length($&) - $last_pos;
+          if ($_ <= 0) {
+            push(@substrings, '')
+          } else {
+            push(@substrings, substr($line, $last_pos, $_))
+          }
+          $last_pos = pos($line);
+          push(@substrings, $&)
+        }
+      } while ($line =~ m{$search_pattern}og);
+      unless ($count_only) {
+        push(@substrings, substr($line, $last_pos))
+      }
+      if ($grep_only) {
+        unless ($count_only) {
+          &print_line(1, $i);
+          $will_print = $after
+        }
+      } else {
+        $changed = 1 if (&change_string($i));
+        last if ($ask_for_replace < 0)
+      }
+    } elsif ($will_print > 0) {
+      $last_printed = $i if ($i > $last_printed);
+      --$will_print;
+      &print_line(0, $i, $line)
+    } elsif (($before > 0) && $grep_only) {
+      $content[$i % $before] = $line
+    }
+  }
+  if ($count_only && $file_matches) {
+    print($file_name, ': ', $file_matches, "\n")
+  }
+  $total_matches += $file_matches;
+  $changed
 }
 
 # The function to process a single file (in multiline mode)
 
-sub ProcessMultiline {
-	my ($fh) = @_;
-	return '' unless (read($fh, $A, (-s $fh)));
-	my $Changed = '';
-	my $i = 0;
-	$LastPrinted = -1;
-	$FileMatches = 0;
+sub process_multiline {
+  my ($fh) = @_;
+  return '' unless (read($fh, $current, (-s $fh)));
+  my $changed = '';
+  my $i = 0;
+  $last_printed = -1;
+  $file_matches = 0;
 
-	# Scan all occurences and build corresponding @A/@Replacements
+  # Scan all occurences and build corresponding @content/@replacements
 
-	@A = ();
-	@Replacements = ();
-	my $LastPos = 0;
-	while ($A =~ m{$SearchPattern}og) {
-		if ($ListOnly) {
-			print($FileName, "\n");
-			$TotalMatches = 1;
-			return ''
-		}
-		++$FileMatches;
-		unless ($CountOnly) {
-			unless ($GrepOnly || $PlainReplace) {
-				eval "push(\@Replacements, \"$Replace\")"
-			}
-			$_ = pos($A) - length($&) - $LastPos;
-			if ($_ <= 0) {
-				push(@A, '')
-			} else {
-				push(@A, substr($A, $LastPos, $_))
-			}
-			$LastPos = pos($A);
-			push(@A, $&)
-		}
-	}
-	print($FileName, ': ', $FileMatches, "\n")
-		if ($CountOnly && $FileMatches);
-	$TotalMatches += $FileMatches;
-	return '' if ($ListOnly || $CountOnly || !@A);
-	push(@A, substr($A, $LastPos));
+  @content = ();
+  @replacements = ();
+  my $last_pos = 0;
+  while ($current =~ m{$search_pattern}og) {
+    if ($list_only) {
+      print($file_name, "\n");
+      $total_matches = 1;
+      return ''
+    }
+    ++$file_matches;
+    unless ($count_only) {
+      unless ($grep_only || $plain_replace) {
+        eval "push(\@replacements, \"$replace\")"
+      }
+      $_ = pos($current) - length($&) - $last_pos;
+      if ($_ <= 0) {
+        push(@content, '')
+      } else {
+        push(@content, substr($current, $last_pos, $_))
+      }
+      $last_pos = pos($current);
+      push(@content, $&)
+    }
+  }
+  print($file_name, ': ', $file_matches, "\n")
+    if ($count_only && $file_matches);
+  $total_matches += $file_matches;
+  return '' if ($list_only || $count_only || !@content);
+  push(@content, substr($current, $last_pos));
 
-	# Now the multiline grep.
-	# Currently, truncation is ignored in this mode, although one might discuss
-	# whether this is the best choice.
-	# Line numbers are not displayed yet in this mode.
+  # Now the multiline grep.
+  # Currently, truncation is ignored in this mode, although one might discuss
+  # whether this is the best choice.
+  # Line numbers are not displayed yet in this mode.
 
-	if ($GrepOnly) {
-		@Substrings = ();
-		while (my ($i, $curr) = each(@A)) {
-			if (($i & 1) != 0) {
-				push(@Substrings, $curr);
-				next
-			}
-			my ($c, $d);
-			if ($i < $#A) {
-				$c = &FindNewline($curr, -($Before + 1));
-				if ($c < 0) {
-					push(@Substrings, $curr);
-					next
-				}
-				if ($i == 0) {
-					push(@Substrings, substr($curr, $c));
-					next
-				}
-			}
-			$d = &FindNewline($curr, $After + 1);
-			if ($d++ < 0) {
-				push(@Substrings, $curr);
-				next
-			}
-			if ($i == $#A) {
-				push(@Substrings, substr($curr, 0, $d));
-				next
-			}
-			if ($d >= $c) {
-				push(@Substrings, $curr);
-				next
-			}
-			push(@Substrings, substr($curr, 0, $d) .
-				substr($curr, $c))
-		}
-		&PrintLine(1, '');
-		return ''
-	}
+  if ($grep_only) {
+    @substrings = ();
+    while (my ($i, $curr) = each(@content)) {
+      if (($i & 1) != 0) {
+        push(@substrings, $curr);
+        next
+      }
+      my ($c, $d);
+      if ($i < $#content) {
+        $c = &find_newline($curr, -($before + 1));
+        if ($c < 0) {
+          push(@substrings, $curr);
+          next
+        }
+        if ($i == 0) {
+          push(@substrings, substr($curr, $c));
+          next
+        }
+      }
+      $d = &find_newline($curr, $after + 1);
+      if ($d++ < 0) {
+        push(@substrings, $curr);
+        next
+      }
+      if ($i == $#content) {
+        push(@substrings, substr($curr, 0, $d));
+        next
+      }
+      if ($d >= $c) {
+        push(@substrings, $curr);
+        next
+      }
+      push(@substrings, substr($curr, 0, $d) . substr($curr, $c))
+    }
+    &print_line(1, '');
+    return ''
+  }
 
-	# Now the interactive replacement in multiline mode.
-	# Currently, this is only rudimentary implemented:
-	# options for context lines and truncation are simply ignored.
-	# Line numbers are not displayed yet in this mode.
+  # Now the interactive replacement in multiline mode.
+  # Currently, this is only rudimentary implemented:
+  # options for context lines and truncation are simply ignored.
+  # Line numbers are not displayed yet in this mode.
 
-	my $k = 0;
-	my $DoReplace = 1;
-	my $subs;
-	for (my ($i, $curr) = each(@A)) {
-		if ($PlainReplace) {
-			$subs = $Replace
-		} else {
-			$subs = $Replacements[$k]
-		}
-		next if ($curr eq $subs);
-		my($p, $j);
-		for ($j = $i - 1; $j >= 0; --$j) {
-			$p = &FindNewline($A[$j], -1);
-			last if ($p >= 0)
-		}
-		if ($j < 0) {
-			$j = $p = 0
-		}
-		$a = substr($A[$j], $p);
-		if (++$j < $i) {
-			$a = join('', $a, @A[$j .. ($i - 1)])
-		}
-		@Substrings = ($a);
-		push(@Substrings, $curr);
-		for ($j = $i + 1; $j < @A; ++$j) {
-			$p = &FindNewline($A[$j], 1);
-			if ($p >= 0) {
-				push(@Substrings, substr($A[$j], 0, $p));
-				last
-			}
-			push(@Substrings, $A[$j]);
-		}
-		if (@Substrings >= 3) {
-			$Substrings[$#Substrings] .= "\n"
-		} else {
-			push(@Substrings, "\n")
-		}
-		&PrintLine(1, '');
-		$Substrings[1] = $subs;
-		&PrintLine(-1, '');
-		$DoReplace = &ReplaceAsk() if ($AskForReplace);
-		if ($DoReplace) {
-			$Changed = 1;
-			$A[$i] = $subs
-		}
-		if ($AskForReplace < 0) {
-			keys(@A);  # reset "each" counter
-			last
-		}
-	}
-	$Changed
+  my $k = 0;
+  my $do_replace = 1;
+  my $subs;
+  for (my ($i, $curr) = each(@content)) {
+    if ($plain_replace) {
+      $subs = $replace
+    } else {
+      $subs = $replacements[$k]
+    }
+    next if ($curr eq $subs);
+    my ($p, $j);
+    for ($j = $i - 1; $j >= 0; --$j) {
+      $p = &find_newline($content[$j], -1);
+      last if ($p >= 0)
+    }
+    if ($j < 0) {
+      $j = $p = 0
+    }
+    $a = substr($content[$j], $p);
+    if (++$j < $i) {
+      $a = join('', $a, @content[$j .. ($i - 1)])
+    }
+    @substrings = ($a);
+    push(@substrings, $curr);
+    for ($j = $i + 1; $j < @content; ++$j) {
+      $p = &find_newline($content[$j], 1);
+      if ($p >= 0) {
+        push(@substrings, substr($content[$j], 0, $p));
+        last
+      }
+      push(@substrings, $content[$j]);
+    }
+    if (@substrings >= 3) {
+      $substrings[$#substrings] .= "\n"
+    } else {
+      push(@substrings, "\n")
+    }
+    &print_line(1, '');
+    $substrings[1] = $subs;
+    &print_line(-1, '');
+    $do_replace = &replace_ask() if ($ask_for_replace);
+    if ($do_replace) {
+      $changed = 1;
+      $content[$i] = $subs
+    }
+    if ($ask_for_replace < 0) {
+      keys(@content);  # reset "each" counter
+      last
+    }
+  }
+  $changed
 }
 
-# FindNewline(string, n)
+# find_newline(string, n)
 # if n>0 returns the index of the n-th newline.
 # if n<0 returns the index following the (-n)-th newline from the end.
-# if only k<|n| newlines are found, the negative value k - |n| is returned.
+# if only k<|n| newlines are found, the negative value k-|n| is returned.
 
-sub FindNewline {
-	my ($a, $count) = @_;
-	my $l = length($a);
-	for (my $i = 0; $i < $l; ++$i) {
-		if ($count < 0) {
-			if (substr($a, -$i, 1) eq "\n") {
-				if (++$count == 0) {
-					return ($l - $i)
-				}
-			}
-		} else {
-			if (substr($a, $i, 1) eq "\n") {
-				return $i if (--$count == 0);
-			}
-		}
-	}
-	($count > 0) ? (-$count) : $count
+sub find_newline {
+  my ($a, $count) = @_;
+  my $l = length($a);
+  for (my $i = 0; $i < $l; ++$i) {
+    if ($count < 0) {
+      if (substr($a, -$i, 1) eq "\n") {
+        if (++$count == 0) {
+          return ($l - $i)
+        }
+      }
+    } else {
+      if (substr($a, $i, 1) eq "\n") {
+        return $i if (--$count == 0);
+      }
+    }
+  }
+  ($count > 0) ? (-$count) : $count
 }
 
-sub ProcessFile {
-	$AskForReplace = ($AlwaysReplace ? 0 : 1);
-	$Multiline ? &ProcessMultiline : &ProcessSingleline
+sub process_file {
+  $ask_for_replace = ($always_replace ? 0 : 1);
+  $multiline ? &process_multiline : &process_singleline
 }
 
 # Parse Options:
 
 Getopt::Long::Configure(qw(gnu_getopt));
 Getopt::Long::GetOptions(
-	'help|h', sub { &pod2usage(0) },
-	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
-	'version|V', \&version,
-	'ignore-case|i', \$Ignore,
-	'yes!', \$AlwaysReplace,
-	'y', \$AlwaysReplace,
-	'always!', \$AlwaysWrite,
-	'Y', \$AlwaysWrite,
-	'verbose!', \$Verbose,
-	'v', \$Verbose,
-	'context|C=i', sub { $Before = $After = $_[1] },
-	'before|B=i', \$Before,
-	'after|A=i', \$After,
-	'grep!', \$GrepOnly,
-	'g', \$GrepOnly,
-	'count!', \$CountOnly,
-	'c', \$CountOnly,
-	'list!', \$ListOnly,
-	'l', \$ListOnly,
-	'keeptimestamp!', \$KeepTimestamp,
-	'k', \$KeepTimestamp,
-	'terminal|highlight=i', sub { $Terminal = $termlist[$_[1]%($#termlist) ] },
-	'never-highlight!', \$NotHighlight,
-	'H', \$NotHighlight,
-	'binary!', \$Binary,
-	'b', \$Binary,
-	'multiline!', \$Multiline,
-	'm', \$Multiline,
-	'nonprintable|n=s', \$nonprintable,
-	'search-plain|plain-search!', \$PlainSearch,
-	'p', \$PlainSearch,
-	'replace-plain|plain-replace!', \$PlainReplace,
-	'P', \$PlainReplace,
-	'file|f:s', sub { $DataName = $_[1]; $FromFile = 1 },
-	'nofile', sub { $FromFile = '' },
-	'recurse|r:s', sub { $RecurseDir = $_[1]; $Recurse = 1; $Suppress = '' },
-	'norecurse', sub { $Recurse = '' },
-	'Recurse|recurse-suppress|R:s',
-		sub { $RecurseDir = $_[1]; $Recurse = $Suppress = 1 },
-	'noRecurse|norecurse-suppress', sub { $Recurse = $Suppress = '' },
-	'truncate|t=i', \$TruncOpt,
-	'notruncate|no-truncate', sub { $TruncOpt = '' },
-	'Truncate|shift|T=s', \$ShiftOpt
+  'help|h', sub { &pod2usage(0) },
+  'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
+  'version|V', \&version,
+  'ignore-case|i', \$ignore,
+  'yes!', \$always_replace,
+  'y', \$always_replace,
+  'always!', \$always_write,
+  'Y', \$always_write,
+  'verbose!', \$verbose,
+  'v', \$verbose,
+  'context|C=i', sub { $before = $after = $_[1] },
+  'before|B=i', \$before,
+  'after|A=i', \$after,
+  'grep!', \$grep_only,
+  'g', \$grep_only,
+  'count!', \$count_only,
+  'c', \$count_only,
+  'list!', \$list_only,
+  'l', \$list_only,
+  'keeptimestamp!', \$keep_timestamp,
+  'k', \$keep_timestamp,
+  'terminal|highlight=i', sub { $terminal = $termlist[$_[1] % ($#termlist)] },
+  'never-highlight!', \$not_highlight,
+  'H', \$not_highlight,
+  'binary!', \$binary,
+  'b', \$binary,
+  'multiline!', \$multiline,
+  'm', \$multiline,
+  'nonprintable|n=s', \$nonprintable,
+  'search-plain|plain-search!', \$plain_search,
+  'p', \$plain_search,
+  'replace-plain|plain-replace!', \$plain_replace,
+  'P', \$plain_replace,
+  'file|f:s', sub { $data_name = $_[1]; $from_file = 1 },
+  'nofile', sub { $from_file = '' },
+  'recurse|r:s', sub { $recurse_dir = $_[1]; $recurse = 1; $suppress = '' },
+  'norecurse', sub { $recurse = '' },
+  'recurse|recurse-suppress|R:s',
+    sub { $recurse_dir = $_[1]; $recurse = $suppress = 1 },
+  'norecurse|norecurse-suppress', sub { $recurse = $suppress = '' },
+  'truncate|t=i', \$trunc_opt,
+  'notruncate|no-truncate', sub { $trunc_opt = '' },
+  'truncate|shift|T=s', \$shift_opt
 ) or &pod2usage(2);
 
 # Set default variables according to the options:
 
-if ($AlwaysWrite) {
-	$AlwaysReplace = 1;
-	$ShowChanges = $Verbose
+if ($always_write) {
+  $always_replace = 1;
+  $show_changes = $verbose
 }
-$GrepOnly = 1 if ($CountOnly || $ListOnly);
+$grep_only = 1 if ($count_only || $list_only);
 
-if ($TruncOpt ne '') {
-	if ($TruncOpt < 0) {
-		$TruncateMode = -1;
-		$Truncate = -$TruncOpt
-	} else {
-		$TruncateMode = 1;
-		$Truncate = $TruncOpt
-	}
-	$ShiftFromEnd = '';
-	if ($ShiftOpt ne '') {
-		$ShiftFromEnd = 1 if ($ShiftOpt =~ s{e}{}i);
-		$ShiftOpt =~ m{^s?([+-]\d+)}i;
-		$Shift = (defined($1) ? $1 : 0)
-	} else {
-		$Shift = 3
-	}
+if ($trunc_opt ne '') {
+  if ($trunc_opt < 0) {
+    $truncate_mode = -1;
+    $truncate = -$trunc_opt
+  } else {
+    $truncate_mode = 1;
+    $truncate = $trunc_opt
+  }
+  $shift_from_end = '';
+  if ($shift_opt ne '') {
+    $shift_from_end = 1 if ($shift_opt =~ s{e}{}i);
+    $shift_opt =~ m{^s?([+-]\d+)}i;
+    $shift = (defined($1) ? $1 : 0)
+  } else {
+    $shift = 3
+  }
 }
 
-# Read $Search and $Replace according to the options:
+# Read $search and $replace according to the options:
 
-if ($FromFile) {
-	if (($DataName ne '') && open(my $para, '<', $DataName)) {
-		$Search = <$para>;
-		chomp($Search);
-		unless ($GrepOnly) {
-			$Replace = <$para>;
-			chomp($Replace)
-		}
-		close($para)
-	} else {
-		print('Search : ');
-		$Search = <STDIN>;
-		chomp($Search);
-		unless ($GrepOnly) {
-			print('Replace: ');
-			$Replace = <STDIN>;
-			chomp($Replace)
-		}
-	}
+if ($from_file) {
+  if (($data_name ne '') && open(my $para, '<', $data_name)) {
+    $search = <$para>;
+    chomp($search);
+    unless ($grep_only) {
+        $replace = <$para>;
+        chomp($replace)
+    }
+    close($para)
+  } else {
+    print('Search : ');
+    $search = <STDIN>;
+    chomp($search);
+    unless ($grep_only) {
+        print('Replace: ');
+        $replace = <STDIN>;
+        chomp($replace)
+    }
+  }
 } else {
-	&pod2usage('No Search argument found') unless (@ARGV);
-	$Search = shift(@ARGV);
-	unless ($GrepOnly) {
-		&pod2usage('No Replace argument found') unless (@ARGV);
-		$Replace = shift(@ARGV)
-	}
+  &pod2usage('no Search argument found') unless (@ARGV);
+  $search = shift(@ARGV);
+  unless ($grep_only) {
+    &pod2usage('no Replace argument found') unless (@ARGV);
+    $replace = shift(@ARGV)
+  }
 }
 
 # Prepare the list of files to visit:
 
-my @Files = ();
-if ($Recurse) {
-	if (@ARGV) {
-		my $changed = 1;
-		for my $i (@ARGV) {
-			$_ = $i;
-			s{([./^\$()])}{\\$1}g;
-			if (!s{([?*])}{.$1}g) {  # If we have no ? or * joker, test for [..]:
-				$i = "^$_\$";
-				if ($changed && (!$Suppress)) {  # No * or ? joker, but perhaps [...]?
-					s{\\\\}{}g;  # First, eliminate quoted \ characters
-					s{\\\[}{}g;  # Then,  eliminate quoted [ and ] charaters
-					s{\\\]}{}g;
-					m{\[(.+)\]} or ($changed = '')
-				}
-			} else {
-				$i = "^$_\$"
-			}
-		}
-		die("error: probably forgotten quote (recurse without joker)\nStopped")
-			unless ($changed);
-	}
-	$RecurseDir = '.' if ($RecurseDir eq '');
-	no warnings 'File::Find';
-	File::Find::find({wanted => sub {
-		return unless (-r $_);
-		if (!@ARGV) {
-			push(@Files, $File::Find::name);
-			return
-		} else {
-			for my $i (@ARGV) {
-				if ($File::Find::name =~ m{$i}) {
-					push(@Files, $File::Find::name);
-					last
-				}
-			}
-		}
-	}}, $RecurseDir);
+my @files = ();
+if ($recurse) {
+  if (@ARGV) {
+    my $changed = 1;
+    for my $i (@ARGV) {
+      $_ = $i;
+      s{([./^\$()])}{\\$1}g;
+      if (!s{([?*])}{.$1}g) {  # If we have no ? or * joker, test for [...]:
+        $i = "^$_\$";
+        if ($changed && !$suppress) {  # No * or ? joker, but perhaps [...]?
+          s{\\\\}{}g;  # First, eliminate quoted \ characters
+          s{\\\[}{}g;  # Then,  eliminate quoted [ and ] charaters
+          s{\\\]}{}g;
+          $changed = '' unless(m{\[(.+)\]})
+        }
+      } else {
+        $i = "^$_\$"
+      }
+    }
+    &fatal('probably forgotten quote (recurse without joker)')
+      unless ($changed)
+  }
+  $recurse_dir = '.' if ($recurse_dir eq '');
+  no warnings 'File::Find';
+  File::Find::find({wanted => sub {
+    return unless (-r $_);
+    if (!@ARGV) {
+        push(@files, $File::Find::name);
+        return
+    } else {
+        for my $i (@ARGV) {
+          if ($File::Find::name =~ m{$i}) {
+            push(@files, $File::Find::name);
+            last
+          }
+        }
+    }
+  }}, $recurse_dir);
 } else {
-	if ((!@ARGV) && $GrepOnly) {
-		push(@Files, '')
-	} else {
-		for my $i (@ARGV) {
-			push(@Files, glob($i))
-		}
-	}
+  if ((!@ARGV) && $grep_only) {
+    push(@files, '')
+  } else {
+    for my $i (@ARGV) {
+      push(@files, glob($i))
+    }
+  }
 }
 
-# Parse the $Search and $Replace strings:
+# Parse the $search and $replace strings:
 
-$PlainSearch and ( $Search =~ s{(\W)}{\\$1}g );
-if ($Search eq '') {  # Empty $Search is special in perl
-	$Search = '.?'
+$plain_search and ( $search =~ s{(\W)}{\\$1}g );
+if ($search eq '') {  # Empty $search is special in perl
+  $search = '.?'
 }
-if ($Ignore) {
-	if ($Multiline) {
-		$SearchPattern = qr{$Search}oims
-	} else {
-		$SearchPattern = qr{$Search}oi
-	}
+if ($ignore) {
+  $search_pattern = ($multiline ? qr{$search}oims : qr{$search}oi)
 } else {
-	if ($Multiline) {
-		$SearchPattern = qr{$Search}oms
-	} else {
-		$SearchPattern = qr{$Search}o
-	}
+  $search_pattern = ($multiline ? qr{$search}oms : qr{$search}o)
 }
 
-unless ($GrepOnly || $PlainReplace) {
-	if ($Replace =~ m{\W}) {
-		$_ = $Replace;
-		$Replace = '';
-		while (m{\A(\w*)(\W)(.*)\z}m) {
-			$Replace .= $1;
-			$_ = $3;
-			if ($2 eq "\\") {
-				if (m{\A(\W)(.*)\z}m) {
-					$Replace .= "\\$1";
-					$_ = $2
-				} elsif (m{^[xXabefnrtluLUE]}) {
-					$Replace .= "\\"
-				} else {
-					$Replace .= "\\\\"
-				}
-			} elsif (($2 eq '$') || ($2 eq '%')) {
-				if (m{^\d}) {
-					$Replace .= "\$"
-				} elsif (m{\A(\{\d+\})(.*)}m) {
-					$Replace .= "\$$1";
-					$_ = $2
-				}
-			} else {
-				$Replace .= "\\" . $2
-			}
-		}
-		$Replace .= $_;
-	}
+unless ($grep_only || $plain_replace) {
+  if ($replace =~ m{\W}) {
+    $_ = $replace;
+    $replace = '';
+    while (m{\A(\w*)(\W)(.*)\z}m) {
+      $replace .= $1;
+      $_ = $3;
+      if ($2 eq "\\") {
+        if (m{\A(\W)(.*)\z}m) {
+          $replace .= "\\$1";
+          $_ = $2
+        } elsif (m{^[xXabefnrtluLUE]}) {
+          $replace .= "\\"
+        } else {
+          $replace .= "\\\\"
+        }
+      } elsif (($2 eq '$') || ($2 eq '%')) {
+        if (m{^\d}) {
+          $replace .= '$'
+        } elsif (m{\A(\{\d+\})(.*)}m) {
+          $replace .= "\$$1";
+          $_ = $2
+        }
+      } else {
+        $replace .= "\\" . $2
+      }
+    }
+    $replace .= $_
+  }
 }
 
 # Now process every file:
 
-for my $fn (@Files) {
-	$FileName = $fn;
-	if ($GrepOnly && (($FileName eq '') || ($FileName eq '-'))) {
-		my $fh = \*STDIN;
-		binmode($fh) if ($Binary);
-		&ProcessFile($fh);
-		next
-	}
-	open(my $fh, '<', $FileName) or next;
-		# die("could not open $FileName for reading.\nStopped");
-	binmode($fh) if ($Binary);
-	unless (&ProcessFile($fh)) {
-		close($fh);
-		next
-	}
-	close($fh);
-	next if ($GrepOnly);
-	unless ($AlwaysWrite) {
-		my $key = '';
-		while ($key eq '') {
-			print("Write changes to $FileName? y(es)/n(o)/w(rite always)/s(top all) ");
-			$key = <STDIN>;
-			if ($key =~ $BackSpacePattern) {
-				next
-			} elsif ($key =~ m{^[yj]}i){
-				$key = 1
-			} elsif ($key =~ m{^n}i) {
-				$key = 0
-			} elsif ($key =~ m{^w}i) {
-				$key = $AlwaysWrite = 1
-			} elsif ($key =~ m{^s}i) {
-				&NormalExit()
-			} else {
-				$key = ''
-			}
-		}
-		next unless ($key)
-	}
-	my $WrittenOK = 1;
-	my ($atime, $mtime);
-	($atime, $mtime) = ((stat($FileName))[8, 9]) if ($KeepTimestamp);
-	open($fh, '>', $FileName) or
-		die("could not open $FileName for writing.\nStopped");
-	binmode($fh) if ($Binary);
-	for my $i (@A) {
-		$WrittenOK = '' unless (print($fh $i))
-	}
-	$WrittenOK = '' unless (close($fh));
-	die("error writing to $FileName.\nStopped") unless ($WrittenOK);
-	utime($atime, $mtime, $FileName) if ($KeepTimestamp)
+for my $fn (@files) {
+  $file_name = $fn;
+  if ($grep_only && (($file_name eq '') || ($file_name eq '-'))) {
+    my $fh = \*STDIN;
+    binmode($fh) if ($binary);
+    &process_file($fh);
+    next
+  }
+  open(my $fh, '<', $file_name) or next;
+    # fatal("could not open $file_name for reading");
+  binmode($fh) if ($binary);
+  unless (&process_file($fh)) {
+    close($fh);
+    next
+  }
+  close($fh);
+  next if ($grep_only);
+  unless ($always_write) {
+    my $key = '';
+    while ($key eq '') {
+      print("Write changes to $file_name? "
+        . "y(es)/n(o)/w(rite always)/s(top all) ");
+      $key = <STDIN>;
+      if ($key =~ $backspace_patternn) {
+        next
+      } elsif ($key =~ m{^[yj]}i){
+        $key = 1
+      } elsif ($key =~ m{^n}i) {
+        $key = 0
+      } elsif ($key =~ m{^w}i) {
+        $key = $always_write = 1
+      } elsif ($key =~ m{^s}i) {
+        &normal_exit()
+      } else {
+        $key = ''
+      }
+    }
+    next unless ($key)
+  }
+  my $written_ok = 1;
+  my ($atime, $mtime);
+  ($atime, $mtime) = ((stat($file_name))[8, 9]) if ($keep_timestamp);
+  open($fh, '>', $file_name) or
+    &fatal("could not open $file_name for writing");
+  binmode($fh) if ($binary);
+  for my $i (@content) {
+    $written_ok = '' unless (print($fh $i))
+  }
+  $written_ok = '' unless (close($fh));
+  &fatal("error writing to $file_name") unless ($written_ok);
+  utime($atime, $mtime, $file_name) if ($keep_timestamp)
 }
-&NormalExit()
+&normal_exit()

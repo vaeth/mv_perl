@@ -9,36 +9,36 @@ everything with it except removing my name.
 
 This is a loose collection of some useful and less useful perl scripts.
 
-For installation just put the content of bin somewhere into your ```$PATH```.
-Also put the files of the subdirectory zsh into your ```$fpath``` to obtain
+For installation just put the content of bin somewhere into your `$PATH`.
+Also put the files of the subdirectory zsh into your `$fpath` to obtain
 zsh completion support. (If you do not have root access, you can add the
-corresponding directory with ```fpath+=("...")``` before you
-call compdef from your zsh initialization files).
+corresponding directory with `fpath+=("...")` before you
+call `compdef` from your zsh initialization files).
 
 For installation under Gentoo, you can use the ebuild from the mv overlay
 (which is available by layman).
 
 Here is a brief overview of the scripts:
 
-### __plrep__
+### plrep
 
 (Perl regular expression).
 This script provides among a more user-friendly variant of the well-known
-grep (with perl regular   expressions) a method to replace regular expression
-within the   files. Special features include interactive replacement, recursive
+grep (with perl regular expressions) a method to replace regular expression
+within the files. Special features include interactive replacement, recursive
 directory handling, colorized display (adaptable for various terminal colors
 since v2.1), readable output also for mixed text/binary files (conversion to
-printable characters, very luxury truncation of lines),and also interactive
+printable characters, very luxury truncation of lines), and also interactive
 replacement/grep of expressions across multiple lines
 (experimental since v2.1).
 
 With `plrep --man` you get a detailed help as a manpage (new since v2.1).
 
-This script requires Perl 5.12.
+This script requires Perl 5.6 or newer.
 If you must use Perl 4, see the scripts __prep__ and __rrep__ below which
 together provide similar functionality with less convenience.
 
-### __patchdirs__
+### patchdirs
 
 This script serves two purposes:
 
@@ -62,9 +62,9 @@ This script serves two purposes:
    than only a checksum comparison, use the __find_double__ perl script of this
    collection).
 
-  This script requires Perl 5.12.
-  The `String::Escape` and `String::ShellQuote` modules are highly recommended
-  (although there are fallbacks which work in most cases)
+This script requires Perl 5.8 or newer.
+The `String::Escape` and `String::ShellQuote` modules are highly recommended
+(although there are fallbacks which work in most cases)
 
 ### patchdirs-ls
 
@@ -73,7 +73,7 @@ This is somewhat similar to __patchdirs__ but can only reconstruct from an
 This is very fast and requires no checksum module/utility.
 However, circular renamings can of course not be recognized.
 Although this script is rather old and hardly tested, it has been recently
-rewritten to a more modern perl style. This script requires Perl 5.12.
+rewritten to a more modern perl style. This script requires Perl 5.6 or newer.
 For improved output, the `String::ShellQuote` module is recommended.
 
 ### rendirs
@@ -84,14 +84,14 @@ with non-packaged files, it is often convenient to create
 additionally a list containing the original filenames (and perhaps
 with a small description of the files). This script renames the
 files corresponding to such a list.
-This script requires perl-5.12.
+This script requires perl 5.6 or newer.
 For improved output, the `String::ShellQuote` module is recommended.
 
 ### commlist
 
 Print lines common to two list of file resp. contained in only one of
 these lists. This is similar to the standard unix comm utility, but deals
-with unsorted input/output. This script requires perl-5.12
+with unsorted input/output. This script requires perl 5.6 or newer.
 
 ### sshconfig
 
@@ -103,7 +103,7 @@ IP address is used (enter the IP address only once for running the script).
 From a security aspect, this script is what you should use in order to
 associate the correct fingerprint to the host, even if its IP address changes.
 This helps you to detect "man in the middle" attacks.
-This script requires perl-5.12
+This script requires perl 5.6 or newer.
 
 ### prep
 
@@ -162,13 +162,13 @@ Correct times of files (e.g. by a daylight saving offset).
 The script can also be used to "round" the timestamps to a full second in
 order to simplify comparison of timestamps on filesystems of different
 resolution. However, for the latter you can also use `touchdirs`.
-This script requires perl-5.12
+This script requires perl 5.6 or newer.
 
 ### touchdirs
 
 Touch directories according to their newest file (recursively).
 This script can also be used to "round" file/directory timestamps
-to a full second. This script requires perl-5.12.
+to a full second. This script requires perl 5.8 or newer.
 
 For improved output, the `String::ShellQuote module` is recommended.
 For improved handling of symlinks, the `File::lchown` module (0.02 or newer)
