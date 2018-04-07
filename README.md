@@ -23,6 +23,9 @@ Here is a brief overview of the scripts:
 ### plrep
 
 (Perl regular expression).
+Note that there is a successor project of this script in python:
+https://github.com/vaeth/replacer
+
 This script provides among a more user-friendly variant of the well-known
 grep (with perl regular expressions) a method to replace regular expression
 within the files. Special features include interactive replacement, recursive
@@ -31,6 +34,9 @@ since v2.1), readable output also for mixed text/binary files (conversion to
 printable characters, very luxury truncation of lines), and also interactive
 replacement/grep of expressions across multiple lines
 (experimental since v2.1).
+
+For a complete implementation of multiple line replacement use the
+successor project "replacer" mentioned above.
 
 With `plrep --man` you get a detailed help as a manpage (new since v2.1).
 

@@ -9,22 +9,22 @@ _arguments -s -S : \
 {'(--ignore-case)-i','(-i)--ignore-case'}'[ignore case]' \
 {'(--binary)-b','(-b)--binary'}'[open in binary mode]' \
 {'(--grep)-b','(-b)--binary'}'[open in binary mode]' \
-{'(--plain-search --search-plain)-p','(--search-plain -p)--plain-search','(--plain-search -p)--search-plain'}'[use plain srtring for search]' \
-{'(--plain-replace --replace-plain)-P','(--replace-plain -P)--plain-replace','(--plain-replace -P)--replace-plain'}'[use plain srtring for replace]' \
+{'(--plain-search --search-plain)-p','(--search-plain -p)--plain-search','(--plain-search -p)--search-plain'}'[use plain string for search]' \
+{'(--plain-replace --replace-plain)-P','(--replace-plain -P)--plain-replace','(--plain-replace -P)--replace-plain'}'[use plain string for replace]' \
 {'(--never-highlight)-H','(-H)--never-highlight'}'[do not highlight matches]' \
 '(--recurse-suppress -R '{'--recurse)-r+','-r)--recurse='}'[recurse from DIR]:recurse-dir:_files -/' \
 '(--recurse -r '{'--recurse-suppress)-R+','-R)--recurse-suppress='}'[recurse from DIR]:recurse-dir:_files -/' \
 '(1 2 '{'--file)-f+','-f)--file='}'[read strings from file]:from-file:_files' \
 '(2 '{'--grep)-g','-g)--grep'}'[grep mode]' \
 '(--begin -B --after -A '{'--context)-C+','-C)--context='}'[print NUM lines context]:number of context lines:(0 1 2 3 4)' \
-{'(--begin)-B+','(-B)--begin='}'[print NUM lines before match]:number of lines before match:(0 1 2 3 4)' \
-{'(--after)-A+','(-A)--after='}'[print NUM lines after match]:number of lines after match:(0 1 2 3 4)' \
+{'(--begin)-B+','(-B)--begin='}'[print specified number of lines before match]:number of lines before match:(0 1 2 3 4)' \
+{'(--after)-A+','(-A)--after='}'[print specified number of lines after match]:number of lines after match:(0 1 2 3 4)' \
 '(2 '{'--count)-c','-c)--count'}'[--grep and count only matches]' \
 '(2 '{'--list)-l','-l)--list'}'[--grep and list only matches]' \
 {'(--nonprintable)-n+','(-n)--nonprintable='}'[print nonprintables as CHAR]:nonprintable-char:("~")' \
 {'(--keeptimestamp)-k','(-k)--keeptimestamp'}'[keep filestamps]' \
-{'(--truncate)-t+','(-t)--truncate='}'[truncate to NUM symbols]:truncate-number:(+78)' \
-{'(--Truncate --shift)-T+','(--shift -T)--Truncate=','(--Truncate -T)--shift='}'[show at least NUM symbols from b/e]:number of symbols to show from b/e:(b40 e40)' \
+{'(--truncate)-t+','(-t)--truncate='}'[truncate to specified number of symbols]:truncate-number:(+78)' \
+{'(--Truncate --shift)-T+','(--shift -T)--Truncate=','(--Truncate -T)--shift='}'[show at least specified number of symbols from s/e]:number of symbols to show from s/e:(s40 e40)' \
 '1:search:_files' \
 '2:replace:_files' \
 '*:files:_files'

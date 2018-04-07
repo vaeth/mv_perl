@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 BEGIN { require 5.006_001 }
 package Plrep;
-our $VERSION = 'v2.15.0';
+our $VERSION = 'v2.15.1';
 eval { $VERSION = version->declare($VERSION) };
 eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 
@@ -33,6 +33,8 @@ plrep - search and replace regular expressions in multiple files interactively
 =head1 SYNOPSIS
 
 B<plrep> [options] I<Search> I<Replace> [I<File1> I<File2> I<...>]
+
+A properly implemented multiline mode is in the successor project: replacer
 
 To get an extended help, type B<plrep --man> or B<plrep -?>
 
@@ -66,6 +68,8 @@ Use B<-H> for the latter.
 
 Multiline mode (experimental: not all other options are implemented for this
 mode, and partially they are interpreted slightly differently).
+
+A complete implemention of multiline mode is in a successor project: replacer
 
 =item B<--yes> or B<-y> (switch)
 
@@ -1138,7 +1142,7 @@ Getopt::Long::GetOptions(
   'norecurse|norecurse-suppress', sub { $recurse = $suppress = '' },
   'truncate|t=i', \$trunc_opt,
   'notruncate|no-truncate', sub { $trunc_opt = '' },
-  'truncate|shift|T=s', \$shift_opt
+  'Truncate|shift|T=s', \$shift_opt
 ) or &pod2usage(2);
 
 # Set default variables according to the options:
