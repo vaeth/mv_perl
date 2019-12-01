@@ -1,0 +1,11 @@
+#compdef sort_shadow
+_arguments -s -S : \
+'(* -)'{'--help','-h'}'[print a brief help]' \
+'(* -)'{'--man','-\\?'}'[show extended help as a manpage]' \
+'(* -)'{'--version','-V'}'[print version]' \
+{'(--compare)-c','(-c)--compare'}'[compare line-ends (group/gshadow)]' \
+{'(--fix)-f','(-f)--fix'}'[fix non-matching ends]' \
+{'(--relax)-r','(-r)--relax'}'[relax strictness]' \
+{'(--tacit)-t','(-t)--tacit'}'[avoid printing result file]' \
+{'(--override)-o','(-o)--override'}'[override shadow file instead of printing to stdout]' \
+'*:files:_files -/'

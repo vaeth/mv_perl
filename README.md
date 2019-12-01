@@ -2,10 +2,9 @@
 
 A collection of perl scripts (replacement in files, syncing dirs etc)
 
-Author: Martin V�th (martin at mvath.de)
+Author: Martin Väth (martin at mvath.de)
 
-This project is under a BSD type license, meaning that you can do practically
-everything with it except removing my name.
+This project is under the BSD license 2.0 (“3-clause BSD license”).
 
 This is a loose collection of some useful and less useful perl scripts.
 
@@ -182,3 +181,8 @@ is strongly recommended.
 Note that the `Time::HiRes` module (used by the script if available)
 is buggy in some perl implementations; the script takes care of this
 by some heuristics. Type `touchdirs --man` for more details.
+
+### sort_shadow
+
+Tool to match the order and line-ends of /etc/{g,}shadow to that of /etc/group
+and /etc/passwd, respectively.

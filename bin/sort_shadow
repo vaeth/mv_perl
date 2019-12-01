@@ -1,0 +1,232 @@
+#!/usr/bin/env perl
+BEGIN { require 5.006_001 }
+package SortShadow;
+our $VERSION = 'v1.0.0';
+eval { $VERSION = version->declare($VERSION) };
+eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
+
+use warnings;
+use strict;
+use integer;
+use Getopt::Long 2.24 ();
+
+#use Pod::Usage ();
+
+=encoding UTF-8
+
+=head1 NAME
+
+sort_shadow - sort shadow/gshadow according to passwd/group
+
+=head1 SYNOPSIS
+
+B<sort_shadow> [options] /etc/passwd /etc/shadow
+
+B<sort_shadow> [options] /etc/group /etc/gshadow
+
+To get an extended help, type B<sort_shadow --man> or B<sort_shadow -?>
+
+=head1 DESCRIPTION
+
+Sort the second file according to the first file.
+
+It is assumed that the first file has the format of /etc/passwd or /etc/group
+and that the the file has the format of /etc/shadow or /etc/gshadow,
+respectively.
+
+
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<--help> or B<-h>
+
+Display brief help.
+
+=item B<--man> or B<-?>
+
+Display extended help as a manpage.
+
+=item B<--override> or B<-o>
+
+Override shadow file instead of printing to stdout.
+
+=item B<--compare> or B<-c>
+
+Compare non-matching line-ends (after last colon). Useful for group/gshadow.
+
+=item B<--fix> or B<-f>
+
+Fix non-matching ends.
+
+=item B<--relax> or B<-r>
+
+Relax strictness: Some fatal issues become only warnings.
+
+=item B<--tacit> or B<-t>
+
+Avoid printing result file to stdout.
+
+=item B<--version> or B<-v>
+
+print version number
+
+=item B<-->
+
+Last option
+
+=back
+
+=head1 AUTHOR
+
+Martin VE<auml>th E<lt>martin@mvath.deE<gt>
+
+=cut
+
+# Global variables;:
+
+my $name = 'sort_shadow';
+
+# Option variables:
+
+my $compare = '';
+my $fix = '';
+my $override = '';
+my $tacit = '';
+my $relax = '';
+
+# Functions
+
+sub info {
+	print(STDERR $name, ': info: ', @_, "\n")
+}
+
+sub warn {
+	print(STDERR $name, ': warning: ', @_, "\n")
+}
+
+sub error {
+	print(STDERR $name, ': error: ', @_, "\n")
+}
+
+sub fatal {
+	print(STDERR $name, ': fatal: ', @_, "\n");
+	exit(2)
+}
+
+sub fatal_or_warn {
+	if ($relax) {
+		&warn
+	} else {
+		&fatal
+	}
+}
+
+sub version {
+	print($name, ' ', $VERSION, "\n");
+	exit(0)
+}
+
+sub pod2usage {
+	require Pod::Usage;
+	&Pod::Usage::pod2usage
+}
+
+sub parse_line() {
+	my ($line, $file) = @_;
+	chomp($line);
+	$line =~  m{^([^:]+)(:.*:)([^:]*)$}
+		or &fatal("$file has bad line: $line");
+	($1, $2, $3)
+}
+
+sub read_to_hashref() {
+	my ($file, $hashref) = @_;
+	my $ori = '';
+	open(my $fh, '<', $file)
+		or &fatal("cannot open $file for reading: $!");
+	while (<$fh>) {
+		$ori .= $_;
+		my ($key, $mid, $end) = &parse_line($_, $file);
+		$hashref->{$key} = [ $mid, $end ];
+	}
+	close($fh);
+	$ori
+}
+
+sub append_output_erasing_hashref() {
+	my ($file, $hashref, $output) = @_;
+	open(my $fh, '<', $file)
+		or &fatal("cannot open $file for reading: $!");
+	while (<$fh>) {
+		my ($key, $mid, $end) = &parse_line($_, $file);
+		unless (exists($hashref->{$key})) {
+			&fatal_or_warn("no matching line for $key");
+			next
+		}
+		my ($hashmid, $hashend) = @{$hashref->{$key}};
+		if (($compare || $fix) && $hashend ne $end) {
+			if ($fix) {
+				&info("fixing ends for $key: $hashend -> $end");
+				$hashend = $end
+			} else {
+				&fatal_or_warn("non-matching ends for $key: '$end' <-> '$hashend'")
+			}
+		}
+		delete($hashref->{$key});
+		$$output .= $key . $hashmid . $hashend . "\n"
+	}
+	close($fh)
+}
+
+sub output() {
+	my ($file, $data) = @_;
+	open(my $fh, '>', $file)
+		or &fatal("cannot open $file for writing: $!");
+	print($fh $data);
+	close($fh)
+}
+
+sub main {
+	my ($input, $shadow) = @_;
+	my %shadow;
+	my $ori = &read_to_hashref($shadow, \%shadow);
+	my $output = '';
+	&append_output_erasing_hashref($input, \%shadow, \$output);
+	my $leftovers = '';
+	for my $key (keys(%shadow)) {
+		my ($mid, $end) = @{$shadow{$key}};
+		$leftovers .= $key . $mid . $end . "\n"
+	}
+	unless ($leftovers eq '') {
+		&error('the following lines had no match:');
+		print(STDERR $leftovers);
+		exit(2)
+	}
+	print($output) unless ($override || $tacit);
+	if ($ori eq $output) {
+		&info('no changes')
+	} elsif ($override) {
+		&output($shadow, $output)
+	}
+}
+
+# Parse Options:
+
+Getopt::Long::Configure(qw(gnu_getopt));
+Getopt::Long::GetOptions(
+	'help|h', sub { &pod2usage(0) },
+	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
+	'compare|c', \$compare,
+	'fix|f', \$fix,
+	'relax|r', \$relax,
+	'tacit|t', \$tacit,
+	'override|o', \$override,
+	'version|V', \&version
+) or &pod2usage(2);
+
+(@ARGV == 2) or &pod2usage(2);
+&main(@ARGV);
+
+1;
