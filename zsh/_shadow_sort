@@ -1,4 +1,4 @@
-#compdef sort_shadow
+#compdef shadow_sort
 _arguments -s -S : \
 '(* -)'{'--help','-h'}'[print a brief help]' \
 '(* -)'{'--man','-\\?'}'[show extended help as a manpage]' \

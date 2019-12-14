@@ -182,7 +182,7 @@ Note that the `Time::HiRes` module (used by the script if available)
 is buggy in some perl implementations; the script takes care of this
 by some heuristics. Type `touchdirs --man` for more details.
 
-### sort_shadow
+### shadow_sort
 
 Tool to match the order and line-ends of /etc/{g,}shadow to that of /etc/group
 and /etc/passwd, respectively.

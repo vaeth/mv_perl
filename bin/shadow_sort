@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 BEGIN { require 5.006_001 }
-package SortShadow;
+package ShadowSort;
 our $VERSION = 'v1.0.0';
 eval { $VERSION = version->declare($VERSION) };
 eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
@@ -16,25 +16,35 @@ use Getopt::Long 2.24 ();
 
 =head1 NAME
 
-sort_shadow - sort shadow/gshadow according to passwd/group
+shadow_sort - sort shadow/gshadow according to passwd/group
 
 =head1 SYNOPSIS
 
-B<sort_shadow> [options] /etc/passwd /etc/shadow
+B<shadow_sort> [options] /etc/passwd /etc/shadow
 
-B<sort_shadow> [options] /etc/group /etc/gshadow
+B<shadow_sort> [options] /etc/group /etc/gshadow
 
-To get an extended help, type B<sort_shadow --man> or B<sort_shadow -?>
+To get an extended help, type B<shadow_sort --man> or B<shadow_sort -?>
 
 =head1 DESCRIPTION
 
 Sort the second file according to the first file.
 
 It is assumed that the first file has the format of /etc/passwd or /etc/group
-and that the the file has the format of /etc/shadow or /etc/gshadow,
+and that the scond file has the format of /etc/shadow or /etc/gshadow,
 respectively.
 
+=head2 HINT
 
+To sort /etc/passwd or /etc/group by user/group numbers use:
+
+=over 8
+
+=item B<sort -n -t : -k 3 -o /etc/passwd /etc/passwd>
+
+=item B<sort -n -t : -k 3 -o /etc/group /etc/group>
+
+=back
 
 =head1 OPTIONS
 
@@ -86,7 +96,7 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 # Global variables;:
 
-my $name = 'sort_shadow';
+my $name = 'shadow_sort';
 
 # Option variables:
 
