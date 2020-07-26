@@ -1,4 +1,5 @@
 #compdef find_double
+# SPDX-License-Identifier: BSD-3-Clause
 _arguments -s -S -A '-*' : \
 '-N[require for equality also that the filenames (without path) are the same]' \
 '-t[require also that the (last modification) filestamps are the same]' \

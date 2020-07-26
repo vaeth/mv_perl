@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
-
-# prep $Revision: 1.4 $ by Martin Väth
-# martin@mvath.de
+# prep $Revision: 1.4 $ by Martin Väth <martin at mvath.de>
+# SPDX-License-Identifier: BSD-3-Clause
 
 # If the Environment-Variable path contains a '/', we assume that we are
 # in a Unix-like environmnet. Otherwise, we assume we are in DOS.

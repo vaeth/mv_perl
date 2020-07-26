@@ -1,4 +1,5 @@
 #compdef renreg
+# SPDX-License-Identifier: BSD-3-Clause
 _arguments -S -A '-*' : \
 '(1 2 * -)'{'--help','-h','-\\?'}'[help]' \
 '(1 2 * -)-hs[help on source string]' \

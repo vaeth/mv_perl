@@ -1,4 +1,5 @@
 #compdef patchdirs-ls
+# SPDX-License-Identifier: BSD-3-Clause
 _arguments -s -S : \
 '(* -)'{'--help','-h'}'[print help]' \
 '(* -)'{'--version','-V'}'[print version]' \

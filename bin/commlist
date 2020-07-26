@@ -1,4 +1,5 @@
 #!/usr/bin/env perl
+# SPDX-License-Identifier: BSD-3-Clause
 BEGIN { require 5.006_001 }
 package Commlist;
 our $VERSION = 'v3.1.1';

@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
-
-# rrep $Revision: 1.5 $ by Martin Väth
-# martin@mvath.de
+# rrep $Revision: 1.5 $ by Martin Väth <martin at mvath.de>
+# SPDX-License-Identifier: BSD-3-Clause
 
 sub help {
 	$0 =~ /([^\/]*)$/;

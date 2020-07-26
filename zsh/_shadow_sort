@@ -1,4 +1,5 @@
 #compdef shadow_sort
+# SPDX-License-Identifier: BSD-3-Clause
 _arguments -s -S : \
 '(* -)'{'--help','-h'}'[print a brief help]' \
 '(* -)'{'--man','-\\?'}'[show extended help as a manpage]' \

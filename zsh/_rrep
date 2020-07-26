@@ -1,4 +1,5 @@
 #compdef rrep
+# SPDX-License-Identifier: BSD-3-Clause
 _arguments -S -A '-*' : \
 '(1 2 * -)'{'-help','-h','-H','-\\?'}'[help]' \
 '(2)-g[Grep only]' \

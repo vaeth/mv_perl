@@ -1,4 +1,5 @@
 #!/usr/bin/env perl
+# SPDX-License-Identifier: BSD-3-Clause
 BEGIN { require 5.008 }
 package Touchdirs;
 our $VERSION = 'v5.1.0';

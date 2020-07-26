@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
-
-# renreg $Revision: 1.6 $ by Martin Väth
-# martin@mvath.de
+# renreg $Revision: 1.6 $ by Martin Väth <martin at mvath.de>
+# SPDX-License-Identifier: BSD-3-Clause
 
 # If the Environment-Variable path contains a '/', we assume that we are
 # in a Unix-like environmnet. Otherwise, we assume we are in DOS.
