@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 BEGIN { require 5.006_001 }
 package PatchdirsLs;
-our $VERSION = 'v1.7.5';
+our $VERSION = 'v1.8.0';
 eval { $VERSION = version->declare($VERSION) };
 eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 
@@ -143,7 +143,7 @@ Getopt::Long::GetOptions(
 # Functions
 
 sub error {
-	print(STDERR 'patchdirs-ls', @_, "\n")
+	print(STDERR 'patchdirs-ls: ', @_, "\n")
 }
 
 sub fatal {
@@ -214,7 +214,7 @@ my @dirnames = ();
 my %desthash = ();
 my @destconts = ();
 
-sub handeline {
+sub handleline {
 	chomp();
 	if (s{[\:\/]\s*$}{}o) {  # We are parsing a directory name
 		if ($strip > 0) {
@@ -402,6 +402,7 @@ for (my $destnr = 0; $destnr < @dirnames; ++$destnr) {
 if ($dodelete) {
 	for (my $dirnr = 0; $dirnr < @dirnames; ++$dirnr) {
 		my $conts = $sourceconts[$dirnr];
+		next if (!defined($conts));
 		for (my $filenr = 0; $filenr < @$conts; ++$filenr) {
 			my $name = $conts->[$filenr];
 			if ($name ne '') {
@@ -415,7 +416,7 @@ if ($dodelete) {
 
 for my $cmd (@A) {
 	if (($verbose >= 1) || $show) {
-		Core::say(&shell_quote_best_effort(@$cmd))
+		print(&shell_quote_best_effort(@$cmd), "\n");
 	}
 	unless ($show) {
 		system(@$cmd)
