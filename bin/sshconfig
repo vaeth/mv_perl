@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 BEGIN { require 5.006_001 }
 package SshConfig;
-our $VERSION = 'v1.7.5';
+our $VERSION = 'v1.7.6';
 eval { $VERSION = version->declare($VERSION) };
 eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 
@@ -85,7 +85,7 @@ Use I<IP-address> instead of reading this data from standard input.
 This is useful if you use this script from a batch file or if you
 only want to enter a single command containing all relevant data.
 
-=item B<--host=>I<true-hostname> or B<-h> I<true-hostname> 
+=item B<--host=>I<true-hostname> or B<-H> I<true-hostname> 
 
 Use I<true-hostname> as the entry for B<HostKeyAlias>. This can be used in
 connection with wildcards in I<hostname> to allow ssh to reckognize all
@@ -131,7 +131,7 @@ Getopt::Long::GetOptions(
 	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
 	'version|V|v', \&version,
 	'ip|i=s', sub { $IPAddress = $_[1] },
-	'host|h=s', sub { $TrueHost = $_[1] },
+	'host|H=s', sub { $TrueHost = $_[1] },
 	'delete|uninstall|d|u', \$uninstall,
 	'show|debug|n|s', \$show
 ) or &pod2usage(2);

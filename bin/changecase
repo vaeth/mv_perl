@@ -6,7 +6,7 @@ use File::Find ();
 use strict;
 
 sub version {
-	print("changecase v2.1.4\n");
+	print("changecase v2.1.5\n");
 	exit(0)
 }
 
@@ -51,7 +51,7 @@ Getopt::Long::GetOptions(
 	'no-recurse|norecurse|R', sub { $recurse = '' },
 	'skip-links|L', \$skip_links,
 	'skip-dirs|D', \$skip_dirs,
-	'skip-links|F', \$skip_files,
+	'skip-files|F', \$skip_files,
 	'skip-nonfiles|f', \$skip_nonfiles,
 	'dry-run|n', \$dry_run,
 	'dir|d=s', sub { $dir = $_[1] },

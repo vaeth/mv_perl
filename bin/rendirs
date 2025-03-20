@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 BEGIN { require 5.006_001 }
 package Rendirs;
-our $VERSION = 'v5.10.5';
+our $VERSION = 'v5.10.6';
 eval { $VERSION = version->declare($VERSION) };
 eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 
@@ -394,16 +394,16 @@ Getopt::Long::GetOptions(
 	'nod', sub { $dotonly = '' },
 	'ignoredot!', \$ignoredot,
 	'D', \$ignoredot,
-	'noD', sub { $ignoredot = '' },
+	#'noD', sub { $ignoredot = '' },
 	'shortnamesfirst!', \$shortfirst,
 	'S', \$shortfirst,
-	'noS', sub { $shortfirst = '' },
+	#'noS', sub { $shortfirst = '' },
 	'magicdots!', \$magicdots,
 	'm', \$magicdots,
 	'nom', sub { $magicdots = '' },
 	'showonly!', \$showonly,
 	'N', \$showonly,
-	'noN', sub { $showonly = '' },
+	#'noN', sub { $showonly = '' },
 	'dry-run!', \$dryrun,
 	'n', \$dryrun,
 	'non', sub { $dryrun = '' },

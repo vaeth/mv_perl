@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 BEGIN { require 5.006_001 }
 package Plrep;
-our $VERSION = 'v2.15.1';
+our $VERSION = 'v2.15.2';
 eval { $VERSION = version->declare($VERSION) };
 eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 
@@ -176,7 +176,7 @@ the output line is possibly shifted such that
 at least 3 symbols from the end of the match are visible. You can modify
 this default with the following option:
 
-=item B<--Truncate=>[B<s>|B<e>]I<num> or B<--shift=>[B<s>|B<e>]I<num> or
+=item B<--truncates=>[B<s>|B<e>]I<num> or B<--shift=>[B<s>|B<e>]I<num> or
 B<-T> [B<s>|B<e>]I<num>
 
 Show at least I<num> symbols from the end (with B<e> or by default)
@@ -1138,12 +1138,13 @@ Getopt::Long::GetOptions(
   'nofile', sub { $from_file = '' },
   'recurse|r:s', sub { $recurse_dir = $_[1]; $recurse = 1; $suppress = '' },
   'norecurse', sub { $recurse = '' },
-  'recurse|recurse-suppress|R:s',
+  'recurse-suppress|R:s',
     sub { $recurse_dir = $_[1]; $recurse = $suppress = 1 },
-  'norecurse|norecurse-suppress', sub { $recurse = $suppress = '' },
+  'norecurse-suppress', sub { $recurse = $suppress = '' },
   'truncate|t=i', \$trunc_opt,
   'notruncate|no-truncate', sub { $trunc_opt = '' },
-  'Truncate|shift|T=s', \$shift_opt
+  'truncates|shift|T=s', \$shift_opt,
+  'notruncates|no-truncates|noshift|no-shift', sub { $shift_opt = '' }
 ) or &pod2usage(2);
 
 # Set default variables according to the options:
